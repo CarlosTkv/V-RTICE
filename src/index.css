@@ -1,0 +1,985 @@
+@import "tailwindcss";
+
+html {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0B0F19;
+    color: #F1F5F9;
+    width: 100%;
+    max-width: 100vw;
+    min-height: 100vh;
+    overflow-x: hidden;
+    margin: 0;
+    padding: 0;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+}
+
+.font-serif-display {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+
+
+/* Prevent elements breaking across pages */
+.avoid-break,
+.print-mode section,
+.print-mode .bg-slate-900,
+.print-mode table,
+.print-mode tr,
+.print-mode .grid {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+/* =========================================================================
+   VÉRTICE AUDITOR FISCAL - COMFORTABLE DARK SLATE THEME (GLOBAL STANDARDIZATION)
+   Eliminates visual discrepancies, enforcing deep Comfortable Dark Slate:
+   - Root / Backdrops: #0B0F19
+   - Cards / Containers: #0F172A
+   - Card borders: #1E293B (border-slate-800)
+   - Secondary / Inputs / Inset surfaces: #0B0F19 / #161F30
+   - Text high-contrast: #F8FAFC / #F1F5F9 / #CBD5E1 / #94A3B8
+   - Badges & Chips: Sophisticated soft opacity with crisp borders
+   ========================================================================= */
+@media screen {
+  /* Surfaces & Containers across all screens, reports and dashboards */
+  .bg-white {
+    background-color: #0F172A !important;
+    color: #F1F5F9;
+  }
+  .bg-slate-50 {
+    background-color: #0B0F19 !important;
+  }
+  .bg-slate-100 {
+    background-color: #161F30 !important;
+  }
+  .bg-slate-200 {
+    background-color: #1E293B !important;
+  }
+
+  /* Borders standardizing to slate-800 */
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-300 {
+    border-color: #1E293B !important;
+  }
+
+  /* Dividers */
+  .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+  .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+  .divide-slate-300 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #1E293B !important;
+  }
+
+  /* Standard Dark Text mapped to pure white and high-contrast light text (No black text) */
+  .text-black,
+  .text-slate-950,
+  .text-slate-900 {
+    color: #FFFFFF !important;
+  }
+  .text-slate-800 {
+    color: #F8FAFC !important;
+  }
+  .text-slate-700 {
+    color: #F1F5F9 !important;
+  }
+  .text-slate-600 {
+    color: #E2E8F0 !important;
+  }
+  .text-slate-500 {
+    color: #CBD5E1 !important;
+  }
+  .text-slate-400 {
+    color: #94A3B8 !important;
+  }
+  .text-gray-900,
+  .text-gray-800,
+  .text-neutral-900,
+  .text-zinc-900 {
+    color: #FFFFFF !important;
+  }
+
+  /* Tooltips, Chart Hover & Information Hover Popovers - ALWAYS WHITE FONT */
+  .recharts-default-tooltip,
+  .recharts-tooltip-wrapper {
+    background-color: #0F172A !important;
+    border: 1px solid #334155 !important;
+    border-radius: 0.75rem !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7) !important;
+  }
+  .recharts-tooltip-label {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+    margin-bottom: 4px !important;
+  }
+  .recharts-tooltip-item,
+  .recharts-tooltip-item-name,
+  .recharts-tooltip-item-separator,
+  .recharts-tooltip-item-value {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+  }
+  .recharts-default-tooltip * {
+    color: #FFFFFF !important;
+  }
+  .recharts-cartesian-axis-tick text,
+  .recharts-legend-item-text,
+  .recharts-text {
+    fill: #F8FAFC !important;
+    color: #F8FAFC !important;
+  }
+  [role="tooltip"],
+  .tooltip,
+  [data-tooltip] {
+    color: #FFFFFF !important;
+  }
+
+  /* Soft Colored Badges / Accents in Dark Mode */
+  .bg-blue-50 {
+    background-color: rgba(59, 130, 246, 0.12) !important;
+    border-color: rgba(59, 130, 246, 0.25) !important;
+  }
+  .text-blue-700,
+  .text-blue-800,
+  .text-blue-900 {
+    color: #93C5FD !important;
+  }
+
+  .bg-emerald-50 {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+    border-color: rgba(16, 185, 129, 0.25) !important;
+  }
+  .text-emerald-700,
+  .text-emerald-800,
+  .text-emerald-900 {
+    color: #6EE7B7 !important;
+  }
+
+  .bg-amber-50 {
+    background-color: rgba(245, 158, 11, 0.12) !important;
+    border-color: rgba(245, 158, 11, 0.25) !important;
+  }
+  .text-amber-700,
+  .text-amber-800,
+  .text-amber-900 {
+    color: #FCD34D !important;
+  }
+
+  .bg-red-50,
+  .bg-rose-50 {
+    background-color: rgba(239, 68, 68, 0.12) !important;
+    border-color: rgba(239, 68, 68, 0.25) !important;
+  }
+  .text-red-700,
+  .text-red-800,
+  .text-rose-700,
+  .text-rose-800 {
+    color: #FCA5A5 !important;
+  }
+
+  .bg-purple-50 {
+    background-color: rgba(168, 85, 247, 0.12) !important;
+    border-color: rgba(168, 85, 247, 0.25) !important;
+  }
+  .text-purple-700,
+  .text-purple-800 {
+    color: #D8B4FE !important;
+  }
+
+  .bg-indigo-50 {
+    background-color: rgba(99, 102, 241, 0.12) !important;
+    border-color: rgba(99, 102, 241, 0.25) !important;
+  }
+  .text-indigo-700,
+  .text-indigo-800 {
+    color: #A5B4FC !important;
+  }
+
+  /* Hover states */
+  .hover\:bg-slate-50:hover {
+    background-color: #161F30 !important;
+  }
+  .hover\:bg-slate-100:hover {
+    background-color: #1E293B !important;
+  }
+  .hover\:bg-slate-200:hover {
+    background-color: #334155 !important;
+  }
+}
+
+  /* Form Inputs, Selects, Textareas across all screens - Solid Opacity */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+  select,
+  textarea {
+    background-color: #0F172A !important;
+    color: #F8FAFC !important;
+    border: 1px solid #475569 !important;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: #3B82F6 !important;
+    background-color: #131C31 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94A3B8 !important;
+  }
+
+  /* Status Map Badge Utilities */
+  .status-badge-ativo, .status-badge-regular, .status-badge-concluido {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+    color: #6EE7B7 !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  }
+
+  .status-badge-pendente, .status-badge-alerta, .status-badge-em_andamento {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+    color: #FCD34D !important;
+    border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  }
+
+  .status-badge-auditoria, .status-badge-critico, .status-badge-inativo {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    color: #FCA5A5 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  }
+
+  /* Tables & Content Responsive Text Wrapping (Zero Horizontal Scrollbar) */
+  table {
+    border-color: #1E293B;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  th, td {
+    border-color: #1E293B;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  th {
+    background-color: #0B0F19;
+    color: #94A3B8;
+  }
+
+  /* Universal line break rules for content containers */
+  p, h1, h2, h3, h4, h5, h6, li, blockquote {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  pre, code {
+    white-space: pre-wrap !important;
+    word-break: break-all !important;
+  }
+
+  /* Auto Responsive Zoom & Fluid Media Sizing */
+  img, svg, video, canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Modal Dialogs Auto Fit to Viewport Zoom */
+  [role="dialog"], .modal-dialog {
+    max-width: 95vw !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Container bounds on high zoom levels */
+  @media (max-width: 768px) {
+    .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl, .max-w-3xl, .max-w-2xl, .max-w-xl {
+      width: 100% !important;
+      max-width: 100% !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+  }
+
+/* Print Specifics for A4 Parecer Técnico */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  /* Force container to be pure white, with high contrast typography */
+  .print-page,
+  &.print-page,
+  .print-mode {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm 12mm !important;
+  }
+
+  /* Clear backgrounds for standard elements in print/PDF */
+  .print-page div,
+  .print-page section,
+  .print-page header,
+  .print-page footer,
+  .print-page article,
+  .print-mode div,
+  .print-mode section,
+  .print-mode header,
+  .print-mode footer,
+  .print-mode article {
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Force dark slate backgrounds to become clean light grey borders or boxes */
+  .print-page .bg-slate-900,
+  .print-page .bg-slate-950,
+  .print-page .bg-\[\#0F172A\],
+  .print-page .bg-\[\#0B0F19\],
+  .print-page .bg-\[\#070A10\],
+  .print-page .bg-\[\#070A10\]\/80,
+  .print-page .bg-slate-900\/50,
+  .print-mode .bg-slate-900,
+  .print-mode .bg-slate-950,
+  .print-mode .bg-\[\#0F172A\],
+  .print-mode .bg-\[\#0B0F19\],
+  .print-mode .bg-\[\#070A10\],
+  .print-mode .bg-\[\#070A10\]\/80,
+  .print-mode .bg-slate-900\/50 {
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  /* Soft badge/accent surfaces transformed for high readability on paper */
+  .print-page .bg-emerald-950\/40,
+  .print-page .bg-emerald-950\/30,
+  .print-page .bg-emerald-50,
+  .print-page .bg-emerald-900\/20,
+  .print-mode .bg-emerald-950\/40,
+  .print-mode .bg-emerald-50 {
+    background-color: #f0fdf4 !important;
+    border: 1px solid #bbf7d0 !important;
+    color: #166534 !important;
+  }
+
+  .print-page .bg-amber-950\/40,
+  .print-page .bg-amber-950\/30,
+  .print-page .bg-amber-50,
+  .print-page .bg-amber-900\/20,
+  .print-mode .bg-amber-950\/40,
+  .print-mode .bg-amber-50 {
+    background-color: #fffbeb !important;
+    border: 1px solid #fde68a !important;
+    color: #92400e !important;
+  }
+
+  .print-page .bg-red-950\/40,
+  .print-page .bg-red-950\/30,
+  .print-page .bg-red-50,
+  .print-page .bg-red-900\/20,
+  .print-page .bg-rose-950\/40,
+  .print-page .bg-rose-50,
+  .print-mode .bg-red-950\/40,
+  .print-mode .bg-red-50 {
+    background-color: #fef2f2 !important;
+    border: 1px solid #fecaca !important;
+    color: #991b1b !important;
+  }
+
+  .print-page .bg-blue-950\/40,
+  .print-page .bg-blue-950\/30,
+  .print-page .bg-blue-50,
+  .print-page .bg-blue-900\/20,
+  .print-mode .bg-blue-950\/40,
+  .print-mode .bg-blue-50 {
+    background-color: #eff6ff !important;
+    border: 1px solid #bfdbfe !important;
+    color: #1e40af !important;
+  }
+
+  .print-page .bg-indigo-950\/40,
+  .print-page .bg-indigo-50,
+  .print-mode .bg-indigo-950\/40,
+  .print-mode .bg-indigo-50 {
+    background-color: #f5f3ff !important;
+    border: 1px solid #ddd6fe !important;
+    color: #5b21b6 !important;
+  }
+
+  /* Force elements to use dark, high-contrast text color */
+  .print-page p,
+  .print-page span,
+  .print-page h1,
+  .print-page h2,
+  .print-page h3,
+  .print-page h4,
+  .print-page h5,
+  .print-page h6,
+  .print-page td,
+  .print-page th,
+  .print-page li,
+  .print-page strong,
+  .print-page code,
+  .print-page pre,
+  .print-mode p,
+  .print-mode span,
+  .print-mode h1,
+  .print-mode h2,
+  .print-mode h3,
+  .print-mode h4,
+  .print-mode h5,
+  .print-mode h6,
+  .print-mode td,
+  .print-mode th,
+  .print-mode li,
+  .print-mode strong,
+  .print-mode code,
+  .print-mode pre {
+    color: #0f172a !important;
+  }
+
+  /* Neutralize slate grey text to readable charcoal grey */
+  .print-page .text-slate-100,
+  .print-page .text-slate-200,
+  .print-page .text-slate-300,
+  .print-page .text-slate-400,
+  .print-page .text-slate-50,
+  .print-page .text-slate-500,
+  .print-page .text-gray-300,
+  .print-page .text-gray-400,
+  .print-mode .text-slate-100,
+  .print-mode .text-slate-200,
+  .print-mode .text-slate-300,
+  .print-mode .text-slate-400,
+  .print-mode .text-slate-50,
+  .print-mode .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  /* Specific high-contrast overrides for highlighting text and key metrics */
+  .print-page .text-emerald-400,
+  .print-page .text-emerald-300,
+  .print-mode .text-emerald-400 {
+    color: #15803d !important;
+  }
+  .print-page .text-blue-400,
+  .print-page .text-blue-300,
+  .print-mode .text-blue-400 {
+    color: #1d4ed8 !important;
+  }
+  .print-page .text-amber-400,
+  .print-page .text-amber-300,
+  .print-mode .text-amber-400 {
+    color: #b45309 !important;
+  }
+  .print-page .text-red-400,
+  .print-page .text-red-300,
+  .print-page .text-rose-400,
+  .print-mode .text-red-400 {
+    color: #b91c1c !important;
+  }
+
+  /* Standard borders & dividers */
+  .print-page,
+  .print-page *,
+  .print-page .border-slate-800,
+  .print-page .border-slate-700,
+  .print-page .border-slate-600,
+  .print-page .border-slate-500,
+  .print-page .border-slate-400,
+  .print-page .border-blue-500\/30,
+  .print-page .border-emerald-500\/30,
+  .print-page .border-amber-500\/30,
+  .print-page .border-rose-500\/30,
+  .print-mode,
+  .print-mode *,
+  .print-mode .border-slate-800,
+  .print-mode .border-slate-700,
+  .print-mode .border-slate-600 {
+    border-color: #cbd5e1 !important;
+  }
+
+  .print-page .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+  .print-page .divide-slate-700 > :not([hidden]) ~ :not([hidden]),
+  .print-mode .divide-slate-800 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #cbd5e1 !important;
+  }
+
+  /* Table structure formatting */
+  .print-page table,
+  .print-mode table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1px solid #cbd5e1 !important;
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .print-page th,
+  .print-mode th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    border-bottom: 2px solid #94a3b8 !important;
+    padding: 6px 8px !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+  }
+
+  .print-page td,
+  .print-mode td {
+    padding: 6px 8px !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    background-color: transparent !important;
+  }
+
+  .print-page tr:nth-child(even),
+  .print-mode tr:nth-child(even) {
+    background-color: #f8fafc !important;
+  }
+
+  /* Recharts custom print styling inside canvas/svg */
+  .print-page .recharts-cartesian-grid-horizontal line,
+  .print-page .recharts-cartesian-grid-vertical line,
+  .print-mode .recharts-cartesian-grid-horizontal line,
+  .print-mode .recharts-cartesian-grid-vertical line {
+    stroke: #cbd5e1 !important;
+    stroke-dasharray: 2 2 !important;
+  }
+
+  .print-page .recharts-cartesian-axis-tick text,
+  .print-mode .recharts-cartesian-axis-tick text {
+    fill: #334155 !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+  }
+
+  .print-page .recharts-legend-item-text,
+  .print-mode .recharts-legend-item-text {
+    color: #334155 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Prevent elements breaking across pages */
+  .avoid-break,
+  .print-page section,
+  .print-page .bg-slate-900,
+  .print-page table,
+  .print-page tr,
+  .print-page .grid,
+  .print-mode section,
+  .print-mode .bg-slate-900,
+  .print-mode table,
+  .print-mode tr,
+  .print-mode .grid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .page-break {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Grayscale high contrast chart elements in print/preview - removed for color fidelity */
+  /*
+  .print-page svg,
+  .print-mode svg {
+    filter: grayscale(1) contrast(1.25) !important;
+  }
+  .print-page .recharts-rectangle,
+  .print-mode .recharts-rectangle,
+  .print-page .recharts-pie-sector,
+  .print-mode .recharts-pie-sector {
+    stroke: #000000 !important;
+    stroke-width: 1px !important;
+  }
+  */
+
+  /* Standard repeat header via position fixed in printed pages */
+  .print-header-repeat {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait !important;
+    margin: 20mm 15mm 20mm 15mm !important; /* Professional 15mm margins on sides */
+  }
+
+  .print-header-repeat {
+    display: flex !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 50px !important;
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 20px !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    background-color: #ffffff !important;
+    z-index: 9999 !important;
+  }
+  
+  /* Push the main report content down to avoid overlapping the fixed header on page 2+ */
+  .print-page,
+  .print-mode {
+    padding-top: 60px !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* Consistent layout margins and width safety for A4 elements */
+  .print-page table,
+  .print-mode table,
+  .print-page section,
+  .print-mode section,
+  .print-page .grid,
+  .print-mode .grid {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Automatic page numbers in the footer of each printed A4 page */
+  body {
+    counter-reset: page 0;
+  }
+
+  .print-footer-page-number {
+    display: block !important;
+    position: fixed !important;
+    bottom: -10mm !important;
+    right: 0 !important;
+    height: auto !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    font-size: 8pt !important;
+    font-weight: bold !important;
+    color: #475569 !important;
+    background-color: transparent !important;
+    z-index: 10000 !important;
+  }
+
+  /* Target pseudo-class :after to print counter(page) dynamically */
+  .print-footer-page-number::after {
+    counter-increment: page;
+    content: "Pág. " counter(page);
+  }
+}
+
+/* Custom scrollbar matching Comfortable Dark Slate theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0B0F19;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* =========================================================================
+   LENIS SMOOTH SCROLL (GLOBAL STYLES)
+   ========================================================================= */
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* =========================================================================
+   PRINT-MODE: HIGH-SPECIFICITY LIGHT THEME (MUST BE AT THE END OF THE FILE)
+   This block takes precedence over all @media screen dark theme overrides.
+   ========================================================================= */
+.print-mode,
+.print-mode * {
+  border-color: #cbd5e1 !important;
+}
+
+.print-mode {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #0f172a !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+}
+
+/* Force all text elements inside print-mode to dark charcoal */
+.print-mode p,
+.print-mode span,
+.print-mode h1,
+.print-mode h2,
+.print-mode h3,
+.print-mode h4,
+.print-mode h5,
+.print-mode h6,
+.print-mode li,
+.print-mode strong,
+.print-mode b,
+.print-mode label,
+.print-mode code,
+.print-mode pre,
+.print-mode th,
+.print-mode td {
+  color: #0f172a !important;
+}
+
+/* Override all tailwind light/white text colors inside print-mode */
+.print-mode .text-white,
+.print-mode .text-slate-50,
+.print-mode .text-slate-100,
+.print-mode .text-slate-200,
+.print-mode .text-slate-300,
+.print-mode .text-slate-400,
+.print-mode .text-gray-100,
+.print-mode .text-gray-200,
+.print-mode .text-gray-300,
+.print-mode .text-gray-400 {
+  color: #1e293b !important;
+}
+
+.print-mode .text-slate-500,
+.print-mode .text-slate-600,
+.print-mode .text-gray-500,
+.print-mode .text-gray-600 {
+  color: #475569 !important;
+}
+
+/* Transform dark-slate background containers into professional light-grey paper boxes */
+.print-mode [class*="bg-[#"],
+.print-mode [class*="bg-slate-8"],
+.print-mode [class*="bg-slate-9"],
+.print-mode .bg-slate-900,
+.print-mode .bg-slate-950,
+.print-mode .bg-\[\#0F172A\],
+.print-mode .bg-\[\#0B0F19\],
+.print-mode .bg-\[\#070A11\],
+.print-mode .bg-\[\#070A10\],
+.print-mode .bg-\[\#070A10\]\/80,
+.print-mode .bg-slate-900\/50,
+.print-mode .bg-slate-900\/60,
+.print-mode .bg-slate-950\/50,
+.print-mode .bg-slate-950\/40,
+.print-mode .bg-slate-900\/40,
+.print-mode .bg-slate-800\/40 {
+  background-color: #f8fafc !important;
+  background-image: none !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* Hide interactive UI buttons in print and standalone window modes */
+@media print {
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+}
+
+.print-mode .no-print,
+.print-mode .no-print * {
+  display: none !important;
+}
+
+/* Keep white backgrounds as pure white */
+.print-mode .bg-white {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.print-mode .bg-slate-100 {
+  background-color: #f1f5f9 !important;
+}
+
+.print-mode .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+/* Recharts Ticks & SVG elements inside print-mode */
+.print-mode text,
+.print-mode .recharts-text,
+.print-mode .recharts-label,
+.print-mode .recharts-cartesian-axis-tick text,
+.print-mode .recharts-legend-item-text {
+  fill: #334155 !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+/* Prevent tooltip contents inside print-mode from showing white-on-white text */
+.print-mode .recharts-default-tooltip,
+.print-mode .recharts-tooltip-wrapper,
+.print-mode .recharts-tooltip-item-name,
+.print-mode .recharts-tooltip-item-value,
+.print-mode .recharts-tooltip-label {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+}
+.print-mode .recharts-default-tooltip * {
+  color: #ffffff !important;
+}
+
+.print-mode .recharts-cartesian-grid-horizontal line,
+.print-mode .recharts-cartesian-grid-vertical line {
+  stroke: #cbd5e1 !important;
+  stroke-dasharray: 2 2 !important;
+}
+
+/* Soft-Colored Status Badges & Accents for High Readability on Paper & Screen Reports */
+.print-mode [class*="bg-emerald"] {
+  background-color: #f0fdf4 !important;
+  border: 1px solid #86efac !important;
+  color: #14532d !important;
+  font-weight: 800 !important;
+}
+.print-mode [class*="text-emerald"] {
+  color: #15803d !important;
+  font-weight: 800 !important;
+}
+
+.print-mode [class*="bg-amber"] {
+  background-color: #fffbeb !important;
+  border: 1px solid #fde68a !important;
+  color: #78350f !important;
+  font-weight: 800 !important;
+}
+.print-mode [class*="text-amber"] {
+  color: #b45309 !important;
+  font-weight: 800 !important;
+}
+
+.print-mode [class*="bg-red"],
+.print-mode [class*="bg-rose"] {
+  background-color: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+  color: #7f1d1d !important;
+  font-weight: 800 !important;
+}
+.print-mode [class*="text-red"],
+.print-mode [class*="text-rose"] {
+  color: #b91c1c !important;
+  font-weight: 800 !important;
+}
+
+.print-mode [class*="bg-blue"] {
+  background-color: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  color: #1e3a8a !important;
+  font-weight: 800 !important;
+}
+.print-mode [class*="text-blue"] {
+  color: #1d4ed8 !important;
+  font-weight: 800 !important;
+}
+
+.print-mode [class*="bg-indigo"],
+.print-mode [class*="bg-purple"] {
+  background-color: #f5f3ff !important;
+  border: 1px solid #ddd6fe !important;
+  color: #4c1d95 !important;
+  font-weight: 800 !important;
+}
+.print-mode [class*="text-indigo"],
+.print-mode [class*="text-purple"] {
+  color: #6d28d9 !important;
+  font-weight: 800 !important;
+}
+
+/* Tables Formatting inside print-mode */
+.print-mode table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  border: 1px solid #cbd5e1 !important;
+  margin-top: 8px !important;
+  margin-bottom: 8px !important;
+}
+.print-mode th {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  border-bottom: 2px solid #94a3b8 !important;
+  padding: 8px 10px !important;
+  text-transform: uppercase !important;
+  font-size: 10px !important;
+}
+.print-mode td {
+  padding: 8px 10px !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  background-color: transparent !important;
+}
+.print-mode tr:nth-child(even) {
+  background-color: #f8fafc !important;
+}

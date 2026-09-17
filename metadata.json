@@ -1,0 +1,8 @@
+{
+  "name": "Vértice Auditor Fiscal",
+  "description": "Plataforma VÉRTICE AUDITOR FISCAL: Solução especialista em Inteligência Tributária B2B, Auditoria Societária (LC 123/06 QSA), Simulação Comparativa de 4 Regimes, Cálculo de Fator R e Sublimites, Reforma Tributária (IBS/CBS EC 132/23), Segregação de NCM/CEST e LC 116/03, BPO Financeiro e Auditoria com Inteligência Artificial Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

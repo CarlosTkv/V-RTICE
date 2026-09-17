@@ -1,0 +1,32 @@
+# Nginx Configuration Template for ICP-Brasil mTLS Client Certificate Authentication
+# Place this in your production server (e.g. /etc/nginx/sites-available/vertice)
+
+server {
+    listen 443 ssl http2;
+    server_name certificado.verticeanalises.com.br;
+
+    ssl_certificate /etc/ssl/certs/server-cert.pem;
+    ssl_certificate_key /etc/ssl/private/server-key.pem;
+
+    # --- CONFIGURAÇÃO OBRIGATÓRIA mTLS (Gov.br Standard) ---
+    ssl_verify_client optional; # ou on para obrigar certificado
+    ssl_client_certificate /etc/nginx/certs/icp-brasil.pem;
+    ssl_verify_depth 5;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+
+        # Repassa os dados do certificado do cliente para o Node.js
+        proxy_set_header X-Client-Verify $ssl_client_verify;
+        proxy_set_header X-Client-DN $ssl_client_s_dn;
+        proxy_set_header X-Client-Serial $ssl_client_serial;
+    }
+}

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Facet Gradients matching official Vértice Auditor Fiscal brand image -->
+    <!-- Top Facet: Cyan / Sky Blue -->
+    <linearGradient id="vf-top" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <!-- Top-Right / Right Facet: Emerald Green -->
+    <linearGradient id="vf-right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <!-- Bottom-Right Facet: Amber / Golden Yellow -->
+    <linearGradient id="vf-bottom-right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+
+    <!-- Bottom-Left Facet: Royal Blue -->
+    <linearGradient id="vf-bottom-left" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#1E40AF" />
+    </linearGradient>
+
+    <!-- Middle-Left / Top-Left Facet: Dark Slate / Navy -->
+    <linearGradient id="vf-left" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+
+    <!-- Center White 'V' Glow -->
+    <filter id="vf-v-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#38BDF8" flood-opacity="0.6" />
+    </filter>
+
+    <!-- Gold Dot Glow -->
+    <filter id="vf-dot-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#F59E0B" flood-opacity="0.9" />
+    </filter>
+  </defs>
+
+  <!-- 3D Hexagon Base (Polygon Vertices: Top (50, 4), Top-Right (90, 27), Bottom-Right (90, 73), Bottom (50, 96), Bottom-Left (10, 73), Top-Left (10, 27)) -->
+  <!-- Center Vertex: (50, 50) -->
+
+  <!-- Top Facet (Triangle: 50,4 -> 90,27 -> 50,50 -> 10,27) or split top-left/top-right -->
+  <polygon points="50,4 90,27 50,50" fill="url(#vf-top)" opacity="0.98" />
+  
+  <!-- Right Facet (Emerald Green) -->
+  <polygon points="90,27 90,73 50,50" fill="url(#vf-right)" opacity="0.95" />
+
+  <!-- Bottom-Right Facet (Amber Gold) -->
+  <polygon points="90,73 50,96 50,50" fill="url(#vf-bottom-right)" opacity="0.95" />
+
+  <!-- Bottom-Left Facet (Royal Blue) -->
+  <polygon points="50,96 10,73 50,50" fill="url(#vf-bottom-left)" opacity="0.98" />
+
+  <!-- Left Facet (Dark Slate) -->
+  <polygon points="10,73 10,27 50,50" fill="url(#vf-left)" opacity="0.98" />
+
+  <!-- Top-Left Facet overlay for 3D depth -->
+  <polygon points="10,27 50,4 50,50" fill="url(#vf-top)" opacity="0.85" />
+
+  <!-- Subtle Facet Seam Line Accents -->
+  <line x1="50" y1="4" x2="50" y2="50" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1" />
+  <line x1="90" y1="27" x2="50" y2="50" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1" />
+  <line x1="90" y1="73" x2="50" y2="50" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1" />
+  <line x1="50" y1="96" x2="50" y2="50" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1" />
+  <line x1="10" y1="73" x2="50" y2="50" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1" />
+  <line x1="10" y1="27" x2="50" y2="50" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="1" />
+
+  <!-- Outer Hexagon Border Contour -->
+  <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="none" stroke="#38BDF8" stroke-opacity="0.4" stroke-width="1.5" />
+
+  <!-- Prominent Central White 'V' overlay (Apex at 50,70, Arms reaching 28,26 and 72,26) -->
+  <path d="M 28,28 L 50,72 L 72,28" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" filter="url(#vf-v-glow)" />
+
+  <!-- Central Nexus Gold Dot (Sun / Apex) inside top portion of V -->
+  <circle cx="50" cy="34" r="5" fill="#FBBF24" filter="url(#vf-dot-glow)" />
+</svg>

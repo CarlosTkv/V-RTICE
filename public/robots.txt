@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://verticeanalises.com.br/sitemap.xml
