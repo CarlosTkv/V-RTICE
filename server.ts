@@ -570,6 +570,9 @@ async function startServer() {
         host,
         port,
         secure: true,
+        tls: {
+          rejectUnauthorized: false
+        },
         auth: {
           user,
           pass,
@@ -797,3 +800,4 @@ Estruture a resposta com:
 }
 
 startServer();
+// trigger save
