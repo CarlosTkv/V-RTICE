@@ -40,6 +40,7 @@ import { CosmicPrismaBackground } from './CosmicPrismaBackground';
 import { ConnectedEcosystemShowcase } from './ConnectedEcosystemShowcase';
 import { ParticleField } from './ParticleField';
 import { ModuleIcon } from './ModuleIcon';
+import { SupportContactModal } from './SupportContactModal';
 import { PLATFORM_PLANS } from '../data/adminBillingData';
 
 import bgImage from '../assets/images/corporate_tech_office_bg_1789415696102.jpg';
@@ -78,6 +79,7 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
   const [simCertificadoStatus, setSimCertificadoStatus] = useState<string>('Certificado e-CNPJ A1 Ativo (Validade: 2027)');
   const [simPlanPeriod, setSimPlanPeriod] = useState<'monthly' | 'annual'>('annual');
   const [showCertInfoModal, setShowCertInfoModal] = useState<boolean>(false);
+  const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
 
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoadingBento(false), 500);
@@ -1210,9 +1212,9 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
               {/* Canto Direito / Central: Informações de Domínio, Contato e Conformidade */}
               <div className="flex flex-col items-center md:items-end text-center md:text-right space-y-1.5 text-xs text-slate-400 font-medium">
                 <div className="flex flex-wrap items-center justify-center md:justify-end gap-3 text-slate-300">
-                  <span>Domínio Oficial: <a href="https://verticeanalises.com.br" target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300 font-mono font-semibold underline">verticeanalises.com.br</a></span>
+                  <span>Nosso site: <a href="https://www.verticeanalises.com.br" target="_blank" rel="noreferrer" className="text-emerald-400 hover:text-emerald-300 font-mono font-semibold underline">www.verticeanalises.com.br</a></span>
                   <span className="text-slate-600 hidden sm:inline">•</span>
-                  <span>Atendimento: <a href="mailto:contato@verticeanalises.com.br" className="text-blue-400 hover:text-blue-300 font-mono underline">contato@verticeanalises.com.br</a></span>
+                  <span>Atendimento: <button onClick={() => setShowSupportModal(true)} className="text-blue-400 hover:text-blue-300 font-mono underline cursor-pointer bg-transparent border-none p-0">contato@verticeanalises.com.br</button></span>
                 </div>
                 <p className="text-[11px] text-slate-500 max-w-xl">
                   © 2026 Vértice Auditor Fiscal & Emissor NFS-e Nacional • Todos os direitos reservados. Em conformidade com LC 123/06, EC 132/23 e Resoluções CGSN/ABRASF.
@@ -1360,6 +1362,12 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL DE ATENDIMENTO/CONTATO */}
+      <SupportContactModal 
+        isOpen={showSupportModal} 
+        onClose={() => setShowSupportModal(false)} 
+      />
 
     </div>
   );

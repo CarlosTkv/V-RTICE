@@ -906,7 +906,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
   };
 
   // AÇÃO: REJEITAR SOLICITAÇÃO
-  const handleRejectPlanActivationRequest = (requestId: string) => {
+  const handleRejectPlanActivationRequest = async (requestId: string) => {
     if (!hasClientVerificationAccess) {
       alert('Acesso restrito. Apenas o Desenvolvedor do sistema (Carlos Miguel) ou operadores autorizados pelo desenvolvedor têm permissão para verificar e rejeitar solicitações de clientes.');
       return;
@@ -915,6 +915,16 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
     const reqs = AuthService.getPlanActivationRequests();
     const updated = reqs.map(r => {
       if (r.id === requestId) {
+        // Enviar e-mail de rejeição/atualização em background
+        fetch('/api/send-rejection-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientName: r.requesterName,
+            clientEmail: r.requesterEmail
+          })
+        }).catch(err => console.error('Erro ao enviar e-mail de rejeição:', err));
+
         return {
           ...r,
           status: 'rejeitado' as const,
@@ -926,7 +936,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
     });
     localStorage.setItem('vertice_plan_activation_requests_v2', JSON.stringify(updated));
     refreshActivationRequests();
-    showToast('Solicitação rejeitada.');
+    showToast('Solicitação rejeitada e aviso enviado por e-mail.');
   };
 
   // AÇÃO: ABRIR MODAL PARA NOVO OU EDITAR USUÁRIO
