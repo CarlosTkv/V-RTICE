@@ -15,13 +15,14 @@ export default defineConfig(() => {
       outDir: 'dist',
       emptyOutDir: true,
       sourcemap: false,
-      chunkSizeWarningLimit: 3000,
+      chunkSizeWarningLimit: 8000,
       rollupOptions: {
         output: {
           manualChunks: {
             'vendor-react': ['react', 'react-dom'],
             'vendor-charts': ['recharts'],
             'vendor-icons': ['lucide-react'],
+            'vendor-pdf': ['jspdf', 'html2canvas', 'html2canvas-pro'],
           },
         },
       },
