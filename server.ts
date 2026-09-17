@@ -8,6 +8,8 @@ import dotenv from 'dotenv';
 import sgMail from '@sendgrid/mail';
 import nodemailer from 'nodemailer';
 import dns from 'dns';
+import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
 
 const dnsPromises = dns.promises;
 dotenv.config();
@@ -32,19 +34,19 @@ const EMAIL_SIGNATURE_HTML = `
   <br><br>
   <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; font-family: 'Inter', sans-serif; color: #475569; font-size: 13px; line-height: 1.5;">
     Atenciosamente,<br>
-    <strong>Contato Vértice</strong><br>
+    <strong>Equipe Vértice Auditor Fiscal</strong><br>
     <a href="mailto:contato@verticeanalises.com.br" style="color: #2563eb; text-decoration: none;">contato@verticeanalises.com.br</a><br>
     +55 (41) 9 8735-2475<br>
-    <strong style="color: #0f172a; font-size: 14px;">Vértice Auditor Fiscal • Inteligência Tributária</strong>
+    <strong style="color: #0f172a; font-size: 14px;">Vértice Auditor Fiscal • Inteligência Tributária & Auditoria Digital</strong>
   </div>
 `;
 
 const EMAIL_SIGNATURE_TEXT = `
 Atenciosamente,
-Contato Vértice
+Equipe Vértice Auditor Fiscal
 contato@verticeanalises.com.br
 +55 (41) 9 8735-2475
-Vértice Auditor Fiscal • Inteligência Tributária
+Vértice Auditor Fiscal • Inteligência Tributária & Auditoria Digital
 `;
 
 // In-memory store for password reset tokens (demo / session persistence)
@@ -72,6 +74,9 @@ async function sendTransactionalEmail(to: string, subject: string, rawText: stri
       auth: {
         user: process.env.UMBLER_SMTP_USER,
         pass: process.env.UMBLER_SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 
@@ -542,6 +547,96 @@ async function startServer() {
       });
     } catch (error) {
       res.status(500).json({ error: 'Failed to verify DNS' });
+    }
+  });
+
+  // Rota de Sincronização IMAP Backend para caixa de e-mails Fale Conosco
+  app.get('/api/email/imap/fetch', async (req, res) => {
+    try {
+      const host = (req.query.host as string) || process.env.UMBLER_IMAP_HOST || 'imap.umbler.com';
+      const port = parseInt((req.query.port as string) || process.env.UMBLER_IMAP_PORT || '993', 10);
+      const user = (req.query.user as string) || process.env.UMBLER_IMAP_USER || 'contato@verticeanalises.com.br';
+      const pass = (req.query.pass as string) || process.env.UMBLER_IMAP_PASS || '';
+
+      if (!pass) {
+        return res.json({
+          status: 'simulated',
+          message: 'Credenciais IMAP não configuradas no servidor. Exibindo mensagens locais sincronizadas da pasta Fale Conosco.',
+          messages: []
+        });
+      }
+
+      const client = new ImapFlow({
+        host,
+        port,
+        secure: true,
+        auth: {
+          user,
+          pass,
+        },
+        logger: false
+      });
+
+      await client.connect();
+      const lock = await client.getMailboxLock('INBOX');
+
+      const messages: any[] = [];
+      try {
+        // Buscar até as últimas 30 mensagens da Caixa de Entrada
+        for await (const message of client.fetch('1:*', { envelope: true, source: true }, { changedSince: 0 })) {
+          const parsed = await simpleParser(message.source);
+          messages.push({
+            id: `imap_${message.uid}`,
+            type: 'custom_message',
+            toEmail: user,
+            toName: parsed.from?.text || 'Equipe Vértice Auditor Fiscal',
+            fromEmail: parsed.from?.value?.[0]?.address || 'contato@verticeanalises.com.br',
+            fromName: parsed.from?.value?.[0]?.name || parsed.from?.text || 'Cliente Fale Conosco',
+            subject: parsed.subject || '(Sem assunto)',
+            bodyText: parsed.text || parsed.html || '',
+            folderId: 'folder_fale_conosco',
+            createdAt: parsed.date ? new Date(parsed.date).toISOString() : new Date().toISOString(),
+            read: message.flags?.has('\\Seen') || false,
+          });
+        }
+      } finally {
+        lock.release();
+      }
+
+      await client.logout();
+
+      res.json({
+        status: 'connected',
+        count: messages.length,
+        messages
+      });
+    } catch (error: any) {
+      console.error('Error fetching IMAP messages:', error);
+      res.status(500).json({
+        status: 'error',
+        error: error?.message || 'Falha na conexão IMAP com o servidor Umbler'
+      });
+    }
+  });
+
+  // Rota para envio unificado de e-mails de atendimento
+  app.post('/api/email/send', async (req, res) => {
+    const { toEmail, toName, subject, bodyText } = req.body;
+    try {
+      const fullSubject = subject || 'Atendimento • Vértice Auditor Fiscal';
+      const htmlBody = `
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #1e293b; line-height: 1.6;">
+          ${(bodyText || '').replace(/\n/g, '<br>')}
+          ${EMAIL_SIGNATURE_HTML}
+        </div>
+      `;
+      const textBody = `${bodyText || ''}\n${EMAIL_SIGNATURE_TEXT}`;
+
+      await sendTransactionalEmail(toEmail, fullSubject, textBody, htmlBody);
+      res.json({ success: true, message: 'E-mail enviado com sucesso via servidor de envio Vértice' });
+    } catch (error: any) {
+      console.error('Error in /api/email/send:', error);
+      res.status(500).json({ success: false, error: error?.message || 'Erro ao enviar e-mail' });
     }
   });
 

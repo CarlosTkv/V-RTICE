@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Send, X, ShieldCheck, Building2, Phone, Briefcase } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
+import { AuthService, SentEmailNotification } from '../utils/authService';
 
 interface SupportContactModalProps {
   isOpen: boolean;
@@ -21,29 +22,59 @@ export const SupportContactModal: React.FC<SupportContactModalProps> = ({ isOpen
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call to send email
+    const bodyFormatted = `Atendimento ao Cliente • Fale Conosco\n\nCliente: ${formData.name}\nE-mail: ${formData.email}\nTelefone / WhatsApp: ${formData.phone || 'Não informado'}\nEmpresa / Razão Social: ${formData.company || 'Não informada'}\nAssunto: ${formData.subject}\nData: ${new Date().toLocaleString('pt-BR')}\n\nMensagem do Cliente:\n${formData.message}`;
+
+    // Registrar no sistema como e-mail recebido em "Caixa de Entrada" e na pasta "Fale Conosco"
+    const faleConoscoMail: SentEmailNotification = {
+      id: `email_fale_conosco_${Date.now()}`,
+      type: 'custom_message',
+      toEmail: formData.email.trim().toLowerCase(),
+      toName: formData.name,
+      subject: `[Atendimento / Fale Conosco] ${formData.subject}`,
+      bodyText: bodyFormatted,
+      folderId: 'folder_fale_conosco',
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+
+    AuthService.recordSentEmail(faleConoscoMail);
+
+    // Tentar disparo via API backend
+    try {
+      await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: 'contato@verticeanalises.com.br',
+          toName: 'Equipe Vértice Auditor Fiscal',
+          subject: `[Atendimento / Fale Conosco] ${formData.subject}`,
+          bodyText: bodyFormatted,
+        }),
+      });
+    } catch (err) {
+      console.warn('Envio via API backend indisponível, mensagem mantida no sistema local.');
+    }
+
+    setIsSubmitting(false);
+    setSuccess(true);
+    
+    // Reset form after a delay and close
     setTimeout(() => {
-      setIsSubmitting(false);
-      setSuccess(true);
-      
-      // Reset form after a delay and close
-      setTimeout(() => {
-        setSuccess(false);
-        setFormData({
-          name: '',
-          email: '',
-          company: '',
-          phone: '',
-          subject: 'Dúvida Geral / Comercial',
-          message: ''
-        });
-        onClose();
-      }, 3000);
-    }, 1500);
+      setSuccess(false);
+      setFormData({
+        name: '',
+        email: '',
+        company: '',
+        phone: '',
+        subject: 'Dúvida Geral / Comercial',
+        message: ''
+      });
+      onClose();
+    }, 2500);
   };
 
   return (

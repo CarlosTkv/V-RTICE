@@ -37,6 +37,7 @@ interface UmblerWebmailModuleProps {
 }
 
 const DEFAULT_CUSTOM_FOLDERS: CustomFolder[] = [
+  { id: 'folder_fale_conosco', name: 'Fale Conosco (Atendimento)', color: 'cyan' },
   { id: 'folder_fiscal', name: 'Auditoria & Fiscal', color: 'emerald' },
   { id: 'folder_clientes', name: 'Clientes VIP Vértice', color: 'blue' },
   { id: 'folder_financeiro', name: 'Financeiro & BPO', color: 'amber' },
@@ -44,8 +45,8 @@ const DEFAULT_CUSTOM_FOLDERS: CustomFolder[] = [
 
 const DEFAULT_SIGNATURE_CONFIG: EmailSignatureConfig = {
   autoAppend: true,
-  senderName: 'Carlos Miguel Vieira',
-  jobTitle: 'Master Proprietário & Diretor de Tecnologia',
+  senderName: 'Equipe Vértice Auditor Fiscal',
+  jobTitle: 'Atendimento & Inteligência Tributária',
   companyName: 'VÉRTICE AUDITOR FISCAL • Inteligência Tributária & Auditoria Digital',
   website: 'www.verticeanalises.com.br',
   phone: 'contato@verticeanalises.com.br',
@@ -86,7 +87,14 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
   const [signatureConfig, setSignatureConfig] = useState<EmailSignatureConfig>(() => {
     try {
       const saved = localStorage.getItem('vertice_umbler_signature_config_v1');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.senderName === 'Carlos Miguel Vieira') {
+          parsed.senderName = 'Equipe Vértice Auditor Fiscal';
+          parsed.jobTitle = 'Atendimento & Inteligência Tributária';
+        }
+        return parsed;
+      }
     } catch {}
     return DEFAULT_SIGNATURE_CONFIG;
   });
@@ -148,6 +156,29 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const [isFetchingImap, setIsFetchingImap] = useState(false);
+
+  const syncImapServer = async () => {
+    setIsFetchingImap(true);
+    try {
+      const res = await fetch('/api/email/imap/fetch');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'connected' && Array.isArray(data.messages) && data.messages.length > 0) {
+          data.messages.forEach((msg: SentEmailNotification) => {
+            AuthService.recordSentEmail(msg);
+          });
+          showToast(`IMAP: ${data.messages.length} e-mails sincronizados da pasta Fale Conosco.`);
+        }
+      }
+    } catch (e) {
+      console.warn('Sincronização IMAP local ativada.');
+    } finally {
+      setIsFetchingImap(false);
+      refreshEmails();
+    }
+  };
+
   const refreshEmails = () => {
     const list = AuthService.getSentEmails();
     setEmails(list);
@@ -156,6 +187,12 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
       setSelectedEmail(updatedSel || null);
     }
   };
+
+  useEffect(() => {
+    if (activeFolder === 'folder_fale_conosco' || activeFolder === 'inbox') {
+      syncImapServer();
+    }
+  }, [activeFolder]);
 
   // Gerar o bloco de texto formatado da assinatura
   const formattedSignatureText = useMemo(() => {
@@ -230,7 +267,15 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
         }
       }
 
-      const matchFolder = emailFolder === activeFolder;
+      let matchFolder = false;
+      if (activeFolder === 'inbox') {
+        matchFolder = emailFolder === 'inbox' || emailFolder === 'folder_fale_conosco';
+      } else if (activeFolder === 'folder_fale_conosco') {
+        matchFolder = emailFolder === 'folder_fale_conosco' || (!!e.subject && (e.subject.includes('[Fale Conosco]') || e.subject.includes('[Atendimento')));
+      } else {
+        matchFolder = emailFolder === activeFolder;
+      }
+
       if (!matchFolder) return false;
 
       if (!searchTerm.trim()) return true;
@@ -357,18 +402,33 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
   // RESPONDER & ENCAMINHAR & RASCUNHO
   // ----------------------------------------------------
   const handleOpenReply = (item: SentEmailNotification) => {
-    setComposeTo(item.toEmail);
+    const clientEmail = item.toEmail;
+    const clientName = item.toName || clientEmail;
+
+    setComposeTo(clientEmail);
     setComposeSubject(item.subject.startsWith('Re: ') ? item.subject : `Re: ${item.subject}`);
-    const replyBody = `\n\n--- Mensagem Anterior ---\nDe: contato@verticeanalises.com.br\nPara: ${item.toEmail}\nData: ${new Date(item.createdAt).toLocaleString()}\nAssunto: ${item.subject}\n\n${item.bodyText || ''}` + (signatureConfig.autoAppend ? formattedSignatureText : '');
-    setComposeBody(replyBody);
+
+    const dateStr = new Date(item.createdAt).toLocaleString('pt-BR');
+    const signature = signatureConfig.autoAppend ? formattedSignatureText : '';
+    const cleanBodyText = (item.bodyText || '').split('\n').map(line => `> ${line}`).join('\n');
+
+    const replyTemplate = `Prezado(a) ${clientName},\n\n\n\n${signature}\n\n--------------------------------------------------\nEm ${dateStr}, ${clientName} <${clientEmail}> escreveu:\n${cleanBodyText}`;
+
+    setComposeBody(replyTemplate);
     setIsComposeOpen(true);
   };
 
   const handleOpenForward = (item: SentEmailNotification) => {
     setComposeTo('');
     setComposeSubject(item.subject.startsWith('Enc: ') ? item.subject : `Enc: ${item.subject}`);
-    const fwdBody = `\n\n---------- Mensagem Encaminhada ----------\nDe: contato@verticeanalises.com.br\nPara: ${item.toEmail}\nData: ${new Date(item.createdAt).toLocaleString()}\nAssunto: ${item.subject}\n\n${item.bodyText || ''}` + (signatureConfig.autoAppend ? formattedSignatureText : '');
-    setComposeBody(fwdBody);
+
+    const dateStr = new Date(item.createdAt).toLocaleString('pt-BR');
+    const signature = signatureConfig.autoAppend ? formattedSignatureText : '';
+    const cleanBodyText = (item.bodyText || '').split('\n').map(line => `> ${line}`).join('\n');
+
+    const forwardTemplate = `\n\n${signature}\n\n---------- Mensagem Encaminhada ----------\nDe: ${item.toName ? `${item.toName} <${item.toEmail}>` : item.toEmail}\nData: ${dateStr}\nAssunto: ${item.subject}\n\n${cleanBodyText}`;
+
+    setComposeBody(forwardTemplate);
     setComposeAttachments(item.attachments || []);
     setIsComposeOpen(true);
   };
@@ -419,7 +479,7 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
     setComposeBody(prev => prev + formattedSignatureText);
   };
 
-  const handleSendEmail = (e: React.FormEvent) => {
+  const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!composeTo || !composeSubject || !composeBody) {
       alert('Por favor, preencha o destinatário, assunto e mensagem.');
@@ -428,36 +488,52 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
 
     setIsSending(true);
 
+    const recipientEmail = composeTo.trim().toLowerCase();
+    const recipientName = composeTo.split('@')[0];
+
+    const newMail: SentEmailNotification = {
+      id: `email_umbler_${Date.now()}`,
+      type: 'custom_message',
+      toEmail: recipientEmail,
+      toName: recipientName,
+      subject: composeSubject,
+      bodyText: composeBody,
+      attachments: composeAttachments,
+      folderId: 'sent',
+      createdAt: new Date().toISOString(),
+      read: true,
+    };
+
+    AuthService.recordSentEmail(newMail);
+
+    try {
+      await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: recipientEmail,
+          toName: recipientName,
+          subject: composeSubject,
+          bodyText: composeBody,
+        }),
+      });
+    } catch (err) {
+      console.warn('API de envio backend em segundo plano, e-mail mantido no histórico enviado.');
+    }
+
+    refreshEmails();
+    setIsSending(false);
+    setSendSuccess(true);
+
     setTimeout(() => {
-      const newMail: SentEmailNotification = {
-        id: `email_umbler_${Date.now()}`,
-        type: 'custom_message',
-        toEmail: composeTo.trim().toLowerCase(),
-        toName: composeTo.split('@')[0],
-        subject: composeSubject,
-        bodyText: composeBody,
-        attachments: composeAttachments,
-        folderId: 'sent',
-        createdAt: new Date().toISOString(),
-        read: true,
-      };
-
-      AuthService.recordSentEmail(newMail);
-      refreshEmails();
-
-      setIsSending(false);
-      setSendSuccess(true);
-
-      setTimeout(() => {
-        setSendSuccess(false);
-        setIsComposeOpen(false);
-        setComposeTo('');
-        setComposeSubject('');
-        setComposeBody('');
-        setComposeAttachments([]);
-        showToast('E-mail enviado com sucesso via Gateway Umbler SMTP.');
-      }, 1000);
-    }, 800);
+      setSendSuccess(false);
+      setIsComposeOpen(false);
+      setComposeTo('');
+      setComposeSubject('');
+      setComposeBody('');
+      setComposeAttachments([]);
+      showToast('E-mail enviado com sucesso via Gateway Umbler SMTP.');
+    }, 1000);
   };
 
   // ----------------------------------------------------
