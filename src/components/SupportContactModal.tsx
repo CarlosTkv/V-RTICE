@@ -137,14 +137,14 @@ export const SupportContactModal: React.FC<SupportContactModalProps> = ({ isOpen
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Seu Nome / Razão Social</label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <div className="relative flex items-center">
+                    <Building2 className="absolute left-3 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input 
                       type="text" 
                       required
                       value={formData.name}
                       onChange={e => setFormData(prev => ({...prev, name: e.target.value}))}
-                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-10 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
                       placeholder="Nome da empresa ou responsável"
                     />
                   </div>
@@ -152,14 +152,14 @@ export const SupportContactModal: React.FC<SupportContactModalProps> = ({ isOpen
                 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">E-mail Corporativo</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <div className="relative flex items-center">
+                    <Mail className="absolute left-3 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input 
                       type="email" 
                       required
                       value={formData.email}
                       onChange={e => setFormData(prev => ({...prev, email: e.target.value}))}
-                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-10 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
                       placeholder="seu@email.com.br"
                     />
                   </div>
@@ -169,13 +169,13 @@ export const SupportContactModal: React.FC<SupportContactModalProps> = ({ isOpen
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Telefone / WhatsApp</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <div className="relative flex items-center">
+                    <Phone className="absolute left-3 w-4 h-4 text-slate-500 pointer-events-none" />
                     <input 
                       type="tel" 
                       value={formData.phone}
                       onChange={e => setFormData(prev => ({...prev, phone: e.target.value}))}
-                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-10 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
                       placeholder="(00) 00000-0000"
                     />
                   </div>
@@ -183,12 +183,12 @@ export const SupportContactModal: React.FC<SupportContactModalProps> = ({ isOpen
                 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Assunto</label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <div className="relative flex items-center">
+                    <Briefcase className="absolute left-3 w-4 h-4 text-slate-500 pointer-events-none" />
                     <select 
                       value={formData.subject}
                       onChange={e => setFormData(prev => ({...prev, subject: e.target.value}))}
-                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-10 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition appearance-none"
+                      className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition appearance-none"
                     >
                       <option>Dúvida Comercial / Planos</option>
                       <option>Suporte Técnico (Erros/Bugs)</option>
