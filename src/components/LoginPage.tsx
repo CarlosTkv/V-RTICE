@@ -395,8 +395,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
     const mockLoadedCert: DigitalCertificateInfo = {
       id: `cert_custom_${Date.now()}`,
       type: 'e-CNPJ A1',
-      subjectName: `${certName}:04921832000199`,
-      documentNumber: '04.921.832/0001-99',
+      subjectName: `${certName}:00000000000100`,
+      documentNumber: '00.000.000/0001-00',
       issuer: 'AC SERPRO RFB v5 • Autoridade Certificadora Federal',
       serialNumber: `55:${Math.floor(1000 + Math.random() * 9000)}:AA:BB:CC:DD`,
       validFrom: new Date().toISOString(),

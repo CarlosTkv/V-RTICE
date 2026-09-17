@@ -98,22 +98,8 @@ const STORAGE_2FA_CHALLENGES_KEY = 'vertice_2fa_pending_challenges_v2';
 const STORAGE_SENT_EMAILS_KEY = 'vertice_sent_emails_inbox_v2';
 const STORAGE_PLAN_REQUESTS_KEY = 'vertice_plan_activation_requests_v2';
 
-// Certificado Digital ICP-Brasil da Empresa Exemplo Autorizada
-export const DEFAULT_AVAILABLE_CERTIFICATES: DigitalCertificateInfo[] = [
-  {
-    id: 'cert_carlos_miguel_master',
-    type: 'e-CNPJ A1',
-    subjectName: 'VIEIRA & ASSOCIADOS AUDITORIA FISCAL LTDA:04921832000199',
-    documentNumber: '04.921.832/0001-99',
-    issuer: 'AC SERPRO RFB v5 • Autoridade Certificadora Federal',
-    serialNumber: '5A:4B:99:C1:02:88:FF:3E:12:09',
-    validFrom: '2024-01-10T00:00:00Z',
-    validUntil: '2027-01-10T23:59:59Z',
-    thumbprintSha256: '9F82A4B7D6C510928374E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6',
-    status: 'valido',
-    installedLocation: 'arquivo_a1',
-  }
-];
+// Lista vazia por padrão (removido o certificado fictício da base)
+export const DEFAULT_AVAILABLE_CERTIFICATES: DigitalCertificateInfo[] = [];
 
 // Conta Oficial Exemplo Autorizada do Sistema (Sem dados fictícios adicionais)
 export const DEFAULT_PRESET_ACCOUNTS: UserAccount[] = [
@@ -466,7 +452,14 @@ export class AuthService {
    * Obtém a lista de certificados ICP-Brasil instalados ou detectados
    */
   static getAvailableCertificates(): DigitalCertificateInfo[] {
-    // Retorna estritamente o certificado da empresa exemplo autorizada, sem dados fictícios adicionais
+    try {
+      const stored = localStorage.getItem('vertice_custom_certificates_v2');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error('Erro ao ler certificados customizados:', e);
+    }
     return DEFAULT_AVAILABLE_CERTIFICATES;
   }
 

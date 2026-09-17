@@ -21,7 +21,7 @@ export const AdminCertificatesTab: React.FC = () => {
            />
            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400">
              <p className="font-bold text-slate-300 mb-1">Status do Ambiente Nacional:</p>
-             <p>Certificado atual: <span className="text-emerald-400">Válido até 10/2026</span></p>
+             <p>Certificado atual: <span className="text-slate-500">Nenhum certificado instalado</span></p>
            </div>
         </div>
       </div>
