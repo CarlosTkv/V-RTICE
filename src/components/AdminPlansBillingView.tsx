@@ -93,6 +93,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
     return (
       currentUser.role === 'desenvolvedor' ||
       currentUser.isDeveloper === true ||
+      currentUser.email.toLowerCase() === 'contato@verticeanalises.com.br' ||
       currentUser.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com'
     );
   }, [currentUser]);
@@ -181,7 +182,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
           const cleaned = parsed.filter((u: SystemUser) => {
             if (!u || !u.id) return false;
             const email = (u.email || '').toLowerCase();
-            if (email === 'carlosmiguelvieira1@gmail.com') return true;
+            if (email === 'contato@verticeanalises.com.br' || email === 'carlosmiguelvieira1@gmail.com') return true;
             const isLegacyMock = 
               u.id.startsWith('usr-00') ||
               email.includes('vasconcelos') ||
@@ -190,11 +191,24 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
               email.includes('deltaauditores');
             return !isLegacyMock;
           });
-          const hasMaster = cleaned.some(u => u.email === 'carlosmiguelvieira1@gmail.com');
+
+          const updatedUsers = cleaned.map((u: SystemUser) => {
+            if (u.id === 'usr-carlos-miguel-master' || u.name === 'Carlos Miguel Vieira' || (u.email || '').toLowerCase() === 'carlosmiguelvieira1@gmail.com') {
+              return {
+                ...u,
+                email: 'contato@verticeanalises.com.br',
+                partnerPixKey: u.partnerPixKey === 'carlosmiguelvieira1@gmail.com' ? 'contato@verticeanalises.com.br' : u.partnerPixKey
+              };
+            }
+            return u;
+          });
+
+          const hasMaster = updatedUsers.some(u => u.email === 'contato@verticeanalises.com.br');
           if (!hasMaster) {
-            return [...INITIAL_SYSTEM_USERS, ...cleaned];
+            return [...INITIAL_SYSTEM_USERS, ...updatedUsers];
           }
-          return cleaned;
+          localStorage.setItem('sna_admin_users', JSON.stringify(updatedUsers));
+          return updatedUsers;
         }
       } catch (e) {}
     }
@@ -942,9 +956,12 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
   // AÇÃO: ABRIR MODAL PARA NOVO OU EDITAR USUÁRIO
   const handleOpenUserModal = (user?: SystemUser) => {
     if (user) {
-      setEditingUser(user);
+      const isCarlosMaster = user.id === 'usr-carlos-miguel-master' || user.name === 'Carlos Miguel Vieira' || (user.email || '').toLowerCase() === 'carlosmiguelvieira1@gmail.com';
+      const safeEmail = isCarlosMaster ? 'contato@verticeanalises.com.br' : user.email;
+      const safeUser = { ...user, email: safeEmail };
+      setEditingUser(safeUser);
       setUserFormName(user.name);
-      setUserFormEmail(user.email);
+      setUserFormEmail(safeEmail);
       setUserFormRole(user.role);
       setUserFormCompany(user.companyName || '');
       setUserFormDepartment(user.department || '');
@@ -1117,7 +1134,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
     setSystemUsers(prev => prev.map(u => {
       if (u.id === userId) {
         // Não permitir bloquear o próprio Master
-        if (u.role === 'master' || u.email === 'carlosmiguelvieira1@gmail.com') {
+        if (u.role === 'master' || u.email === 'contato@verticeanalises.com.br' || u.email === 'carlosmiguelvieira1@gmail.com') {
           alert('O usuário Master Proprietário não pode ser bloqueado.');
           return u;
         }
@@ -1143,7 +1160,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
 
   // EXCLUSÃO COM RIGOR DE OPERADORES / USUÁRIOS
   const handleRequestDeleteUser = (user: SystemUser) => {
-    if (user.role === 'master' || user.email === 'carlosmiguelvieira1@gmail.com') {
+    if (user.role === 'master' || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com') {
       alert('A conta Master de Carlos Miguel Vieira é protegida e não pode ser excluída.');
       return;
     }
@@ -1177,7 +1194,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
     } else if (deleteConfirmModal.type === 'user') {
       const user = systemUsers.find(u => u.id === deleteConfirmModal.id);
       if (user) {
-        if (user.role === 'master' || user.email === 'carlosmiguelvieira1@gmail.com') {
+        if (user.role === 'master' || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com') {
           alert('A conta Master não pode ser removida.');
           return;
         }
@@ -2265,7 +2282,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
               <tbody className="divide-y divide-slate-800">
                 {systemUsers.map(user => {
                   const permCount = Object.values(user.permissions).filter(Boolean).length;
-                  const isMaster = user.role === 'master' || user.email === 'carlosmiguelvieira1@gmail.com';
+                  const isMaster = user.role === 'master' || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com';
 
                   return (
                     <tr key={user.id} className="hover:bg-slate-800/50 transition">
@@ -2294,7 +2311,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
                       <td className="p-3.5">
                         <div className="flex flex-col gap-1 items-start">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase flex items-center gap-1 ${
-                            user.role === 'desenvolvedor' || user.isDeveloper || user.email === 'carlosmiguelvieira1@gmail.com'
+                            user.role === 'desenvolvedor' || user.isDeveloper || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com'
                               ? 'bg-purple-950/90 text-purple-300 border border-purple-500/60 shadow-xs'
                               : user.role === 'master'
                               ? 'bg-amber-950/70 text-amber-300 border border-amber-800/80'
@@ -2310,7 +2327,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
                               ? 'bg-gradient-to-r from-amber-950/90 to-blue-950/90 text-amber-300 border border-amber-500/60 shadow-xs'
                               : 'bg-slate-800 text-slate-300 border border-slate-700'
                           }`}>
-                            {(user.role === 'desenvolvedor' || user.isDeveloper || user.email === 'carlosmiguelvieira1@gmail.com') && (
+                            {(user.role === 'desenvolvedor' || user.isDeveloper || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com') && (
                               <Key className="w-3 h-3 text-purple-400 shrink-0" />
                             )}
                             {user.role === 'master' && (
@@ -2319,7 +2336,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
                             {(user.role === 'parceiro_negocios' || user.isPartnerActive) && (
                               <Award className="w-3 h-3 text-amber-400 shrink-0" />
                             )}
-                            {user.role === 'desenvolvedor' || user.isDeveloper || user.email === 'carlosmiguelvieira1@gmail.com'
+                            {user.role === 'desenvolvedor' || user.isDeveloper || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com'
                               ? 'Desenvolvedor Master'
                               : user.role === 'master'
                               ? 'Master Proprietário'
@@ -2337,12 +2354,12 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
                           </span>
 
                           <div className="flex flex-wrap gap-1">
-                            {(user.canAccessPlatformBilling || user.role === 'desenvolvedor' || user.email === 'carlosmiguelvieira1@gmail.com') && (
+                            {(user.canAccessPlatformBilling || user.role === 'desenvolvedor' || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com') && (
                               <span className="text-[9px] font-mono text-purple-300 bg-purple-950/60 px-1.5 py-0.2 rounded border border-purple-800/40">
                                 💳 Faturamento
                               </span>
                             )}
-                            {(user.canVerifyClients || user.role === 'desenvolvedor' || user.email === 'carlosmiguelvieira1@gmail.com') && (
+                            {(user.canVerifyClients || user.role === 'desenvolvedor' || user.email === 'contato@verticeanalises.com.br' || user.email === 'carlosmiguelvieira1@gmail.com') && (
                               <span className="text-[9px] font-mono text-blue-300 bg-blue-950/60 px-1.5 py-0.2 rounded border border-blue-800/40">
                                 ✓ Verificação
                               </span>
@@ -2826,7 +2843,7 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
                     required
                     value={bankConfig.pixKey}
                     onChange={(e) => setBankConfig({ ...bankConfig, pixKey: e.target.value })}
-                    placeholder="carlosmiguelvieira1@gmail.com"
+                    placeholder="contato@verticeanalises.com.br"
                     className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-slate-100 focus:outline-none focus:border-teal-500 font-mono"
                   />
                 </div>

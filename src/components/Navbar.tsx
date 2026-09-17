@@ -27,6 +27,7 @@ import {
   Briefcase,
   Wallet,
   Bell,
+  Mail,
   Share2,
   Award,
   Percent,
@@ -110,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenPartnerPortal,
 }) => {
-  const isMasterUser = authUser?.role === 'master' || authUser?.isMaster || authUser?.email === 'carlosmiguelvieira1@gmail.com';
+  const isMasterUser = authUser?.role === 'master' || authUser?.isMaster || authUser?.email === 'contato@verticeanalises.com.br' || authUser?.email === 'carlosmiguelvieira1@gmail.com';
   const isEmpresa = viewMode === 'empresa' || authUser?.role === 'cliente_empresa';
   const isEscritorio = viewMode === 'escritorio' || authUser?.role === 'escritorio' || authUser?.role === 'contador_senior';
 
@@ -268,6 +269,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                  >
                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                    <span className="hidden xl:inline">Validador Oficial</span>
+                 </button>
+               )}
+               {isMasterUser && (
+                 <button
+                   onClick={() => setActiveTab && setActiveTab('webmail_umbler')}
+                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/70 text-cyan-300 border border-cyan-800/70 transition text-[10px] font-bold cursor-pointer"
+                   title="Central de E-mails Umbler (contato@verticeanalises.com.br)"
+                 >
+                   <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                   <span className="hidden xl:inline">E-mail Umbler</span>
                  </button>
                )}
                <button onClick={onOpenNotifications} className="p-2 text-slate-500 hover:text-amber-400 transition relative">

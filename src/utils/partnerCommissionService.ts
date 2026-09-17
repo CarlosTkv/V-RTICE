@@ -197,7 +197,7 @@ export class PartnerCommissionService {
   static getPartnerConfig(user?: AuthUser | SystemUser | null): PartnerReferralConfig {
     const userEmail = (user?.email || '').trim().toLowerCase();
     const userName = user?.name || 'Parceiro Consultor';
-    const isMaster = userEmail === 'carlosmiguelvieira1@gmail.com' || (user as AuthUser)?.isMaster || user?.role === 'master';
+    const isMaster = userEmail === 'contato@verticeanalises.com.br' || userEmail === 'carlosmiguelvieira1@gmail.com' || (user as AuthUser)?.isMaster || user?.role === 'master';
     const isPartnerActive = isMaster || Boolean(user?.isPartnerActive || user?.role === 'parceiro_negocios');
 
     const defaultCode = user?.partnerReferralCode || `VERTICE-${userName.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 8) || 'PARTNER'}`;

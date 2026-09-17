@@ -743,6 +743,7 @@ export interface AuthUser {
   authSecurityMode?: AuthSecurityMode;
   twoFactorEnabled?: boolean;
   digitalCertificate?: DigitalCertificateInfo;
+  mustChangePassword?: boolean;
 }
 
 // Periodicidades Segregadas de Planos
@@ -1110,6 +1111,7 @@ export type AppActiveTab =
   | 'contratos'
   | 'parceiros'
   | 'portal_parceiro'
+  | 'webmail_umbler'
   // Sub-abas (usadas para navegação interna ou permissões específicas)
   | 'regimes' 
   | 'financeiro' 

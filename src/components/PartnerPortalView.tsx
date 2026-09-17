@@ -63,6 +63,7 @@ export const PartnerPortalView: React.FC<PartnerPortalViewProps> = ({
   const isMaster = Boolean(
     currentUser?.isMaster || 
     currentUser?.role === 'master' || 
+    currentUser?.email?.toLowerCase() === 'contato@verticeanalises.com.br' ||
     currentUser?.email?.toLowerCase() === 'carlosmiguelvieira1@gmail.com'
   );
 

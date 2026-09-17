@@ -278,12 +278,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [successMessage, setSuccessMessage] = useState('');
 
   // Identificação do Usuário e Assinatura Ativa
-  const isMasterUser = currentUser?.role === 'master' || currentUser?.plan === 'master_ilimitado' || currentUser?.email === 'carlosmiguelvieira1@gmail.com';
+  const isMasterUser = currentUser?.role === 'master' || currentUser?.plan === 'master_ilimitado' || currentUser?.email === 'contato@verticeanalises.com.br' || currentUser?.email === 'carlosmiguelvieira1@gmail.com';
   const isAdminUser = Boolean(
     currentUser?.isAdmin || 
     currentUser?.role === 'administrador' || 
     currentUser?.role === 'master' || 
     currentUser?.isMaster || 
+    currentUser?.email === 'contato@verticeanalises.com.br' ||
     currentUser?.email === 'carlosmiguelvieira1@gmail.com'
   );
 
@@ -721,9 +722,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   const handleEditUser = (user: SystemUser) => {
+    const isCarlosMaster = user.id === 'usr-carlos-miguel-master' || user.name === 'Carlos Miguel Vieira' || (user.email || '').toLowerCase() === 'carlosmiguelvieira1@gmail.com';
+    const safeEmail = isCarlosMaster ? 'contato@verticeanalises.com.br' : user.email;
     setEditingUserId(user.id);
     setUserNameInput(user.name);
-    setUserEmailInput(user.email);
+    setUserEmailInput(safeEmail);
     setUserRoleInput(user.role);
     setUserDepartmentInput(user.department || 'Fiscal / Contábil');
     setUserPermissionsInput(user.permissions);

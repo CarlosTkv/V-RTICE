@@ -185,6 +185,7 @@ export function isDeveloperUser(user: AuthUser | null): boolean {
   return (
     user.role === 'desenvolvedor' ||
     user.isDeveloper === true ||
+    user.email.toLowerCase() === 'contato@verticeanalises.com.br' ||
     user.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com'
   );
 }
@@ -432,7 +433,7 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
  */
 export function getMaxCompaniesForUser(user: AuthUser | null): number {
   if (!user) return 1;
-  if (user.isMaster || user.role === 'master' || user.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com') {
+  if (user.isMaster || user.role === 'master' || user.email.toLowerCase() === 'contato@verticeanalises.com.br' || user.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com') {
     return 9999;
   }
   if (user.maxCompaniesAllowed && user.maxCompaniesAllowed > 0) {

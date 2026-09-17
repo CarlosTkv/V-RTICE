@@ -1,5 +1,6 @@
 import { AuthUser, AppViewMode, PlanAllowedModules, AuthSecurityMode, DigitalCertificateInfo, PlanActivationRequest, CompanyAddress, AdminRegistrationData, PlanPeriodicity, SystemUser } from '../types';
 import { DEFAULT_PLAN_MODULES } from './permissionRules';
+import { validatePasswordPolicy } from './passwordPolicy';
 
 export interface UserAccount {
   id: string;
@@ -42,6 +43,7 @@ export interface UserAccount {
   isDeveloper?: boolean;
   canAccessPlatformBilling?: boolean;
   canVerifyClients?: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -76,9 +78,15 @@ export interface Pending2FAChallenge {
   expiresAt: string;
 }
 
+export interface EmailAttachment {
+  name: string;
+  size: string;
+  type?: string;
+}
+
 export interface SentEmailNotification {
   id: string;
-  type: 'registration_confirmation' | 'password_reset' | 'two_factor_code' | 'plan_activation_invitation' | 'invoice_receipt';
+  type: 'registration_confirmation' | 'password_reset' | 'two_factor_code' | 'plan_activation_invitation' | 'invoice_receipt' | 'custom_message';
   toEmail: string;
   toName: string;
   subject: string;
@@ -88,6 +96,10 @@ export interface SentEmailNotification {
   createdAt: string;
   expiresAt?: string;
   read?: boolean;
+  folderId?: string; // 'inbox' | 'system_fired' | 'sent' | 'drafts' | 'trash' | 'spam' ou ID de pasta personalizada
+  bodyText?: string;
+  isStarred?: boolean;
+  attachments?: EmailAttachment[];
 }
 
 const STORAGE_USERS_KEY = 'vertice_registered_accounts_v2';
@@ -106,8 +118,8 @@ export const DEFAULT_PRESET_ACCOUNTS: UserAccount[] = [
   {
     id: 'usr_carlos_miguel_master',
     name: 'Carlos Miguel Vieira',
-    email: 'carlosmiguelvieira1@gmail.com',
-    password: '179328Tk.',
+    email: 'contato@verticeanalises.com.br',
+    password: 'Vertice@admin1',
     companyName: 'Vieira & Associados • Inteligência Fiscal & Auditoria Master',
     role: 'desenvolvedor',
     plan: 'master_ilimitado',
@@ -127,7 +139,7 @@ export const DEFAULT_PRESET_ACCOUNTS: UserAccount[] = [
     partnerCommissionRate: 35,
     partnerReferralCode: 'VERTICE-MASTER',
     partnerDiscountPercent: 10,
-    partnerPixKey: 'carlosmiguelvieira1@gmail.com',
+    partnerPixKey: 'contato@verticeanalises.com.br',
     partnerPixKeyType: 'email',
     partnerBankName: 'Banco do Brasil S.A.',
     partnerActivatedByMaster: true,
@@ -158,7 +170,10 @@ export class AuthService {
           );
 
           // Garantir que a conta Master do Carlos Miguel esteja sempre presente e atualizada com a senha oficial
-          const carlosIndex = parsed.findIndex(acc => acc.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com');
+          const carlosIndex = parsed.findIndex(acc => 
+            acc.email.toLowerCase() === 'contato@verticeanalises.com.br' ||
+            acc.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com'
+          );
           if (carlosIndex === -1) {
             const merged = [DEFAULT_PRESET_ACCOUNTS[0], ...parsed];
             this.saveAccounts(merged);
@@ -166,8 +181,12 @@ export class AuthService {
           } else {
             // Sincroniza credenciais master oficiais e desabilita 2FA imediatamente
             let changed = false;
-            if (parsed[carlosIndex].password !== '179328Tk.') {
-              parsed[carlosIndex].password = '179328Tk.';
+            if (parsed[carlosIndex].email !== 'contato@verticeanalises.com.br') {
+              parsed[carlosIndex].email = 'contato@verticeanalises.com.br';
+              changed = true;
+            }
+            if (parsed[carlosIndex].password !== 'Vertice@admin1') {
+              parsed[carlosIndex].password = 'Vertice@admin1';
               changed = true;
             }
             if (parsed[carlosIndex].role !== 'desenvolvedor') {
@@ -188,7 +207,10 @@ export class AuthService {
             }
             try {
               const challenges = this.getPending2FAChallenges();
-              const cleanChallenges = challenges.filter(c => c.email.toLowerCase() !== 'carlosmiguelvieira1@gmail.com');
+              const cleanChallenges = challenges.filter(c => 
+                c.email.toLowerCase() !== 'contato@verticeanalises.com.br' &&
+                c.email.toLowerCase() !== 'carlosmiguelvieira1@gmail.com'
+              );
               if (cleanChallenges.length !== challenges.length) {
                 this.savePending2FAChallenges(cleanChallenges);
               }
@@ -229,7 +251,7 @@ export class AuthService {
       return { success: false, error: 'Identificador do usuário inválido.' };
     }
 
-    if (cleanId === 'carlosmiguelvieira1@gmail.com' || cleanId === 'usr_carlos_miguel_master') {
+    if (cleanId === 'contato@verticeanalises.com.br' || cleanId === 'carlosmiguelvieira1@gmail.com' || cleanId === 'usr_carlos_miguel_master') {
       return { success: false, error: 'A conta Master proprietária de Carlos Miguel Vieira não pode ser excluída.' };
     }
 
@@ -252,14 +274,14 @@ export class AuthService {
    * Converte uma conta do banco para o objeto de sessão AuthUser
    */
   static toAuthUser(account: UserAccount): AuthUser {
-    const isCarlos = account.email?.toLowerCase() === 'carlosmiguelvieira1@gmail.com';
+    const isCarlos = account.email?.toLowerCase() === 'contato@verticeanalises.com.br' || account.email?.toLowerCase() === 'carlosmiguelvieira1@gmail.com';
     const computedSecMode = isCarlos ? 'password_only' : (account.authSecurityMode || (account.twoFactorEnabled ? 'password_and_email_otp' : 'password_only'));
     const computedTwoFactor = isCarlos ? false : (account.twoFactorEnabled ?? (computedSecMode === 'password_and_email_otp'));
 
     return {
       id: account.id,
       name: account.name,
-      email: account.email,
+      email: isCarlos ? 'contato@verticeanalises.com.br' : account.email,
       role: account.role,
       companyName: account.companyName,
       cpf: account.cpf,
@@ -296,6 +318,7 @@ export class AuthService {
       isDeveloper: account.isDeveloper || account.role === 'desenvolvedor' || isCarlos,
       canAccessPlatformBilling: account.canAccessPlatformBilling ?? (account.role === 'desenvolvedor' || isCarlos),
       canVerifyClients: account.canVerifyClients ?? (account.role === 'desenvolvedor' || isCarlos),
+      mustChangePassword: account.mustChangePassword,
     };
   }
 
@@ -761,6 +784,7 @@ export class AuthService {
     success: boolean; 
     user?: AuthUser; 
     requires2FA?: boolean; 
+    requiresPasswordChange?: boolean;
     challengeId?: string;
     email?: string;
     userName?: string;
@@ -787,9 +811,9 @@ export class AuthService {
     }
 
     // Validação estrita da senha (com suporte à senha oficial do Master Carlos Miguel)
-    const isCarlos = cleanEmail === 'carlosmiguelvieira1@gmail.com';
+    const isCarlos = cleanEmail === 'contato@verticeanalises.com.br' || cleanEmail === 'carlosmiguelvieira1@gmail.com';
     const isPasswordValid = isCarlos
-      ? (cleanPassword === '179328Tk.' || cleanPassword === 'master2026' || account.password === cleanPassword)
+      ? (cleanPassword === 'Vertice@admin1' || cleanPassword === '179328Tk.' || account.password === cleanPassword)
       : account.password === cleanPassword;
 
     if (!isPasswordValid) {
@@ -800,7 +824,8 @@ export class AuthService {
     }
 
     if (isCarlos) {
-      account.password = '179328Tk.';
+      account.email = 'contato@verticeanalises.com.br';
+      account.password = 'Vertice@admin1';
       account.twoFactorEnabled = false;
       account.authSecurityMode = 'password_only';
     }
@@ -825,7 +850,42 @@ export class AuthService {
     const authUser = this.toAuthUser(account);
     this.saveCurrentSession(authUser);
 
-    return { success: true, user: authUser };
+    return { 
+      success: true, 
+      user: authUser,
+      requiresPasswordChange: !!account.mustChangePassword 
+    };
+  }
+
+  /**
+   * Redefine/atualiza a senha do usuário garantindo o cumprimento das políticas de senha
+   */
+  static updatePasswordWithPolicy(email: string, newPassword: string): { success: boolean; user?: AuthUser; error?: string } {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = (newPassword || '').trim();
+
+    const policyResult = validatePasswordPolicy(cleanPassword);
+    if (!policyResult.isValid) {
+      return {
+        success: false,
+        error: `A nova senha não atende aos requisitos de segurança: ${policyResult.errors.join(' | ')}`
+      };
+    }
+
+    const accounts = this.getAccounts();
+    const account = accounts.find(acc => acc.email.toLowerCase() === cleanEmail);
+    if (!account) {
+      return { success: false, error: 'Usuário não encontrado para atualização de senha.' };
+    }
+
+    account.password = cleanPassword;
+    account.mustChangePassword = false;
+    this.saveAccounts(accounts);
+
+    const updatedUser = this.toAuthUser(account);
+    this.saveCurrentSession(updatedUser);
+
+    return { success: true, user: updatedUser };
   }
 
   /**
@@ -841,6 +901,7 @@ export class AuthService {
     partnerReferralCode?: string;
     partnerDiscountPercent?: number;
     partnerPixKey?: string;
+    mustChangePassword?: boolean;
   }): { success: boolean; user?: AuthUser; error?: string } {
     const cleanName = (params.name || '').trim();
     const cleanEmail = (params.email || '').trim().toLowerCase();
@@ -853,8 +914,14 @@ export class AuthService {
     if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
       return { success: false, error: 'Informe um e-mail profissional válido.' };
     }
-    if (!cleanPassword || cleanPassword.length < 6) {
-      return { success: false, error: 'A senha deve conter no mínimo 6 caracteres.' };
+    
+    // Validar regras de senha no cadastro
+    const isCarlosCheck = cleanEmail === 'contato@verticeanalises.com.br' || cleanEmail === 'carlosmiguelvieira1@gmail.com';
+    if (!isCarlosCheck) {
+      const pwdVal = validatePasswordPolicy(cleanPassword);
+      if (!pwdVal.isValid) {
+        return { success: false, error: `Senha inválida. ${pwdVal.errors.join(' ')}` };
+      }
     }
 
     const accounts = this.getAccounts();
@@ -1025,9 +1092,11 @@ export class AuthService {
       const stored = sessionStorage.getItem(STORAGE_SESSION_KEY);
       if (stored) {
         const parsed: AuthUser = JSON.parse(stored);
-        if (parsed && parsed.email?.toLowerCase() === 'carlosmiguelvieira1@gmail.com') {
+        if (parsed && (parsed.email?.toLowerCase() === 'carlosmiguelvieira1@gmail.com' || parsed.id === 'usr_carlos_miguel_master' || parsed.name === 'Carlos Miguel Vieira')) {
+          parsed.email = 'contato@verticeanalises.com.br';
           parsed.twoFactorEnabled = false;
           parsed.authSecurityMode = 'password_only';
+          this.saveCurrentSession(parsed);
         }
         return parsed;
       }
@@ -1160,6 +1229,44 @@ export class AuthService {
   static markEmailAsRead(id: string): void {
     const list = this.getSentEmails();
     const updated = list.map(item => item.id === id ? { ...item, read: true } : item);
+    this.saveSentEmails(updated);
+  }
+
+  static moveEmailToFolder(id: string, folderId: string): void {
+    const list = this.getSentEmails();
+    const updated = list.map(item => item.id === id ? { ...item, folderId } : item);
+    this.saveSentEmails(updated);
+  }
+
+  static bulkMoveEmailsToFolder(ids: string[], folderId: string): void {
+    const list = this.getSentEmails();
+    const set = new Set(ids);
+    const updated = list.map(item => set.has(item.id) ? { ...item, folderId } : item);
+    this.saveSentEmails(updated);
+  }
+
+  static deleteEmailPermanently(id: string): void {
+    const list = this.getSentEmails();
+    const updated = list.filter(item => item.id !== id);
+    this.saveSentEmails(updated);
+  }
+
+  static bulkDeleteEmailsPermanently(ids: string[]): void {
+    const list = this.getSentEmails();
+    const set = new Set(ids);
+    const updated = list.filter(item => !set.has(item.id));
+    this.saveSentEmails(updated);
+  }
+
+  static emptyTrashEmails(): void {
+    const list = this.getSentEmails();
+    const updated = list.filter(item => item.folderId !== 'trash');
+    this.saveSentEmails(updated);
+  }
+
+  static toggleStarEmail(id: string): void {
+    const list = this.getSentEmails();
+    const updated = list.map(item => item.id === id ? { ...item, isStarred: !item.isStarred } : item);
     this.saveSentEmails(updated);
   }
 

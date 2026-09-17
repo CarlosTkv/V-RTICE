@@ -38,6 +38,7 @@ import { DocumentValidatorModal } from './components/DocumentValidatorModal';
 import { LoginPage } from './components/LoginPage';
 import { LandingWelcomePortal } from './components/LandingWelcomePortal';
 import { CommercialNfseModule } from './components/CommercialNfseModule';
+import { UmblerWebmailModule } from './components/UmblerWebmailModule';
 import { FinancialStatementsView } from './components/FinancialStatementsView';
 import { NCMServiceLookupView } from './components/NCMServiceLookupView';
 // Remove import
@@ -138,7 +139,7 @@ export default function App() {
     if (savedUser) {
       try {
         const parsed = JSON.parse(savedUser);
-        if (parsed && (parsed.email === 'carlosmiguelvieira1@gmail.com' || parsed.role === 'master')) {
+        if (parsed && (parsed.email === 'contato@verticeanalises.com.br' || parsed.email === 'carlosmiguelvieira1@gmail.com' || parsed.role === 'master')) {
           return {
             ...parsed,
             role: 'master',
@@ -446,7 +447,7 @@ export default function App() {
             onNavigateToTab={setActiveTab}
             onOpenManual={() => setIsManualOpen(true)}
             onOpenPDFUpload={() => setIsPDFUploadOpen(true)}
-            isMaster={authUser?.role === 'master' || authUser?.isMaster || authUser?.email === 'carlosmiguelvieira1@gmail.com'}
+            isMaster={authUser?.role === 'master' || authUser?.isMaster || authUser?.email === 'contato@verticeanalises.com.br' || authUser?.email === 'carlosmiguelvieira1@gmail.com'}
             viewMode={viewMode}
             showToast={showToast}
           />
@@ -639,6 +640,14 @@ export default function App() {
         return (
           <AgendaFiscalView
             currentCompany={safeCurrentCompany}
+          />
+        );
+
+      case 'webmail_umbler':
+        return (
+          <UmblerWebmailModule
+            currentUser={authUser}
+            onClose={() => setActiveTab('dashboard')}
           />
         );
 

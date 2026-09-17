@@ -10,7 +10,7 @@ export const DEFAULT_BANK_CONFIG: BankConfig = {
   accountDigit: '2',
   cedenteCode: '3189201',
   carteira: '17',
-  pixKey: 'carlosmiguelvieira1@gmail.com',
+  pixKey: 'contato@verticeanalises.com.br',
   pixKeyType: 'email',
   pixCity: 'São Paulo',
   instructions1: 'Sr. Caixa, não receber após 30 dias do vencimento.',
@@ -221,7 +221,7 @@ export const INITIAL_SYSTEM_USERS: SystemUser[] = [
   {
     id: 'usr-carlos-miguel-master',
     name: 'Carlos Miguel Vieira',
-    email: 'carlosmiguelvieira1@gmail.com',
+    email: 'contato@verticeanalises.com.br',
     role: 'desenvolvedor',
     status: 'ativo',
     isDeveloper: true,

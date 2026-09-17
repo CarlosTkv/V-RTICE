@@ -42,6 +42,8 @@ import { CustomPlanBuilderModal } from './CustomPlanBuilderModal';
 import { PLATFORM_PLANS } from '../data/adminBillingData';
 import { BrandLogo } from './BrandLogo';
 import { BrandConvergenceSplash } from './BrandConvergenceSplash';
+import { PasswordRulesList } from './PasswordRulesList';
+import { validatePasswordPolicy } from '../utils/passwordPolicy';
 
 interface LoginPageProps {
   onLogin: (user: AuthUser) => void;
@@ -55,6 +57,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
   
   const [pendingAuthUser, setPendingAuthUser] = useState<AuthUser | null>(null);
   const [isLoggingInSplash, setIsLoggingInSplash] = useState<boolean>(false);
+
+  // Mandatory Password Change State (Troca Obrigatória de Senha Provisória)
+  const [forceChangeUser, setForceChangeUser] = useState<AuthUser | null>(null);
+  const [forceNewPassword, setForceNewPassword] = useState('');
+  const [forceNewPasswordConfirm, setForceNewPasswordConfirm] = useState('');
+  const [showForcePassword, setShowForcePassword] = useState(false);
   
   // Login Mode Switch: 'password' | 'certificate'
   const [loginMethod, setLoginMethod] = useState<'password' | 'certificate'>('password');
@@ -278,11 +286,57 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
         return;
       }
 
+      if (res.requiresPasswordChange || res.user.mustChangePassword) {
+        setForceChangeUser(res.user);
+        setForceNewPassword('');
+        setForceNewPasswordConfirm('');
+        return;
+      }
+
       setIsLoggingInSuccess(true);
       setSuccessMessage(`Autenticação confirmada! Inicializando convergência do cockpit...`);
       setPendingAuthUser(res.user);
       setIsLoggingInSplash(true);
     }, 400);
+  };
+
+  // Handle Force Password Change Submit (Troca obrigatória de senha provisória sem e-mail)
+  const handleForcePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!forceChangeUser) return;
+
+    if (forceNewPassword !== forceNewPasswordConfirm) {
+      setErrorMessage('A confirmação da senha não coincide.');
+      return;
+    }
+
+    const validation = validatePasswordPolicy(forceNewPassword);
+    if (!validation.isValid) {
+      setErrorMessage('A senha não atende a todos os requisitos de segurança exigidos.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const res = AuthService.updatePasswordWithPolicy(forceChangeUser.email, forceNewPassword);
+
+      if (!res.success || !res.user) {
+        setErrorMessage(res.error || 'Não foi possível atualizar a senha.');
+        return;
+      }
+
+      setSuccessMessage('Sua senha foi atualizada com sucesso! Redirecionando para o cockpit...');
+      const updatedUser = res.user;
+      setForceChangeUser(null);
+      setIsLoggingInSuccess(true);
+      setPendingAuthUser(updatedUser);
+      setIsLoggingInSplash(true);
+    }, 500);
   };
 
   // Handle 2FA OTP Submit
@@ -1513,6 +1567,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
                   </div>
                 </div>
 
+                {/* Exibição em tempo real das regras de senha */}
+                <PasswordRulesList password={adminPassword} />
+
                 {/* Escolha do Nível de 2FA */}
                 <div className="pt-2">
                   <label className="block text-xs font-semibold text-white mb-1.5">
@@ -1861,6 +1918,111 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
           />
         )}
       </AnimatePresence>
+
+      {/* MODAL OBRIGATÓRIO DE ALTERAÇÃO DE SENHA PROVISÓRIA */}
+      {forceChangeUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-[#0D1322] border border-cyan-500/40 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-100 flex flex-col p-6 space-y-5">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Cadastre sua Nova Senha Definitiva</h3>
+                <p className="text-xs text-amber-300 font-mono mt-0.5">
+                  Conta autorizada com senha provisória • {forceChangeUser.email}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 space-y-1">
+              <p>
+                Por regra de segurança da plataforma Vértice, todo usuário aprovado com senha provisória deve cadastrar uma senha pessoal definitiva no primeiro acesso.
+              </p>
+              <p className="text-[11px] text-teal-400 font-semibold">
+                ✓ Não é enviado e-mail. A alteração é validada e concluída diretamente nesta tela.
+              </p>
+            </div>
+
+            <form onSubmit={handleForcePasswordSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-200 font-semibold mb-1">
+                  Nova Senha Definitiva *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type={showForcePassword ? 'text' : 'password'}
+                    required
+                    value={forceNewPassword}
+                    onChange={(e) => setForceNewPassword(e.target.value)}
+                    placeholder="Digite sua nova senha segura"
+                    className="w-full bg-[#060911] border border-slate-700 rounded-xl pl-10 pr-11 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowForcePassword(!showForcePassword)}
+                    className="absolute right-3.5 top-2.5 p-1 text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    {showForcePassword ? <EyeOff className="w-4 h-4 text-white" /> : <Eye className="w-4 h-4 text-white" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-200 font-semibold mb-1">
+                  Confirmar Nova Senha *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type={showForcePassword ? 'text' : 'password'}
+                    required
+                    value={forceNewPasswordConfirm}
+                    onChange={(e) => setForceNewPasswordConfirm(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    className="w-full bg-[#060911] border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* LISTA DE REGRAS DE SENHA EM TEMPO REAL */}
+              <PasswordRulesList password={forceNewPassword} />
+
+              {errorMessage && (
+                <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForceChangeUser(null)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading || !validatePasswordPolicy(forceNewPassword).isValid}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 disabled:opacity-50 text-white font-bold cursor-pointer transition flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <span>Salvando nova senha...</span>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 text-white stroke-[3]" />
+                      <span>Salvar e Acessar o Sistema</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL POP-UP ESTILO GOV.BR / WINDOWS DE SELEÇÃO DE CERTIFICADO */}
       {isCertModalOpen && (
