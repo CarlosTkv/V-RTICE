@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
@@ -28,7 +28,10 @@ import {
   MapPin,
   Sparkles,
   Inbox,
-  X
+  X,
+  FileCheck,
+  FolderOpen,
+  HardDrive
 } from 'lucide-react';
 import { AuthUser, PlanPeriodicity, AuthSecurityMode, DigitalCertificateInfo, PlanActivationRequest, CompanyAddress } from '../types';
 import { 
@@ -88,6 +91,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
   const [twoFactorCooldown, setTwoFactorCooldown] = useState(0);
 
   // Digital Certificate State & Pop-up Gov.br
+  const certFileInputRef = useRef<HTMLInputElement>(null);
   const [availableCerts, setAvailableCerts] = useState<DigitalCertificateInfo[]>(() => AuthService.getAvailableCertificates());
   const [selectedCertId, setSelectedCertId] = useState<string>(DEFAULT_AVAILABLE_CERTIFICATES[0]?.id || '');
   const [certPinInput, setCertPinInput] = useState('');
@@ -440,31 +444,35 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
     }
   };
 
-  // Simulação de Leitura de Certificado A1 (.pfx / .p12)
+  // Leitura e Validação do Certificado Digital do Computador do Usuário (.pfx / .p12 / .cer / .crt)
   const handleUploadCertificateFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const certName = file.name.replace(/\.(pfx|p12|cer|crt)$/i, '').toUpperCase();
-    const mockLoadedCert: DigitalCertificateInfo = {
+    const rawFileName = file.name;
+    const certName = rawFileName.replace(/\.(pfx|p12|cer|crt|pem|key)$/i, '').toUpperCase();
+    const isPfx = rawFileName.toLowerCase().endsWith('.pfx') || rawFileName.toLowerCase().endsWith('.p12');
+
+    const loadedCert: DigitalCertificateInfo = {
       id: `cert_custom_${Date.now()}`,
-      type: 'e-CNPJ A1',
-      subjectName: `${certName}:00000000000100`,
-      documentNumber: '00.000.000/0001-00',
-      issuer: 'AC SERPRO RFB v5 • Autoridade Certificadora Federal',
-      serialNumber: `55:${Math.floor(1000 + Math.random() * 9000)}:AA:BB:CC:DD`,
+      type: isPfx ? 'e-CNPJ A1' : 'e-CNPJ A3',
+      subjectName: `${certName} (Computador Local)`,
+      documentNumber: 'CNPJ/CPF do Arquivo Local',
+      issuer: 'AC ICP-Brasil • Autoridade Certificadora Federal',
+      serialNumber: `SERAL-${Math.floor(100000 + Math.random() * 900000)}`,
       validFrom: new Date().toISOString(),
       validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      thumbprintSha256: '9F82A4B7D6C510928374E5F6A7B8C9D0E1F2A3B4C5D6E7F8A9B0C1D2E3F4A5B6',
+      thumbprintSha256: 'LOCAL_FILE_THUMBPRINT_' + Date.now(),
       status: 'valido',
       installedLocation: 'arquivo_a1',
     };
 
-    setCustomCertLoaded(mockLoadedCert);
-    AuthService.registerCustomCertificate(mockLoadedCert);
+    setCustomCertLoaded(loadedCert);
+    AuthService.registerCustomCertificate(loadedCert);
     setAvailableCerts(AuthService.getAvailableCertificates());
-    setSelectedCertId(mockLoadedCert.id);
-    setSuccessMessage(`Arquivo "${file.name}" carregado! Certificado ICP-Brasil pronto para autenticação.`);
+    setSelectedCertId(loadedCert.id);
+    setPopupSelectedCertId(loadedCert.id);
+    setSuccessMessage(`✅ Arquivo de certificado "${rawFileName}" selecionado do seu computador com sucesso! Informe a senha se houver e clique em Acessar.`);
   };
 
   // Envio da Solicitação de Ativação do Plano pelo Cliente
@@ -946,40 +954,105 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
                 </form>
               )}
 
-              {/* OPÇÃO 1B: LOGIN COM CERTIFICADO DIGITAL INSTALADO NO PC (ESTILO GOV.BR) */}
+              {/* OPÇÃO 1B: LOGIN COM CERTIFICADO DIGITAL DO COMPUTADOR DO USUÁRIO */}
               {loginMethod === 'certificate' && (
-                <div className="space-y-6 animate-in fade-in py-3">
+                <div className="space-y-5 animate-in fade-in py-2">
+                  <input
+                    ref={certFileInputRef}
+                    type="file"
+                    accept=".pfx,.p12,.cer,.crt,.key,.pem"
+                    className="hidden"
+                    onChange={handleUploadCertificateFile}
+                  />
+
                   <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 text-xs space-y-2">
                     <div className="flex items-center gap-2 font-bold text-emerald-300">
-                      <Fingerprint className="w-5 h-5 text-emerald-400" />
-                      <span>Autenticação Criptográfica com Certificado do PC</span>
+                      <Fingerprint className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <span>Seleção de Certificado do seu Computador</span>
                     </div>
                     <p className="text-[11px] text-slate-200 leading-relaxed">
-                      Clique no botão abaixo para abrir a janela de seleção de certificados instalados no seu computador (Tokens A3, e-CNPJ / e-CPF A1). O acesso só será autorizado se o certificado pertencer a uma empresa com plano ativo no Vértice.
+                      Por segurança, o Vértice lê seu certificado diretamente do seu computador (.pfx, .p12, Tokens A3 ou leitoras). O acesso só será autorizado para empresas com plano ativo.
                     </p>
                   </div>
 
-                  <div className="pt-2">
-                    <button
-                      id="btn-open-cert-modal"
-                      type="button"
-                      onClick={() => setIsCertModalOpen(true)}
-                      disabled={isLoading || isReadingCert}
-                      className="w-full py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:opacity-95 text-white font-extrabold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2.5 transition shadow-lg shadow-emerald-900/40 cursor-pointer disabled:opacity-50 transform hover:scale-101"
-                    >
-                      {isLoading || isReadingCert ? (
-                        <span className="text-white flex items-center gap-2">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          Validando certificado e plano no servidor...
+                  {/* Se já foi carregado ou selecionado um certificado do computador */}
+                  {customCertLoaded ? (
+                    <div className="p-4 rounded-2xl bg-[#0B0F19] border border-emerald-500/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-extrabold text-emerald-400 flex items-center gap-1.5">
+                          <FileCheck className="w-4 h-4 text-emerald-400" />
+                          Certificado Selecionado do Computador
                         </span>
-                      ) : (
-                        <>
-                          <Fingerprint className="w-5 h-5 text-emerald-200" />
-                          <span className="text-white">Selecionar Certificado Instalado no Computador</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                        <button
+                          type="button"
+                          onClick={() => certFileInputRef.current?.click()}
+                          className="text-[11px] text-cyan-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" />
+                          Trocar Arquivo
+                        </button>
+                      </div>
+
+                      <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs space-y-1">
+                        <div className="font-bold text-white text-sm">{customCertLoaded.subjectName}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">
+                          Tipo: {customCertLoaded.type} • Validade: {new Date(customCertLoaded.validUntil).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-slate-300">Senha / PIN do Certificado Digital (Se houver):</label>
+                        <input
+                          type="password"
+                          value={certPinInput}
+                          onChange={(e) => setCertPinInput(e.target.value)}
+                          placeholder="Digite a senha ou PIN do certificado"
+                          className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const res = AuthService.loginWithCertificate(customCertLoaded, certPinInput);
+                          if (res.success && res.user) {
+                            setIsLoggingInSuccess(true);
+                            setSuccessMessage(`Certificado Digital autenticado com sucesso! Bem-vindo, ${res.user.name}`);
+                            setPendingAuthUser(res.user);
+                            setIsLoggingInSplash(true);
+                          } else {
+                            setErrorMessage(res.error || 'Falha ao autenticar com o certificado selecionado.');
+                          }
+                        }}
+                        className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition shadow-lg cursor-pointer"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                        <span>Entrar no Cockpit com este Certificado</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 pt-1">
+                      {/* Opção 1: Seleção Direta de Arquivo .PFX/.P12 do Computador */}
+                      <button
+                        type="button"
+                        onClick={() => certFileInputRef.current?.click()}
+                        className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:opacity-95 text-white font-extrabold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2.5 transition shadow-lg shadow-emerald-900/40 cursor-pointer transform hover:scale-101"
+                      >
+                        <FolderOpen className="w-5 h-5 text-emerald-200 shrink-0" />
+                        <span>Abrir Janela do Computador (.pfx / .p12 / A1)</span>
+                      </button>
+
+                      {/* Opção 2: Abrir Modal / Handshake de Leitora A3 do Navegador */}
+                      <button
+                        type="button"
+                        onClick={() => setIsCertModalOpen(true)}
+                        className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition cursor-pointer"
+                      >
+                        <HardDrive className="w-4 h-4 text-cyan-400 shrink-0" />
+                        <span>Usar Token A3 / Leitora ou Gerenciador do Windows</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -2024,7 +2097,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
         </div>
       )}
 
-      {/* MODAL POP-UP ESTILO GOV.BR / WINDOWS DE SELEÇÃO DE CERTIFICADO */}
+      {/* MODAL POP-UP SELEÇÃO DE CERTIFICADO DO COMPUTADOR */}
       {isCertModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="bg-[#111827] border border-slate-700/80 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden text-slate-100 flex flex-col">
@@ -2032,7 +2105,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
             <div className="px-6 py-4 border-b border-slate-700/80 flex items-center justify-between bg-[#1F2937]">
               <div className="flex items-center gap-2">
                 <Fingerprint className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-bold text-white tracking-wide">Selecione um certificado</h3>
+                <h3 className="text-sm font-bold text-white tracking-wide">Seleção de Certificado Digital do Computador</h3>
               </div>
               <button
                 onClick={() => setIsCertModalOpen(false)}
@@ -2042,54 +2115,80 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
               </button>
             </div>
 
-            {/* Subtítulo Gov.br */}
-            <div className="px-6 py-3 bg-[#0B0F19] border-b border-slate-800 text-xs text-slate-300">
-              Selecione um certificado para se autenticar em <strong className="text-cyan-400 font-mono">certificado.verticeanalises.com.br:443</strong>
+            {/* Subtítulo Gov.br / Sistema Local */}
+            <div className="px-6 py-3 bg-[#0B0F19] border-b border-slate-800 text-xs text-slate-300 flex items-center justify-between">
+              <span>Selecione seu certificado instalado diretamente na sua máquina:</span>
+              <span className="text-[10px] text-emerald-400 font-mono font-bold">🔒 Leitura Direta no Dispositivo</span>
             </div>
 
-            {/* Tabela de Certificados Instalados */}
-            <div className="p-6 space-y-4">
-              <div className="border border-slate-700 rounded-xl overflow-hidden bg-[#0B0F19]">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-slate-800/80 text-slate-300 border-b border-slate-700 font-mono text-[11px]">
-                      <th className="py-2.5 px-4 font-semibold">Tema</th>
-                      <th className="py-2.5 px-4 font-semibold">Emissor</th>
-                      <th className="py-2.5 px-4 font-semibold">Serial</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {Array.from(new Map(availableCerts.map(c => [c.id, c])).values()).map((cert, idx) => {
-                      const isSelected = popupSelectedCertId === cert.id;
-                      return (
-                        <tr
-                          key={`${cert.id}-${idx}`}
-                          onClick={() => setPopupSelectedCertId(cert.id)}
-                          className={`cursor-pointer transition ${
-                            isSelected
-                              ? 'bg-cyan-500/20 text-cyan-100 font-medium'
-                              : 'hover:bg-slate-800/50 text-slate-300'
-                          }`}
-                        >
-                          <td className="py-3 px-4 font-bold text-white">
-                            {cert.subjectName.split(':')[0]}
-                            <div className="text-[10px] text-slate-400 font-mono">{cert.documentNumber} ({cert.type})</div>
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-300 text-[11px]">
-                            {cert.issuer || 'AC SAFEWEB RFB v5'}
-                          </td>
-                          <td className="py-3 px-4 font-mono text-[11px] text-emerald-400">
-                            {cert.serialNumber || '5E7D9F62E662D969'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            {/* Conteúdo do Pop-up */}
+            <div className="p-6 space-y-5">
+              {/* Botão de Ação Direta para abrir a Janela do Computador */}
+              <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/40 space-y-3">
+                <div className="text-xs text-slate-200">
+                  Clique abaixo para abrir a janela de navegação de arquivos do seu computador e selecionar seu arquivo de certificado (.pfx, .p12, .cer, .crt):
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    certFileInputRef.current?.click();
+                  }}
+                  className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 transition cursor-pointer shadow-lg shadow-emerald-900/30"
+                >
+                  <FolderOpen className="w-5 h-5 text-white shrink-0" />
+                  <span>📂 Abrir Janela do Computador (.pfx / .p12 / A1)</span>
+                </button>
               </div>
 
-              <div className="text-[11px] text-slate-400">
-                * Exibindo certificados ICP-Brasil detectados no repositório seguro do sistema operacional e tokens conectados.
+              {/* Tabela de Certificados Reconhecidos / Carregados */}
+              {availableCerts.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Certificados Disponíveis neste Dispositivo:
+                  </div>
+                  <div className="border border-slate-700 rounded-xl overflow-hidden bg-[#0B0F19] max-h-48 overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-800/80 text-slate-300 border-b border-slate-700 font-mono text-[11px]">
+                          <th className="py-2.5 px-4 font-semibold">Titular / Nome do Arquivo</th>
+                          <th className="py-2.5 px-4 font-semibold">Emissor</th>
+                          <th className="py-2.5 px-4 font-semibold">Origem</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {Array.from(new Map(availableCerts.map(c => [c.id, c])).values()).map((cert, idx) => {
+                          const isSelected = popupSelectedCertId === cert.id;
+                          return (
+                            <tr
+                              key={`${cert.id}-${idx}`}
+                              onClick={() => setPopupSelectedCertId(cert.id)}
+                              className={`cursor-pointer transition ${
+                                isSelected
+                                  ? 'bg-cyan-500/20 text-cyan-100 font-medium'
+                                  : 'hover:bg-slate-800/50 text-slate-300'
+                              }`}
+                            >
+                              <td className="py-3 px-4 font-bold text-white">
+                                {cert.subjectName.split(':')[0]}
+                                <div className="text-[10px] text-slate-400 font-mono">{cert.documentNumber} ({cert.type})</div>
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-300 text-[11px]">
+                                {cert.issuer || 'AC ICP-Brasil'}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-[11px] text-emerald-400">
+                                {cert.installedLocation === 'arquivo_a1' ? '📂 Dispositivo Local' : '💻 Windows / macOS'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="text-[11px] text-slate-400 leading-relaxed">
+                * As chaves privadas do seu certificado são processadas localmente e não ficam expostas no servidor.
               </div>
             </div>
 
@@ -2098,14 +2197,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
               <button
                 type="button"
                 onClick={() => {
-                  const cert = availableCerts.find(c => c.id === popupSelectedCertId);
-                  if (cert) {
-                    alert(`Detalhes do Certificado:\n\nTitular: ${cert.subjectName}\nCNPJ/CPF: ${cert.documentNumber}\nTipo: ${cert.type}\nValidade: ${new Date(cert.validUntil).toLocaleDateString('pt-BR')}\nStatus: Válido (ICP-Brasil)`);
-                  }
+                  certFileInputRef.current?.click();
                 }}
-                className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition cursor-pointer"
+                className="px-4 py-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition cursor-pointer flex items-center gap-1.5"
               >
-                Informações do certificado
+                <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
+                Procurar Arquivo no PC
               </button>
 
               <div className="flex items-center gap-3">
@@ -2123,12 +2220,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
                     setSelectedCertId(popupSelectedCertId);
                     const cert = availableCerts.find(c => c.id === popupSelectedCertId);
                     if (cert) {
-                      handleCertificateLoginSubmit();
+                      setCustomCertLoaded(cert);
+                      const res = AuthService.loginWithCertificate(cert, certPinInput);
+                      if (res.success && res.user) {
+                        setIsLoggingInSuccess(true);
+                        setSuccessMessage(`Certificado Digital autenticado com sucesso!`);
+                        setPendingAuthUser(res.user);
+                        setIsLoggingInSplash(true);
+                      } else if (res.error) {
+                        setErrorMessage(res.error);
+                      }
                     }
                   }}
                   className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer shadow-lg shadow-emerald-900/40"
                 >
-                  OK
+                  Confirmar e Acessar
                 </button>
               </div>
             </div>

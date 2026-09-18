@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShieldCheck, 
   Lock, 
@@ -36,7 +36,8 @@ import {
   Fingerprint,
   UploadCloud,
   FileCheck,
-  Shield
+  Shield,
+  FolderOpen
 } from 'lucide-react';
 import { AuthUser, SoldSubscription, SystemUser, SystemUserPermission, PlanPeriodicity, PlanAllowedModules, AuthSecurityMode, DigitalCertificateInfo } from '../types';
 import { AuthService, SentEmailNotification, PendingRegistration, PendingPasswordReset, DEFAULT_AVAILABLE_CERTIFICATES } from '../utils/authService';
@@ -85,6 +86,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   >(currentUser ? 'profile' : 'login');
 
   // Security Configuration State (2FA / Certificado Digital)
+  const authCertInputRef = useRef<HTMLInputElement>(null);
   const [userSecMode, setUserSecMode] = useState<AuthSecurityMode>(
     () => currentUser?.authSecurityMode || 'password_only'
   );
@@ -94,6 +96,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [availableCertsList, setAvailableCertsList] = useState<DigitalCertificateInfo[]>(
     () => AuthService.getAvailableCertificates()
   );
+
+  const handleAuthCertUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const rawFileName = file.name;
+    const certName = rawFileName.replace(/\.(pfx|p12|cer|crt|pem|key)$/i, '').toUpperCase();
+    const loadedCert: DigitalCertificateInfo = {
+      id: `cert_custom_${Date.now()}`,
+      type: file.name.toLowerCase().endsWith('.pfx') || file.name.toLowerCase().endsWith('.p12') ? 'e-CNPJ A1' : 'e-CNPJ A3',
+      subjectName: `${certName} (Computador Local)`,
+      subjectCommonName: certName,
+      documentNumber: 'CNPJ/CPF do Arquivo Local',
+      issuer: 'AC ICP-Brasil • Autoridade Certificadora Federal',
+      serialNumber: `SERAL-${Math.floor(100000 + Math.random() * 900000)}`,
+      validFrom: new Date().toISOString(),
+      validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      thumbprintSha256: 'LOCAL_FILE_THUMBPRINT_' + Date.now(),
+      status: 'valido',
+      installedLocation: 'arquivo_a1',
+    };
+    AuthService.registerCustomCertificate(loadedCert);
+    setAvailableCertsList(AuthService.getAvailableCertificates());
+    setUserSecCert(loadedCert);
+  };
 
   // Sincroniza estado de segurança com usuário logado
   useEffect(() => {
@@ -1361,14 +1387,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Detalhes de Configuração para Certificado Digital */}
               {userSecMode === 'digital_certificate' && (
                 <div className="p-4 bg-[#0B0F19] rounded-2xl border border-cyan-500/40 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <input
+                    ref={authCertInputRef}
+                    type="file"
+                    accept=".pfx,.p12,.cer,.crt,.key,.pem"
+                    className="hidden"
+                    onChange={handleAuthCertUpload}
+                  />
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <h4 className="font-bold text-white text-xs flex items-center gap-1.5">
                       <Fingerprint className="w-4 h-4 text-cyan-400" />
-                      <span>Selecione o Certificado Digital ICP-Brasil para vincular à sua conta:</span>
+                      <span>Selecione o Certificado do seu Computador (.pfx / .p12 / A1):</span>
                     </h4>
-                    <span className="text-[10px] text-cyan-400 font-mono">
-                      {availableCertsList.length} detectados no repositório
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => authCertInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>📂 Abrir Arquivo do PC</span>
+                    </button>
                   </div>
 
                   <div className="space-y-2">
@@ -1390,7 +1429,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             </div>
                             <div>
                               <div className="font-bold text-xs flex items-center gap-2">
-                                <span>{cert.subjectCommonName}</span>
+                                <span>{cert.subjectCommonName || cert.subjectName}</span>
                                 <span className="px-1.5 py-0.2 rounded text-[9px] bg-slate-800 text-slate-300 font-mono">
                                   {cert.type}
                                 </span>
