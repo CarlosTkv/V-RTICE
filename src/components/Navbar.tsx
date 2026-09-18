@@ -349,7 +349,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="py-2.5 space-y-1.5">
           {!isEmpresa ? (
             <div className="space-y-1.5 w-full">
-              {/* Linha 1: 5 Módulos Tributários, Emissão & Gestão */}
+              {/* Linha 1: 5 Módulos Principais do Sistema (Fator R, Planejamento, Blindagem Societária, Emissor NFS-e, Financeiro) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
                 <NavButton 
                   id="auditoria_digital" 
@@ -368,6 +368,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   subLabel="Simulador 4 em 1 • Reforma" 
                 />
                 <NavButton 
+                  id="legal_societario" 
+                  label="Blindagem Societária" 
+                  icon={Building2} 
+                  color="cyan" 
+                  pattern="cyan" 
+                  subLabel="Expert 360° • Holdings • Auditor IA" 
+                />
+                <NavButton 
                   id="emissao_nfse" 
                   label="Emissor Fiscal NFS-e" 
                   icon={Receipt} 
@@ -383,6 +391,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   pattern="teal" 
                   subLabel="DRE • Balancete • Lucros" 
                 />
+              </div>
+
+              {/* Linha 2: 5 Módulos Consultivos, Normativos & Estratégicos */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
                 <NavButton 
                   id="consultoria_fiscal" 
                   label="Classificação & Monofásico" 
@@ -390,18 +402,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   color="amber" 
                   pattern="amber" 
                   subLabel="NCM • PIS/COFINS • ST" 
-                />
-              </div>
-
-              {/* Linha 2: 5 Módulos Societários, Normativos & Estratégicos */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
-                <NavButton 
-                  id="legal_societario" 
-                  label="Blindagem Societária" 
-                  icon={Building2} 
-                  color="cyan" 
-                  pattern="cyan" 
-                  subLabel="Sublimites • Juntas 27 UFs" 
                 />
                 <NavButton 
                   id="agenda_fiscal" 

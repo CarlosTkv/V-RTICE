@@ -2059,115 +2059,115 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
         </div>
       )}
 
-      {/* Navegação de Abas Secundárias do Analista Tributário - Quebra de linha responsiva */}
-      <div id="subtabs-nav-header" className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-b border-slate-800 pb-3 text-xs font-semibold">
+      {/* Navegação de Abas Secundárias do Analista Tributário - Grid Horizontal 8 Colunas */}
+      <div id="subtabs-nav-header" className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 border-b border-slate-800 pb-3 text-xs font-semibold w-full">
         <button
           onClick={() => setActiveSubTab('comparativo')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'comparativo'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40 border border-blue-400/40'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <Scale className="w-4 h-4" />
-          <span>Comparativo dos 4 Regimes</span>
+          <Scale className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">1. Comparativo 4 Regimes</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('auditoria_cpp')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'auditoria_cpp'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40 border border-indigo-400/40'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Auditoria CPP & Folha</span>
-          <span className="px-1.5 py-0.5 rounded text-[9px] bg-indigo-950/80 text-indigo-300 border border-indigo-800 font-bold font-mono">
+          <Users className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">2. Auditoria CPP</span>
+          <span className="px-1 py-0.2 rounded text-[8px] bg-indigo-950/80 text-indigo-300 border border-indigo-800 font-bold font-mono">
             {calculation.payrollCppAudit?.hasEmployees ? '28,8%' : '20%'}
           </span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('anexos')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'anexos'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40 border border-blue-400/40'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <Layers className="w-4 h-4" />
-          <span>Memória dos Anexos & Atividades ({activeAnexosCount})</span>
+          <Layers className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">3. Anexos ({activeAnexosCount})</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('sublimite')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'sublimite'
-              ? 'bg-amber-600 text-white shadow-xs'
+              ? 'bg-amber-600 text-white shadow-md shadow-amber-950/40 border border-amber-400/40'
               : calculation.exceedsSublimit
               ? 'text-amber-300 bg-amber-950/60 border border-amber-800'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <AlertTriangle className="w-4 h-4" />
-          <span>Auditoria do Sublimite (ICMS/ISS por fora)</span>
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">4. Sublimite ICMS/ISS</span>
           {calculation.exceedsSublimit && (
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           )}
         </button>
 
         <button
           onClick={() => setActiveSubTab('vantagens')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'vantagens'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40 border border-blue-400/40'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Matriz de Vantagens & Desvantagens</span>
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">5. Matriz Vantagens</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('dre')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'dre'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40 border border-blue-400/40'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>DRE Fiscal Lado a Lado</span>
+          <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">6. DRE Fiscal</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('impactos')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'impactos'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40 border border-blue-400/40'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <TrendingUp className="w-4 h-4" />
-          <span>Relatório de Impactos & B2B</span>
+          <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">7. Impactos & B2B</span>
         </button>
 
         <button
           onClick={() => setActiveSubTab('beneficio_icms')}
-          className={`px-3.5 py-2 rounded-lg transition flex items-center space-x-2  cursor-pointer ${
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'beneficio_icms'
-              ? 'bg-blue-600 text-white shadow-xs'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-950/40 border border-blue-400/40'
               : calculation.stateSimplesIcmsBenefit?.hasBenefit
               ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-800'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-slate-850'
+              : 'bg-slate-900/80 text-slate-400 hover:text-slate-100 hover:bg-slate-800 border border-slate-800'
           }`}
         >
-          <Building2 className="w-4 h-4" />
-          <span>Regras Estaduais de ICMS (PR / RS)</span>
+          <Building2 className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">8. ICMS Estadual</span>
           {calculation.stateSimplesIcmsBenefit?.hasBenefit && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-bold font-mono">
-              {calculation.stateSimplesIcmsBenefit.reductionPercent}% Redução
+            <span className="px-1 py-0.2 rounded text-[8px] bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-bold font-mono">
+              {calculation.stateSimplesIcmsBenefit.reductionPercent}%
             </span>
           )}
         </button>

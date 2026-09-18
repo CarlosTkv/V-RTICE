@@ -18,13 +18,21 @@ import {
   CreditCard,
   QrCode,
   Building2,
-  UserCheck
+  UserCheck,
+  Library,
+  Check,
+  Copy,
+  FileSearch,
+  AlertTriangle,
+  Info,
+  FileCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import { CompanyData, AuthUser, SoldSubscription, PlanDefinition, PlanPeriodicity } from '../types';
 import { PLATFORM_PLANS, DEFAULT_BANK_CONFIG } from '../data/adminBillingData';
 import { BrandLogo } from './BrandLogo';
+import { CONTRACT_MATRIX_DATA, CONTRACT_VERTICALS, ContractModelItem } from '../data/contractMatrixData';
 
 export interface ServiceContractItem {
   id: string;
@@ -169,6 +177,19 @@ export const ServiceContractsModule: React.FC<ServiceContractsModuleProps> = ({ 
   const [applyPromptDiscount, setApplyPromptDiscount] = useState(false);
   const [applyAnnualDiscount, setApplyAnnualDiscount] = useState(true);
 
+  // Estados adicionais para Engenharia Contratual & Auditor IA
+  const [activeSubTab, setActiveSubTab] = useState<'issued' | 'matrix' | 'auditor'>('issued');
+  const [matrixSearch, setMatrixSearch] = useState('');
+  const [selectedMatrixVertical, setSelectedMatrixVertical] = useState<string>('all');
+  const [expandedMatrixId, setExpandedMatrixId] = useState<string | null>(null);
+  const [copiedContractId, setCopiedContractId] = useState<string | null>(null);
+
+  // Estados para Auditor IA de Minutas
+  const [auditorDraftText, setAuditorDraftText] = useState('');
+  const [auditorSelectedType, setAuditorSelectedType] = useState<string>('CON-101');
+  const [isAuditing, setIsAuditing] = useState(false);
+  const [auditResult, setAuditResult] = useState<any | null>(null);
+
   useEffect(() => {
     if (currentCompany) {
       setNewClientName(currentCompany.name);
@@ -186,6 +207,91 @@ export const ServiceContractsModule: React.FC<ServiceContractsModuleProps> = ({ 
     c.contractNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.planName.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleAudit = () => {
+    if (!auditorDraftText.trim()) return;
+    setIsAuditing(true);
+    setAuditResult(null);
+
+    setTimeout(() => {
+      const selectedModel = CONTRACT_MATRIX_DATA.find(m => m.id === auditorSelectedType) || CONTRACT_MATRIX_DATA[0];
+      const text = auditorDraftText.toLowerCase();
+
+      // Check for elements vitais (Vitals) in the text
+      const hasPreambulo = text.includes('qualifica') || text.includes('preâmbulo') || text.includes('cnp') || text.includes('cpf') || text.includes('razão social') || text.includes('inscrita') || text.includes('residente');
+      const hasObjeto = text.includes('objeto') || text.includes('prestação de serviços') || text.includes('licenciamento') || text.includes('finalidade') || text.includes('objeto contratual');
+      const hasPreco = text.includes('preço') || text.includes('valor') || text.includes('pagará') || text.includes('reajuste') || text.includes('reajustado') || text.includes('fatura') || text.includes('vencimento') || text.includes('pagamento');
+      const hasVigencia = text.includes('vigência') || text.includes('prazo') || text.includes('rescis') || text.includes('multa por quebra') || text.includes('fidelidade') || text.includes('extinção') || text.includes('aviso prévio');
+      const hasProtecao = text.includes('confidencial') || text.includes('sigilo') || text.includes('nda') || text.includes('concorrência') || text.includes('propriedade intelectual') || text.includes('marca') || text.includes('ativos') || text.includes('segredo');
+      const hasForo = text.includes('foro') || text.includes('eleger') || text.includes('comarca') || text.includes('resolvido') || text.includes('arbitragem') || text.includes('disputa');
+
+      // Check for validade requirements (Art. 104 CC)
+      const hasAgenteCapaz = text.includes('representante') || text.includes('representada') || text.includes('sócio') || text.includes('procurador') || text.includes('capacidade') || text.includes('plena') || text.includes('art. 104') || text.includes('capaz');
+      const hasObjetoLicito = text.includes('serviço') || text.includes('lícito') || text.includes('atividades') || text.includes('regular') || text.includes('cnae') || text.includes('possível');
+      const hasFormaPrescrita = text.includes('testemunha') || text.includes('icp-brasil') || text.includes('eletrônica') || text.includes('assina') || text.includes('instrumento') || text.includes('forma prescrita');
+
+      // Check for specific sphere risks
+      const hasLeoninaWarning = text.includes('retenção integral') || text.includes('multa de 100%') || text.includes('sem direito a aviso');
+      const hasImprevisaoCheck = text.includes('478') || text.includes('imprevisão') || text.includes('caso fortuito') || text.includes('força maior') || text.includes('reequilíbrio');
+      const hasComplianceCheck = text.includes('fraude') || text.includes('simulação') || text.includes('declaração falsa') || text.includes('falsidade') || text.includes('conformidade') || text.includes('compliance') || text.includes('anti-corrupção');
+      const hasTaxCheck = text.includes('retenç') || text.includes('irrf') || text.includes('pis') || text.includes('cofins') || text.includes('iss') || text.includes('tributo') || text.includes('imposto') || text.includes('csll');
+
+      // Calculate score based on vitals and validity (weighted)
+      let score = 25; // base score for input
+      if (hasPreambulo) score += 10;
+      if (hasObjeto) score += 12;
+      if (hasPreco) score += 12;
+      if (hasVigencia) score += 10;
+      if (hasProtecao) score += 10;
+      if (hasForo) score += 8;
+
+      if (hasAgenteCapaz) score += 3;
+      if (hasObjetoLicito) score += 3;
+      if (hasFormaPrescrita) score += 4;
+      if (hasImprevisaoCheck) score += 4;
+      if (hasComplianceCheck) score += 2;
+      if (hasTaxCheck) score += 2;
+
+      // Cap score
+      score = Math.min(Math.max(score, 10), 100);
+
+      setAuditResult({
+        score,
+        model: selectedModel,
+        vitals: {
+          preambulo: hasPreambulo,
+          objeto: hasObjeto,
+          preco: hasPreco,
+          vigencia: hasVigencia,
+          protecao: hasProtecao,
+          foro: hasForo
+        },
+        validade: {
+          agenteCapaz: hasAgenteCapaz,
+          objetoLicito: hasObjetoLicito,
+          formaPrescrita: hasFormaPrescrita
+        },
+        riscos: {
+          civil: {
+            ok: hasImprevisaoCheck && !hasLeoninaWarning,
+            warning: hasLeoninaWarning ? "Risco elevado de cláusulas leoninas identificadas. Multas rescisórias abusivas ou retenções sem reciprocidade." : !hasImprevisaoCheck ? "Falta de menção expressa à Teoria da Imprevisão (Art. 478 CC) ou caso fortuito." : null,
+            correction: "Garantir reciprocidade contratual em caso de penalidades de rescisão e adicionar cláusula de reequilíbrio econômico baseada no Art. 478 do Código Civil."
+          },
+          compliance: {
+            ok: hasComplianceCheck,
+            warning: !hasComplianceCheck ? "Ausência de salvaguardas de integridade ou proteção ativa contra falsidade ideológica (Art. 299 CP) ou simulações (Art. 171 CP)." : null,
+            correction: "Incluir um parágrafo de declaração mútua de compliance e conformidade com as leis anticorrupção vigentes."
+          },
+          fiscal: {
+            ok: hasTaxCheck,
+            warning: !hasTaxCheck ? "Ausência de detalhamento técnico de retenções federais e municipais (IRRF, CSLL, PIS, COFINS, ISS) para prestação de serviços." : null,
+            correction: "Garantir que o instrumento mencione expressamente quais retenções na fonte incidem sobre os pagamentos de acordo com o CNAE oficial."
+          }
+        }
+      });
+      setIsAuditing(false);
+    }, 1200);
+  };
 
   const formatBRL = (val: number) => {
     return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -400,174 +506,708 @@ export const ServiceContractsModule: React.FC<ServiceContractsModuleProps> = ({ 
             <div>
               <div className="flex items-center space-x-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-orange-300 bg-orange-950/80 px-2 py-0.5 rounded border border-orange-800/60 font-mono">
-                  Vértice Contratos & Jurídico
+                  Vértice Contratos & Engenharia Jurídica
                 </span>
               </div>
               <h2 className="text-xl font-bold text-slate-100 mt-1">
-                Contratos de Prestação de Serviços & Licenciamento
+                Contratos de Prestação de Serviços & Engenharia Contratual
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
-                Geração de instrumentos contratuais jurídicos robustos, vinculados ao plano ativo, com menção explícita a artigos do Código do Consumidor (CDC), fidelidade vinculante e cláusula de multa de quebra de contrato.
+                Geração de instrumentos contratuais robustos e auditoria de minutas sob os requisitos do Código Civil (Art. 104) e esferas de risco (Civil, Compliance e Fiscal).
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-orange-950/40 border border-orange-400/40 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Contrato Robusto</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-lg shadow-orange-950/40 border border-orange-400/40 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Contrato Vértice</span>
+            </button>
+          </div>
         </div>
 
         {/* Badges de Destaque Jurídico */}
         <div className="mt-5 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
           <div className="flex items-center space-x-2 text-slate-300">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>Art. 49 do CDC (7 dias)</span>
+            <span>Validade (Art. 104 CC)</span>
           </div>
           <div className="flex items-center space-x-2 text-slate-300">
             <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>Fidelidade Contratual</span>
+            <span>Proteção Ativos & NDA</span>
           </div>
           <div className="flex items-center space-x-2 text-slate-300">
             <Percent className="w-4 h-4 text-orange-400 shrink-0" />
-            <span>Multa de Quebra 20% (CC 408-416)</span>
+            <span>Mitigação de Riscos Fiscais</span>
           </div>
           <div className="flex items-center space-x-2 text-slate-300">
             <Sparkles className="w-4 h-4 text-orange-400 shrink-0" />
-            <span>Descontos 5% e 15% à vista</span>
+            <span>500 Modelos de Minutas</span>
           </div>
         </div>
       </div>
 
-      {/* FILTROS E BUSCA */}
-      <div className="flex items-center justify-between gap-4 bg-[#0F172A] p-4 rounded-xl border border-slate-800">
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por cliente, CNPJ, número de contrato ou plano..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-orange-500"
-          />
-        </div>
+      {/* MULTI-TAB CONTROLLERS FOR THE COCKPIT */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-1">
+        <button
+          onClick={() => setActiveSubTab('issued')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+            activeSubTab === 'issued'
+              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Contratos Emitidos ({contracts.length})</span>
+        </button>
 
-        <div className="text-xs text-slate-400">
-          Total de Contratos Gerados: <strong className="text-slate-100">{contracts.length}</strong>
-        </div>
+        <button
+          onClick={() => setActiveSubTab('matrix')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+            activeSubTab === 'matrix'
+              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <Library className="w-4 h-4" />
+          <span>Minutas de Serviços & Parcerias</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('auditor')}
+          className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+            activeSubTab === 'auditor'
+              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/30'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+          }`}
+        >
+          <FileSearch className="w-4 h-4" />
+          <span>Auditor IA de Prestação & Parcerias</span>
+        </button>
       </div>
 
-      {/* TABELA DE CONTRATOS */}
-      <div className="bg-[#0F172A] rounded-2xl border border-slate-800 overflow-hidden shadow-xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-[#0B0F19] text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
-              <tr>
-                <th className="p-4">Contrato Nº / Início</th>
-                <th className="p-4">Cliente / CNPJ</th>
-                <th className="p-4">Plano Escolhido</th>
-                <th className="p-4">Periodicidade & Fidelidade</th>
-                <th className="p-4">Valor & Descontos</th>
-                <th className="p-4">Meios de Pagamento</th>
-                <th className="p-4">Status</th>
-                <th className="p-4 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
-              {filteredContracts.map((contract) => {
-                const startDateFormatted = new Date(contract.startDate + 'T12:00:00').toLocaleDateString('pt-BR');
-                const endDateFormatted = new Date(contract.endDate + 'T12:00:00').toLocaleDateString('pt-BR');
+      {/* TAB 1: ISSUED CONTRACTS */}
+      {activeSubTab === 'issued' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* FILTROS E BUSCA */}
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-[#0F172A] p-4 rounded-xl border border-slate-800">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por cliente, CNPJ, número de contrato ou plano..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-orange-500"
+              />
+            </div>
 
-                return (
-                  <tr key={contract.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-4">
-                      <div className="font-mono font-bold text-blue-400 text-xs">{contract.contractNumber}</div>
-                      <div className="text-[11px] text-slate-400 flex items-center space-x-1 mt-0.5">
-                        <Calendar className="w-3 h-3 text-slate-500" />
-                        <span>Início: {startDateFormatted}</span>
-                      </div>
-                    </td>
+            <div className="text-xs text-slate-400 font-mono">
+              Total de Contratos Gerados: <strong className="text-slate-100">{contracts.length}</strong>
+            </div>
+          </div>
 
-                    <td className="p-4">
-                      <div className="font-bold text-slate-100 text-xs">{contract.clientName}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">{contract.cnpj}</div>
-                    </td>
-
-                    <td className="p-4">
-                      <span className="px-2.5 py-1 rounded-lg bg-blue-950/70 text-blue-300 border border-blue-800 font-bold text-xs inline-block">
-                        {contract.planName}
-                      </span>
-                    </td>
-
-                    <td className="p-4">
-                      <div className="font-semibold text-slate-200 capitalize">
-                        {contract.periodicity} ({contract.loyaltyMonths}m)
-                      </div>
-                      <div className="text-[10px] text-amber-400 font-medium mt-0.5">
-                        {contract.loyaltyMonths > 1 ? `Fidelidade até ${endDateFormatted}` : 'Sem fidelidade'}
-                      </div>
-                    </td>
-
-                    <td className="p-4">
-                      <div className="font-bold text-emerald-400 text-xs">
-                        {formatBRL(contract.value)}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        {contract.periodicity === 'anual' ? 'Desc. 15% à vista' : 'Desc. 5% pontualidade'}
-                      </div>
-                    </td>
-
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1">
-                        {contract.paymentMethods.map((m, idx) => (
-                          <span key={idx} className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] text-slate-300 font-medium">
-                            {m}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-
-                    <td className="p-4">
-                      {contract.contractAccepted ? (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold">
-                          Assinado
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 text-[10px] font-bold">
-                          Vigente / Formalizado
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => generatePDF(contract)}
-                          className="px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white font-semibold text-xs transition flex items-center space-x-1 cursor-pointer"
-                          title="Baixar Contrato Completo em PDF"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>PDF</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteContract(contract.id)}
-                          className="p-1.5 rounded-lg bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 transition cursor-pointer"
-                          title="Remover Contrato"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+          {/* TABELA DE CONTRATOS */}
+          <div className="bg-[#0F172A] rounded-2xl border border-slate-800 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-300">
+                <thead className="bg-[#0B0F19] text-slate-400 uppercase text-[10px] font-bold border-b border-slate-800">
+                  <tr>
+                    <th className="p-4">Contrato Nº / Início</th>
+                    <th className="p-4">Cliente / CNPJ</th>
+                    <th className="p-4">Plano Escolhido</th>
+                    <th className="p-4">Periodicidade & Fidelidade</th>
+                    <th className="p-4">Valor & Descontos</th>
+                    <th className="p-4">Meios de Pagamento</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4 text-right">Ações</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-mono">
+                  {filteredContracts.map((contract) => {
+                    const startDateFormatted = new Date(contract.startDate + 'T12:00:00').toLocaleDateString('pt-BR');
+                    const endDateFormatted = new Date(contract.endDate + 'T12:00:00').toLocaleDateString('pt-BR');
+
+                    return (
+                      <tr key={contract.id} className="hover:bg-slate-800/40 transition">
+                        <td className="p-4">
+                          <div className="font-bold text-blue-400 text-xs">{contract.contractNumber}</div>
+                          <div className="text-[11px] text-slate-400 flex items-center space-x-1 mt-0.5">
+                            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Início: {startDateFormatted}</span>
+                          </div>
+                        </td>
+
+                        <td className="p-4 font-sans">
+                          <div className="font-bold text-slate-100 text-xs">{contract.clientName}</div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">{contract.cnpj}</div>
+                        </td>
+
+                        <td className="p-4 font-sans">
+                          <span className="px-2.5 py-1 rounded-lg bg-blue-950/70 text-blue-300 border border-blue-800 font-bold text-xs inline-block">
+                            {contract.planName}
+                          </span>
+                        </td>
+
+                        <td className="p-4 font-sans">
+                          <div className="font-semibold text-slate-200 capitalize">
+                            {contract.periodicity} ({contract.loyaltyMonths}m)
+                          </div>
+                          <div className="text-[10px] text-amber-400 font-medium mt-0.5 font-mono">
+                            {contract.loyaltyMonths > 1 ? `Fidelidade até ${endDateFormatted}` : 'Sem fidelidade'}
+                          </div>
+                        </td>
+
+                        <td className="p-4">
+                          <div className="font-bold text-emerald-400 text-xs">
+                            {formatBRL(contract.value)}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-sans">
+                            {contract.periodicity === 'anual' ? 'Desc. 15% à vista' : 'Desc. 5% pontualidade'}
+                          </div>
+                        </td>
+
+                        <td className="p-4 font-sans">
+                          <div className="flex flex-wrap gap-1">
+                            {contract.paymentMethods.map((m, idx) => (
+                              <span key={idx} className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] text-slate-300 font-medium whitespace-nowrap">
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+
+                        <td className="p-4 font-sans">
+                          {contract.contractAccepted ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold">
+                              Assinado
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-800 text-[10px] font-bold">
+                              Vigente / Formalizado
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              onClick={() => generatePDF(contract)}
+                              className="px-3 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white font-semibold text-xs transition flex items-center space-x-1 cursor-pointer"
+                              title="Baixar Contrato Completo em PDF"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>PDF</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteContract(contract.id)}
+                              className="p-1.5 rounded-lg bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 border border-slate-700 transition cursor-pointer"
+                              title="Remover Contrato"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* TAB 2: LIBRARY AND SPECIFIC SERVICE/PARTNERSHIP CONTRACT MODELS */}
+      {activeSubTab === 'matrix' && (
+        <div className="space-y-4 animate-fadeIn">
+          {/* AVISO DE CONSOLIDAÇÃO NO MÓDULO BLINDAGEM SOCIETÁRIA */}
+          <div className="bg-gradient-to-r from-orange-950/40 via-[#0F172A] to-[#0F172A] border border-orange-500/30 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-xl bg-orange-600/20 border border-orange-500/40 text-orange-400 shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-200">
+                  Minutas de Governança, M&A, Acordos de Sócios e Blindagem Centralizadas
+                </h4>
+                <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                  O acervo completo de 500 minutas de governança, holding familiar, proteção patrimonial e acordos societários complexos foi consolidado no módulo <strong>Blindagem Societária</strong>, equipado com o Analisador Jurídico IA de conformidade (0 a 100 pontos).
+                </p>
+              </div>
+            </div>
+            <span className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-[11px] font-bold text-orange-300 shrink-0">
+              Societário &gt; Blindagem Societária
+            </span>
+          </div>
+
+          {/* MATRIX FILTERS AND SEARCH */}
+          <div className="bg-[#0F172A] p-4 rounded-xl border border-slate-800 space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="relative flex-1 max-w-md">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar minuta de serviço ou parceria comercial..."
+                  value={matrixSearch}
+                  onChange={(e) => setMatrixSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-orange-500"
+                />
+              </div>
+
+              <div className="text-xs text-slate-400">
+                Minutas de Prestação & Parcerias Ativas
+              </div>
+            </div>
+          </div>
+
+          {/* LIST OF CONTRACT MODELS */}
+          <div className="grid grid-cols-1 gap-4">
+            {CONTRACT_MATRIX_DATA.filter((model) => {
+              const titleLower = model.title.toLowerCase();
+              const isAllowed =
+                titleLower.includes('prestação de serviço do sistema para cliente') ||
+                titleLower.includes('parceria comercial');
+              if (!isAllowed) return false;
+
+              const matchSearch =
+                model.title.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                model.id.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                model.description.toLowerCase().includes(matrixSearch.toLowerCase());
+              return matchSearch;
+            }).map((model) => {
+              const isExpanded = expandedMatrixId === model.id;
+
+              // Replace placeholders dynamically for live previewing
+              const dynamicDraft = model.boilerplateDraft
+                .replace(/{{CONTRATANTE_NOME}}/g, currentCompany?.name || "CONTRATANTE EXECUTIVA S.A.")
+                .replace(/{{CONTRATANTE_CNPJ}}/g, currentCompany?.cnpj || "00.000.000/0001-99")
+                .replace(/{{CONTRATANTE_ENDERECO}}/g, `${currentCompany?.uf || 'SP'}, Brasil`)
+                .replace(/{{INVESTIDOR_NOME}}/g, "Carlos Miguel Vieira")
+                .replace(/{{INVESTIDOR_DOCUMENTO}}/g, "123.456.789-00")
+                .replace(/{{INVESTIDOR_ENDERECO}}/g, "Av. Paulista, 1000 - São Paulo/SP")
+                .replace(/{{VALOR_APORTE}}/g, "250.000,00")
+                .replace(/{{VALOR_APORTE_EXTENSO}}/g, "duzentos e cinquenta mil reais")
+                .replace(/{{PERCENTUAL_PARTICIPACAO}}/g, "5")
+                .replace(/{{PRAZO_CONVERSAO}}/g, "24")
+                .replace(/{{BENEFICIARIO_NOME}}/g, "Sócio Executor de Operações")
+                .replace(/{{BENEFICIARIO_DOCUMENTO}}/g, "987.654.321-99")
+                .replace(/{{PERCENTUAL_MAXIMO}}/g, "10")
+                .replace(/{{SOCIO_A_NOME}}/g, "Carlos Miguel Vieira")
+                .replace(/{{SOCIO_A_DOCUMENTO}}/g, "123.456.789-00")
+                .replace(/{{SOCIO_A_ENDERECO}}/g, "São Paulo/SP")
+                .replace(/{{SOCIO_B_NOME}}/g, "Parceiro Estratégico")
+                .replace(/{{SOCIO_B_DOCUMENTO}}/g, "888.888.888-88")
+                .replace(/{{SOCIO_B_ENDERECO}}/g, "Rio de Janeiro/RJ")
+                .replace(/{{EMPRESA_DENOMINACAO}}/g, currentCompany?.name?.toUpperCase() || "VÉRTICE INTELIGÊNCIA")
+                .replace(/{{EMPRESA_CIDADE}}/g, "São Paulo")
+                .replace(/{{EMPRESA_UF}}/g, currentCompany?.uf || "SP")
+                .replace(/{{CAPITAL_SOCIAL}}/g, "100.000,00")
+                .replace(/{{CAPITAL_SOCIAL_EXTENSO}}/g, "cem mil reais")
+                .replace(/{{TITULAR_NOME}}/g, "Carlos Miguel")
+                .replace(/{{TITULAR_DOCUMENTO}}/g, "123.456.789-00")
+                .replace(/{{TITULAR_ENDERECO}}/g, "São Paulo/SP")
+                .replace(/{{PRESTADOR_NOME}}/g, "Vértice Auditoria Contábil")
+                .replace(/{{PRESTADOR_DOCUMENTO}}/g, "55.666.777/0001-11")
+                .replace(/{{PRESTADOR_ENDERECO}}/g, "Av. Brigadeiro Faria Lima - SP")
+                .replace(/{{TIPO_SERVICO}}/g, "Auditoria de Fator R e Conciliação Tributária Inteligente")
+                .replace(/{{VALOR_MENSAL}}/g, "1.450,00")
+                .replace(/{{DIA_VENCIMENTO}}/g, "10")
+                .replace(/{{RECEPTORA_NOME}}/g, "Empresa Parceira Tecnológica Ltda")
+                .replace(/{{RECEPTORA_DOCUMENTO}}/g, "44.444.444/0001-55")
+                .replace(/{{RECEPTORA_ENDERECO}}/g, "Belo Horizonte/MG");
+
+              return (
+                <div key={model.id} className="bg-[#0F172A] border border-slate-800 rounded-xl overflow-hidden transition-all duration-200">
+                  <div
+                    onClick={() => setExpandedMatrixId(isExpanded ? null : model.id)}
+                    className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-800/40"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800 px-2 py-0.5 rounded font-mono">
+                          {model.id}
+                        </span>
+                        <span className="text-[10px] font-bold bg-slate-900 text-slate-400 px-2 py-0.5 rounded">
+                          {model.vertical}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-200 mt-1">{model.title}</h4>
+                      <p className="text-xs text-slate-400">{model.description}</p>
+                    </div>
+
+                    <span className="text-xs text-blue-400 font-bold whitespace-nowrap bg-blue-500/10 px-2.5 py-1 rounded-lg">
+                      {isExpanded ? "Recolher Detalhes ▲" : "Ver Estruturação ▼"}
+                    </span>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="p-5 border-t border-slate-800 bg-[#0B0F19]/50 space-y-5 animate-fadeIn">
+                      {/* 3 GRID CARDS FOR GUIDELINES REQUIREMENTS */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* 1. ELEMENTOS VITAIS */}
+                        <div className="bg-[#0F172A] border border-slate-800 rounded-xl p-4 space-y-2.5">
+                          <div className="flex items-center space-x-1.5 text-xs font-bold text-orange-400 uppercase tracking-wider pb-1.5 border-b border-slate-800">
+                            <Sparkles className="w-4 h-4" />
+                            <span>1. Elementos Vitais Mapeados</span>
+                          </div>
+                          <div className="text-[11px] space-y-2 text-slate-300">
+                            <p><strong>Preâmbulo:</strong> {model.vitais.preambulo}</p>
+                            <p><strong>Objeto:</strong> {model.vitais.objeto}</p>
+                            <p><strong>Preço/Reajuste:</strong> {model.vitais.preco}</p>
+                            <p><strong>Vigência/Extinção:</strong> {model.vitais.vigencia}</p>
+                            <p><strong>Proteção de Ativos:</strong> {model.vitais.protecao}</p>
+                            <p><strong>Disputas/Foro:</strong> {model.vitais.foro}</p>
+                          </div>
+                        </div>
+
+                        {/* 2. REQUISITOS ABSOLUTOS DE VALIDADE */}
+                        <div className="bg-[#0F172A] border border-slate-800 rounded-xl p-4 space-y-2.5">
+                          <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-400 uppercase tracking-wider pb-1.5 border-b border-slate-800">
+                            <Scale className="w-4 h-4" />
+                            <span>2. Validade (Art. 104 CC)</span>
+                          </div>
+                          <div className="text-[11px] space-y-2 text-slate-300">
+                            <p><strong>Agente Capaz:</strong> {model.validadeChecklist.agenteCapaz}</p>
+                            <p><strong>Objeto Lícito & Possível:</strong> {model.validadeChecklist.objetoLicito}</p>
+                            <p><strong>Forma Legal Prescrita:</strong> {model.validadeChecklist.formaPrescrita}</p>
+                          </div>
+                        </div>
+
+                        {/* 3. MATRIZ DE RISCO MULTI-ESFERAS */}
+                        <div className="bg-[#0F172A] border border-slate-800 rounded-xl p-4 space-y-2.5">
+                          <div className="flex items-center space-x-1.5 text-xs font-bold text-blue-400 uppercase tracking-wider pb-1.5 border-b border-slate-800">
+                            <ShieldCheck className="w-4 h-4" />
+                            <span>3. Matriz Multi-Esferas</span>
+                          </div>
+                          <div className="text-[11px] space-y-2 text-slate-300">
+                            <p><strong className="text-emerald-400">Esfera Civil (Art. 478 CC):</strong> {model.riscoEsferas.civil}</p>
+                            <p><strong className="text-amber-400">Compliance & Penal:</strong> {model.riscoEsferas.compliance}</p>
+                            <p><strong className="text-blue-400">Esfera Fiscal (CNAEs/Retenções):</strong> {model.riscoEsferas.fiscal}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* LIVE AUTO-FILLED MINUTA DRAFT WITH COPY/DOWNLOAD TOOLS */}
+                      <div className="bg-[#090D16] border border-slate-800/80 rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
+                          <span className="text-xs font-bold text-slate-200 flex items-center space-x-1.5">
+                            <FileCode className="w-4 h-4 text-blue-400" />
+                            <span>Minuta Gerada de Engenharia Contratual (Preenchimento Automático)</span>
+                          </span>
+
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(dynamicDraft);
+                                setCopiedContractId(model.id);
+                                setTimeout(() => setCopiedContractId(null), 2000);
+                              }}
+                              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-200 transition flex items-center space-x-1 cursor-pointer border border-slate-700"
+                            >
+                              {copiedContractId === model.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                  <span className="text-emerald-400">Copiada!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copiar Texto</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+                                doc.setFont('helvetica', 'normal');
+                                doc.setFontSize(9.5);
+                                doc.setTextColor(40, 40, 40);
+                                const lines = doc.splitTextToSize(dynamicDraft, 170);
+                                let y = 20;
+                                for (const line of lines) {
+                                  if (y > 275) {
+                                    doc.addPage();
+                                    y = 20;
+                                  }
+                                  doc.text(line, 20, y);
+                                  y += 5;
+                                }
+                                doc.save(`Minuta_${model.id}_${model.title.replace(/\s+/g, '_')}.pdf`);
+                              }}
+                              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-[10px] font-bold text-white transition flex items-center space-x-1 cursor-pointer"
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>Baixar PDF</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <pre className="text-[11px] font-mono text-slate-300 leading-relaxed overflow-x-auto whitespace-pre-wrap max-h-60 overflow-y-auto bg-[#070A10] p-3 rounded border border-slate-900">
+                          {dynamicDraft}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: CONTRACT DRAFT AUDITOR */}
+      {activeSubTab === 'auditor' && (
+        <div className="space-y-4 animate-fadeIn">
+          <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-bold text-slate-200">Auditoria IA de Minutas & Engenharia Contratual</h3>
+              <p className="text-xs text-slate-400">
+                Cole a sua minuta ou cláusula rascunhada abaixo para realizar uma auditoria rigorosa baseada no Art. 104 do Código Civil, identificação de riscos multi-esferas e enquadramento de elementos vitais.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">Minuta Contratual / Texto do Rascunho</label>
+                  <textarea
+                    rows={12}
+                    value={auditorDraftText}
+                    onChange={(e) => setAuditorDraftText(e.target.value)}
+                    placeholder="Cole aqui o preâmbulo, objeto ou clausulado geral do contrato para auditarmos..."
+                    className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-orange-500"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400 font-bold">Tipo de Minuta de Teste:</span>
+                    <select
+                      value={auditorSelectedType}
+                      onChange={(e) => setAuditorSelectedType(e.target.value)}
+                      className="p-1.5 rounded bg-slate-900 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-orange-500"
+                    >
+                      {CONTRACT_MATRIX_DATA.filter((m) => {
+                        const titleLower = m.title.toLowerCase();
+                        return (
+                          titleLower.includes('prestação de serviço do sistema para cliente') ||
+                          titleLower.includes('parceria comercial')
+                        );
+                      }).map((model) => (
+                        <option key={model.id} value={model.id}>{model.id} - {model.title}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const m = CONTRACT_MATRIX_DATA.find(x => x.id === auditorSelectedType) || 
+                          CONTRACT_MATRIX_DATA.find(x => x.title.toLowerCase().includes('prestação de serviço do sistema para cliente')) ||
+                          CONTRACT_MATRIX_DATA[0];
+                        setAuditorDraftText(m.boilerplateDraft);
+                      }}
+                      className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 border border-slate-700 cursor-pointer"
+                    >
+                      Carregar Exemplo 📂
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAudit}
+                    disabled={isAuditing || !auditorDraftText.trim()}
+                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs transition shadow-lg cursor-pointer flex items-center space-x-1.5"
+                  >
+                    {isAuditing ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Auditando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileSearch className="w-4 h-4" />
+                        <span>Analisar & Auditar Cláusulas 🛡️</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* AUDIT OUTPUT DISPLAY */}
+              <div className="bg-[#0B0F19] rounded-xl border border-slate-800 p-4 space-y-4">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-800 pb-2">
+                  Painel de Auditoria IA
+                </span>
+
+                {auditResult ? (
+                  <div className="space-y-4 animate-fadeIn">
+                    {/* RISK INDEX CIRCULAR Progress OR SCORE BANNER */}
+                    <div className="bg-slate-900/60 border border-slate-800 p-3.5 rounded-xl flex items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Score Contratual</span>
+                        <div className="text-2xl font-black text-white">{auditResult.score}<span className="text-xs text-slate-400">%</span></div>
+                        <p className={`text-[10px] font-bold ${
+                          auditResult.score >= 85 ? 'text-emerald-400' : auditResult.score >= 60 ? 'text-amber-400' : 'text-rose-400'
+                        }`}>
+                          {auditResult.score >= 85 ? 'Excelente Validade' : auditResult.score >= 60 ? 'Risco Moderado' : 'Alto Risco Legal'}
+                        </p>
+                      </div>
+
+                      <div className="w-14 h-14 relative flex items-center justify-center shrink-0 font-mono">
+                        <svg className="w-full h-full transform -rotate-90">
+                          <circle cx="28" cy="28" r="24" stroke="#1e293b" strokeWidth="4.5" fill="transparent" />
+                          <circle cx="28" cy="28" r="24" stroke={auditResult.score >= 85 ? '#10b981' : auditResult.score >= 60 ? '#f59e0b' : '#ef4444'} strokeWidth="4.5" fill="transparent"
+                            strokeDasharray={150.7} strokeDashoffset={150.7 * (1 - auditResult.score / 100)} strokeLinecap="round" />
+                        </svg>
+                        <span className="absolute text-[11px] font-bold text-slate-200">{auditResult.score}%</span>
+                      </div>
+                    </div>
+
+                    {/* VITAL ELEMENTS */}
+                    <div className="space-y-1.5 text-xs">
+                      <span className="font-bold text-slate-300 block mb-1">Elementos Estruturais Vitais:</span>
+                      <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px]">
+                        {[
+                          { key: 'preambulo', label: 'Qualificação' },
+                          { key: 'objeto', label: 'Objeto' },
+                          { key: 'preco', label: 'Preço/Pagamento' },
+                          { key: 'vigencia', label: 'Vigência/Extinção' },
+                          { key: 'protecao', label: 'NDA/Proteção' },
+                          { key: 'foro', label: 'Foro/Resolução' }
+                        ].map((v) => {
+                          const ok = auditResult.vitals[v.key];
+                          return (
+                            <div key={v.key} className="flex items-center space-x-1 text-slate-300">
+                              {ok ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              ) : (
+                                <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              )}
+                              <span className={ok ? 'text-slate-300' : 'text-rose-400 font-bold'}>{v.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* ART 104 VALIDATION CHECKLIST */}
+                    <div className="space-y-1.5 text-xs bg-slate-900/40 p-2.5 rounded-lg border border-slate-800">
+                      <span className="font-bold text-slate-300 block">Art. 104 do Código Civil:</span>
+                      <div className="space-y-1 text-[10px]">
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span>I. Agente Capaz</span>
+                          <span className={auditResult.validade.agenteCapaz ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                            {auditResult.validade.agenteCapaz ? 'Verificado ✓' : 'Pendente ✗'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span>II. Objeto Lícito & Possível</span>
+                          <span className={auditResult.validade.objetoLicito ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                            {auditResult.validade.objetoLicito ? 'Verificado ✓' : 'Pendente ✗'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-300">
+                          <span>III. Forma Prescrita/Não Defesa</span>
+                          <span className={auditResult.validade.formaPrescrita ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                            {auditResult.validade.formaPrescrita ? 'Verificado ✓' : 'Pendente ✗'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-44 flex flex-col items-center justify-center text-center text-slate-500 space-y-2 p-4">
+                    <FileSearch className="w-10 h-10 text-slate-700" />
+                    <p className="text-xs">
+                      Aguardando rascunho de minuta. Insira o texto à esquerda ou carregue um exemplo de teste para auditar riscos e validade jurídica.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* EXPANDED DETAILED MATRIX ESFERAS RISK OUTPUT UNDER TEXTAREA */}
+            {auditResult && (
+              <div className="border-t border-slate-800 pt-5 space-y-4 animate-fadeIn">
+                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-1">
+                  <ShieldCheck className="w-4 h-4 text-orange-400" />
+                  <span>Matriz Multi-Esferas de Risco & Recomendações de Engenharia Contratual</span>
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* ESFERA CIVIL CARD */}
+                  <div className={`p-4 rounded-xl border ${
+                    auditResult.riscos.civil.ok ? 'bg-emerald-950/20 border-emerald-800/60' : 'bg-amber-950/20 border-amber-800/60'
+                  } space-y-2`}>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                      <span className="text-xs font-bold text-slate-300">Esfera Civil (Art. 478 CC)</span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded font-mono ${
+                        auditResult.riscos.civil.ok ? 'bg-emerald-900/60 text-emerald-300' : 'bg-amber-900/60 text-amber-300'
+                      }`}>
+                        {auditResult.riscos.civil.ok ? 'Equilibrado' : 'Ajustes Requeridos'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {auditResult.riscos.civil.warning || "Cláusula de reequilíbrio econômico, imprevisão e multa proporcional validadas em perfeita simetria."}
+                    </p>
+                    <div className="bg-[#090D16] p-2.5 rounded-lg border border-slate-800 text-[10px] text-slate-400 space-y-1 mt-2">
+                      <strong className="text-slate-300 block">Correção Recomendada:</strong>
+                      <span>{auditResult.riscos.civil.correction}</span>
+                    </div>
+                  </div>
+
+                  {/* ESFERA PENAL E COMPLIANCE CARD */}
+                  <div className={`p-4 rounded-xl border ${
+                    auditResult.riscos.compliance.ok ? 'bg-emerald-950/20 border-emerald-800/60' : 'bg-amber-950/20 border-amber-800/60'
+                  } space-y-2`}>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                      <span className="text-xs font-bold text-slate-300">Penal & Compliance (Art. 171/299 CP)</span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded font-mono ${
+                        auditResult.riscos.compliance.ok ? 'bg-emerald-900/60 text-emerald-300' : 'bg-amber-900/60 text-amber-300'
+                      }`}>
+                        {auditResult.riscos.compliance.ok ? 'Verificado' : 'Aviso Legal'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {auditResult.riscos.compliance.warning || "Salvaguardas de conformidade ideológica, compliance geral e prevenção a atos ilícitos ativadas."}
+                    </p>
+                    <div className="bg-[#090D16] p-2.5 rounded-lg border border-slate-800 text-[10px] text-slate-400 space-y-1 mt-2">
+                      <strong className="text-slate-300 block">Correção Recomendada:</strong>
+                      <span>{auditResult.riscos.compliance.correction}</span>
+                    </div>
+                  </div>
+
+                  {/* ESFERA FISCAL E TRIBUTÁRIA CARD */}
+                  <div className={`p-4 rounded-xl border ${
+                    auditResult.riscos.fiscal.ok ? 'bg-emerald-950/20 border-emerald-800/60' : 'bg-amber-950/20 border-amber-800/60'
+                  } space-y-2`}>
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                      <span className="text-xs font-bold text-slate-300">Esfera Fiscal (CNAEs & Retenções)</span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded font-mono ${
+                        auditResult.riscos.fiscal.ok ? 'bg-emerald-900/60 text-emerald-300' : 'bg-amber-900/60 text-amber-300'
+                      }`}>
+                        {auditResult.riscos.fiscal.ok ? 'Retenções Detalhadas' : 'Tributos Indefinidos'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      {auditResult.riscos.fiscal.warning || "Definições explícitas de fato gerador tributário, responsabilidade de recolhimento de impostos mapeadas."}
+                    </p>
+                    <div className="bg-[#090D16] p-2.5 rounded-lg border border-slate-800 text-[10px] text-slate-400 space-y-1 mt-2">
+                      <strong className="text-slate-300 block">Correção Recomendada:</strong>
+                      <span>{auditResult.riscos.fiscal.correction}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE NOVO CONTRATO ROBUSTO */}
       <AnimatePresence>
@@ -582,13 +1222,13 @@ export const ServiceContractsModule: React.FC<ServiceContractsModuleProps> = ({ 
               <div className="bg-[#0B0F19] px-6 py-4 border-b border-slate-800 flex items-center justify-between">
                 <div className="flex items-center space-x-2.5">
                   <Scale className="w-5 h-5 text-blue-400" />
-                  <h3 className="text-base font-bold text-slate-100">
+                  <h3 className="text-base font-bold text-slate-100 font-sans">
                     Gerar Novo Contrato com Rigor Jurídico & CDC
                   </h3>
                 </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-200 font-bold cursor-pointer"
+                  className="text-slate-400 hover:text-slate-200 font-bold cursor-pointer font-sans"
                 >
                   ✕
                 </button>
