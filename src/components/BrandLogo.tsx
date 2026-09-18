@@ -414,7 +414,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   // Render high-precision vector glyph of the 3D Isometric Hexagon Logo
   const renderGlyph = (iconPx: number = 36) => {
-    const uid = `brand-${module}-${Math.random().toString(36).substring(2, 7)}`;
+    const uid = `brand-${module}`;
 
     return (
       <div className={`relative inline-flex items-center justify-center shrink-0 ${animate ? 'animate-pulse' : ''}`}>
@@ -424,9 +424,9 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           viewBox="0 0 100 100"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="shrink-0 transition-transform duration-300 transform group-hover:scale-105 filter drop-shadow-[0_2px_12px_rgba(0,0,0,0.3)]"
+          className="shrink-0 transition-transform duration-300 transform group-hover:scale-105 will-change-transform"
           style={{
-            filter: `drop-shadow(0 0 12px ${config.glowColor})`
+            filter: `drop-shadow(0 0 8px ${config.glowColor})`
           }}
         >
           <defs>
@@ -454,43 +454,25 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
               <stop offset="0%" stopColor={config.leftGradient[0]} />
               <stop offset="100%" stopColor={config.leftGradient[1]} />
             </linearGradient>
-
-            <filter id={`${uid}-glow`} x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#FFFFFF" floodOpacity="0.8" />
-            </filter>
           </defs>
 
           {/* 3D Hexagon Polygonal Facets */}
-          {/* Top Facet */}
-          <polygon points="50,4 90,27 50,50 10,27" fill={`url(#${uid}-top)`} opacity="0.98" />
-          
-          {/* Right Facet */}
-          <polygon points="90,27 90,73 50,50" fill={`url(#${uid}-right)`} opacity="0.95" />
+          <polygon points="50,4 90,27 50,50 10,27" fill={`url(#${uid}-top)`} />
+          <polygon points="90,27 90,73 50,50" fill={`url(#${uid}-right)`} />
+          <polygon points="90,73 50,96 50,50" fill={`url(#${uid}-bright)`} />
+          <polygon points="50,96 10,73 50,50" fill={`url(#${uid}-bleft)`} />
+          <polygon points="10,73 10,27 50,50" fill={`url(#${uid}-left)`} />
 
-          {/* Bottom Right Facet */}
-          <polygon points="90,73 50,96 50,50" fill={`url(#${uid}-bright)`} opacity="0.95" />
-
-          {/* Bottom Left Facet */}
-          <polygon points="50,96 10,73 50,50" fill={`url(#${uid}-bleft)`} opacity="0.98" />
-
-          {/* Left Facet */}
-          <polygon points="10,73 10,27 50,50" fill={`url(#${uid}-left)`} opacity="0.98" />
-
-          {/* Facet Seams */}
-          <line x1="50" y1="4" x2="50" y2="50" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
-          <line x1="90" y1="27" x2="50" y2="50" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
-          <line x1="90" y1="73" x2="50" y2="50" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
-          <line x1="50" y1="96" x2="50" y2="50" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
-          <line x1="10" y1="73" x2="50" y2="50" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
-          <line x1="10" y1="27" x2="50" y2="50" stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="1" />
+          {/* Facet Seams (Optimized) */}
+          <path d="M50 4V50M90 27L50 50M90 73L50 50M50 96V50M10 73L50 50M10 27L50 50" stroke="white" strokeOpacity="0.2" strokeWidth="0.8" />
 
           {/* Outer Contour */}
-          <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="none" stroke="#FFFFFF" strokeOpacity="0.4" strokeWidth="1.5" />
+          <polygon points="50,4 90,27 90,73 50,96 10,73 10,27" fill="none" stroke="white" strokeOpacity="0.3" strokeWidth="1.2" />
 
           {/* Prominent White 'V' overlay */}
-          <path d="M 28,28 L 50,72 L 72,28" fill="none" stroke="#FFFFFF" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${uid}-glow)`} />
+          <path d="M28 28L50 72L72 28" fill="none" stroke="white" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Center Nexus Golden Dot / Sun */}
+          {/* Center Nexus Golden Dot */}
           <circle cx="50" cy="34" r="5" fill="#FBBF24" />
         </svg>
 

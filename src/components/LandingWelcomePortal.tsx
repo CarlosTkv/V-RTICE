@@ -81,6 +81,29 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
   const [showCertInfoModal, setShowCertInfoModal] = useState<boolean>(false);
   const [showSupportModal, setShowSupportModal] = useState<boolean>(false);
 
+  // Controle de exibição dos botões flutuantes (baseado no scroll)
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [headerButtonVisible, setHeaderButtonVisible] = useState(true);
+  const headerButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      const scrollPos = window.scrollY;
+      setIsScrolled(scrollPos > 300);
+
+      if (headerButtonRef.current) {
+        const rect = headerButtonRef.current.getBoundingClientRect();
+        // Se o botão principal do header estiver visível na tela, escondemos a flechinha flutuante
+        setHeaderButtonVisible(rect.top >= 0 && rect.bottom <= window.innerHeight);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   React.useEffect(() => {
     const timer = setTimeout(() => setIsLoadingBento(false), 500);
     return () => clearTimeout(timer);
@@ -437,6 +460,7 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
 
             <div className="flex items-center gap-3">
               <button
+                ref={headerButtonRef}
                 onClick={() => setViewState('login')}
                 className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 hover:opacity-95 text-white text-xs sm:text-sm font-extrabold transition flex items-center gap-2 shadow-lg shadow-emerald-900/40 cursor-pointer transform hover:scale-105"
               >
@@ -1224,6 +1248,45 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
             </div>
           </footer>
 
+          {/* BOTÕES FLUTUANTES (Exibidos apenas quando rolado para baixo) */}
+          <AnimatePresence>
+            {isScrolled && viewState === 'landing' && (
+              <>
+                {/* Botão Lateral Direito (Acessar Sistema) - Oculto se o botão do header estiver visível */}
+                {!headerButtonVisible && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 50 }}
+                    transition={{ duration: 0.3 }}
+                    onClick={() => setViewState('login')}
+                    className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex items-center bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-xl shadow-emerald-900/40 rounded-l-2xl py-4 pl-5 pr-4 cursor-pointer group transition-all"
+                    aria-label="Acessar Sistema"
+                  >
+                    <ArrowRight className="w-6 h-6 shrink-0 transform group-hover:translate-x-1 transition-transform" />
+                  </motion.button>
+                )}
+
+                {/* Botão Inferior Central (Voltar ao Topo) */}
+                <motion.button
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 50 }}
+                  transition={{ duration: 0.3 }}
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1 group"
+                  aria-label="Voltar ao Topo"
+                >
+                  <div className="flex items-center justify-center bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white backdrop-blur-md border border-slate-700 shadow-xl shadow-black/50 rounded-full p-4 cursor-pointer transition-all transform hover:scale-110">
+                    <ArrowUpRight className="w-6 h-6 -rotate-45" />
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    Topo
+                  </span>
+                </motion.button>
+              </>
+            )}
+          </AnimatePresence>
         </div>
       ) : (
         <motion.div 
@@ -1282,7 +1345,7 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
                     <strong className="text-white">1. Vínculo Simplificado do Arquivo .PFX:</strong> Você sobe o arquivo do seu Certificado A1 ou da procuração do escritório contábil diretamente no painel. A chave é criptografada com algoritmo AES-256.
                   </li>
                   <li>
-                    <strong className="text-white">2. Modo de Homologação / Simulação Gratuito:</strong> Não tem o certificado agora? O sistema oferece o modo de testes onde você pode simular a emissão de notas, cálculo de IBS/CBS e Split Payment sem precisar subir o certificado de imediato!
+                    <strong className="text-white">2. Ambiente de Homologação Oficial:</strong> Não tem o certificado agora? O sistema oferece o ambiente de homologação onde você pode preparar a emissão de notas, cálculo de IBS/CBS e Split Payment para validação antes do envio real!
                   </li>
                   <li>
                     <strong className="text-white">3. Disparo de Avisos de Vencimento:</strong> O sistema avisa com 30 dias de antecedência quando seu certificado A1 estiver próximo de vencer para evitar interrupções nas vendas.

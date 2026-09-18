@@ -122,95 +122,22 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
       animate={{ opacity: 1 }}
       exit={{ 
         opacity: 0, 
-        scale: 1.03, 
-        filter: 'blur(8px)', 
-        transition: { duration: 0.4, ease: 'easeInOut' } 
+        scale: 1.05, 
+        filter: 'blur(10px)', 
+        transition: { duration: 0.5, ease: 'circOut' } 
       }}
       onClick={() => {
         if (stage === 'orbit') {
           startConvergenceSequence();
         }
       }}
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-between bg-[#030611] text-white overflow-hidden select-none font-sans cursor-pointer p-4 sm:p-6"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-between bg-transparent text-white overflow-hidden select-none font-sans cursor-pointer p-4 sm:p-6"
     >
-      {/* ========================================================
-          ESPAÇO SIDERAL: ESTRELAS DINÂMICAS & BRILHO DIFUSO (GLOW)
-         ======================================================== */}
-      
-      {/* Fundo do Espaço com Gradiente Cósmico Profundo */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_#0a122c_0%,_#050816_55%,_#020308_100%)] pointer-events-none" />
+      {/* Background is handled by CosmicPrismaBackground behind this component */}
+      <div className="absolute inset-0 bg-[#030611]/60 pointer-events-none backdrop-blur-[2px]" />
 
-      {/* Nebulosas Cósmicas Vivas com Pulso Difuso */}
-      <motion.div 
-        animate={{ opacity: [0.35, 0.6, 0.35], scale: [0.95, 1.05, 0.95] }}
-        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-blue-600/15 rounded-full blur-[150px] pointer-events-none" 
-      />
-      <motion.div 
-        animate={{ opacity: [0.3, 0.55, 0.3], scale: [1.05, 0.95, 1.05] }}
-        transition={{ duration: 8.5, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[650px] h-[650px] bg-amber-500/15 rounded-full blur-[160px] pointer-events-none" 
-      />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[130px] pointer-events-none" />
-
-      {/* Partículas de Estrelas Dinâmicas Usando 'motion' */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {stars.map((star) => (
-          <motion.div
-            key={star.id}
-            animate={{
-              opacity: [star.opacity * 0.25, star.opacity, star.opacity * 0.25],
-              scale: [0.8, 1.3, 0.8]
-            }}
-            transition={{
-              duration: star.duration,
-              delay: star.delay,
-              repeat: Infinity,
-              ease: 'easeInOut'
-            }}
-            className="absolute rounded-full"
-            style={{
-              left: `${star.x}%`,
-              top: `${star.y}%`,
-              width: `${star.size}px`,
-              height: `${star.size}px`,
-              backgroundColor: star.color,
-              boxShadow: star.size > 2 ? `0 0 8px ${star.color}` : 'none'
-            }}
-          />
-        ))}
-
-        {/* Estrelas Cadentes Cósmicas (Meteoro / Cometa) */}
-        <motion.div
-          animate={{
-            x: ['-20vw', '120vw'],
-            y: ['15vh', '75vh'],
-            opacity: [0, 1, 0]
-          }}
-          transition={{
-            duration: 2.3,
-            repeat: Infinity,
-            repeatDelay: 5.5,
-            ease: 'easeOut'
-          }}
-          className="absolute w-32 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-300 to-white -rotate-45 blur-[0.5px]"
-        />
-
-        <motion.div
-          animate={{
-            x: ['110vw', '-10vw'],
-            y: ['25vh', '85vh'],
-            opacity: [0, 0.85, 0]
-          }}
-          transition={{
-            duration: 1.9,
-            repeat: Infinity,
-            repeatDelay: 8.5,
-            ease: 'easeOut'
-          }}
-          className="absolute w-28 h-[1.2px] bg-gradient-to-l from-transparent via-amber-300 to-white rotate-[35deg] blur-[0.5px]"
-        />
-      </div>
+      {/* Subtle Central Glow for the Sun */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Grid Tech Subtil com Efeito Holográfico */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b10_1px,transparent_1px),linear-gradient(to_bottom,#1e293b10_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] pointer-events-none opacity-40" />
@@ -307,28 +234,28 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
           <motion.div
             animate={{
               rotate: 360,
-              scale: isConsolidated ? [1, 1.45, 1.3] : [1, 1.1, 1],
-              opacity: isConsolidated ? 1 : [0.75, 1, 0.75]
+              scale: isConsolidated ? [1, 1.35, 1.25] : [1, 1.08, 1],
+              opacity: isConsolidated ? 1 : [0.6, 0.9, 0.6]
             }}
             transition={{
-              rotate: { duration: 35, repeat: Infinity, ease: 'linear' },
-              scale: { duration: 3.2, repeat: isConsolidated ? 0 : Infinity, ease: 'easeInOut' },
-              opacity: { duration: 3.2, repeat: isConsolidated ? 0 : Infinity, ease: 'easeInOut' }
+              rotate: { duration: 40, repeat: Infinity, ease: 'linear' },
+              scale: { duration: 3.5, repeat: isConsolidated ? 0 : Infinity, ease: 'easeInOut' },
+              opacity: { duration: 3.5, repeat: isConsolidated ? 0 : Infinity, ease: 'easeInOut' }
             }}
-            className="absolute w-[230px] h-[230px] sm:w-[270px] sm:h-[270px] rounded-full bg-[radial-gradient(circle,_rgba(245,158,11,0.4)_0%,_rgba(59,130,246,0.2)_50%,_transparent_75%)] blur-2xl pointer-events-none"
+            className="absolute w-[240px] h-[240px] sm:w-[280px] sm:h-[280px] rounded-full bg-[radial-gradient(circle,_rgba(245,158,11,0.3)_0%,_rgba(59,130,246,0.15)_50%,_transparent_75%)] blur-2xl pointer-events-none will-change-transform"
           />
 
           {/* Disco do Sol / Master Vértice Auditor Fiscal */}
           <motion.div
             animate={
               isConsolidated
-                ? { scale: [1, 1.3, 1.18] }
+                ? { scale: [1, 1.25, 1.15] }
                 : isConverging
-                ? { scale: [1, 0.95, 1.1] }
+                ? { scale: [1, 0.96, 1.08] }
                 : { scale: 1 }
             }
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative z-30 flex flex-col items-center justify-center p-6 sm:p-8 rounded-full bg-[#080d1a] border-2 border-amber-400 shadow-[0_0_65px_rgba(245,158,11,0.55),0_0_120px_rgba(59,130,246,0.25)] backdrop-blur-2xl"
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-30 flex flex-col items-center justify-center p-6 sm:p-8 rounded-full bg-[#080d1a] border-2 border-amber-400 shadow-[0_0_50px_rgba(245,158,11,0.4),0_0_100px_rgba(59,130,246,0.2)] backdrop-blur-2xl will-change-transform"
           >
             {/* Logo Oficial Master Vértice */}
             <BrandLogo 
@@ -369,23 +296,12 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
 
         {/* ========================================================
             SISTEMA SOLAR: CONTAINER ORBITAL (CSS KEYFRAMES + COUNTER-ROTATION)
-            - Rotação suave contínua de 360° em CSS keyframes.
-            - Os planetas contra-rotacionam (-360°) para que os ícones
-              permaneçam rigorosamente na vertical (SEM ROTAÇÃO DOS ÍCONES).
+            - Rotação suave contínua usando CSS para performance máxima.
+            - Os planetas contra-rotacionam para manter ícones verticais.
             - Ao convergir, os planetas deslizam linearmente para (0,0).
            ======================================================== */}
-        <motion.div
-          animate={
-            isConvergedOrConsolidated 
-              ? { rotate: 0 } // Fixa o container na convergência
-              : { rotate: 360 }
-          }
-          transition={
-            isConvergedOrConsolidated
-              ? { duration: 0.1 }
-              : { duration: 36, repeat: Infinity, ease: 'linear' }
-          }
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+        <div 
+          className={`absolute inset-0 flex items-center justify-center pointer-events-none ${!isConvergedOrConsolidated ? 'animate-orbital-rotation' : ''}`}
         >
           {moduleKeys.map((modKey, idx) => {
             const modConfig = BRAND_MODULE_CONFIGS[modKey] || BRAND_MODULE_CONFIGS.master;
@@ -408,29 +324,19 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
                   duration: isConvergedOrConsolidated ? 1.05 : 0.05, 
                   ease: [0.16, 1, 0.3, 1] 
                 }}
-                className="absolute z-20 flex items-center justify-center"
+                className="absolute z-20 flex items-center justify-center will-change-transform"
               >
-                {/* Contra-Rotação para manter o ícone e o texto 100% verticais durante a órbita */}
-                <motion.div
-                  animate={
-                    isConvergedOrConsolidated 
-                      ? { rotate: 0 } 
-                      : { rotate: -360 }
-                  }
-                  transition={
-                    isConvergedOrConsolidated
-                      ? { duration: 0.1 }
-                      : { duration: 36, repeat: Infinity, ease: 'linear' }
-                  }
-                  className="flex items-center justify-center p-2 rounded-2xl bg-slate-900/95 border backdrop-blur-md transition-shadow relative"
+                {/* Contra-Rotação via CSS para performance 60fps constante */}
+                <div
+                  className={`flex items-center justify-center p-2 rounded-2xl bg-slate-900/98 border transition-shadow relative will-change-transform ${!isConvergedOrConsolidated ? 'animate-orbital-counter-rotation' : ''}`}
                   style={{
-                    borderColor: modConfig.topGradient[0] + '75',
-                    boxShadow: `0 0 22px ${modConfig.glowColor}, 0 4px 18px rgba(0,0,0,0.6)`
+                    borderColor: modConfig.topGradient[0] + '60',
+                    boxShadow: `0 0 15px ${modConfig.glowColor}`,
                   }}
                 >
-                  {/* Brilho Difuso (Glow) da Atmosfera do Planeta */}
+                  {/* Brilho Difuso (Glow) da Atmosfera do Planeta (Otimizado) */}
                   <div 
-                    className="absolute inset-0 rounded-2xl opacity-25 pointer-events-none"
+                    className="absolute inset-0 rounded-2xl opacity-15 pointer-events-none"
                     style={{ background: `radial-gradient(circle, ${modConfig.topGradient[0]} 0%, transparent 80%)` }}
                   />
 
@@ -445,11 +351,11 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
                       {modConfig.name.replace('VÉRTICE ', '')}
                     </span>
                   </div>
-                </motion.div>
+                </div>
               </motion.div>
             );
           })}
-        </motion.div>
+        </div>
 
       </div>
 
