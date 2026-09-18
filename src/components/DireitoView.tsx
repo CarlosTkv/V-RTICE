@@ -188,7 +188,7 @@ export const DireitoView: React.FC<DireitoViewProps> = ({
         </div>
 
         {/* Category Tabs per Branch of Law */}
-        <div className="flex items-center space-x-2 overflow-x-auto pt-2 border-t border-slate-800">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
           <button
             onClick={() => setSelectedRamo('all')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 flex-shrink-0 cursor-pointer ${

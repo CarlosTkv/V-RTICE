@@ -236,7 +236,7 @@ export const SystemStepByStepManualModal: React.FC<SystemStepByStepManualModalPr
         </div>
 
         {/* Chapters Navigation Tabs */}
-        <div className="flex border-b border-slate-800 bg-[#0B0F19]/90 px-4 sm:px-6 pt-2.5 gap-1.5 overflow-x-auto shrink-0">
+        <div className="flex flex-wrap border-b border-slate-800 bg-[#0B0F19]/90 px-4 sm:px-6 pt-2.5 gap-1.5 shrink-0">
           {chapters.map((ch, idx) => {
             const ChIcon = ch.icon;
             const isActive = idx === activeChapter;

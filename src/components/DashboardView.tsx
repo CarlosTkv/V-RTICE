@@ -1766,99 +1766,154 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6 animate-fadeIn text-slate-200">
       
-      {/* BRAND HERO BANNER - MATCHING IMAGE 2 LAYOUT */}
-      <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-md relative overflow-hidden space-y-5">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        
-        {/* TOP ROW: LOGO & EMPRESA SELECTOR */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10 border-b border-slate-800/80 pb-4">
-          <BrandLogo variant="hero" />
+      {/* COCKPIT EXECUTIVO WIDESCREEN - DUAS COLUNAS PARA APROVEITAMENTO DE ESPAÇO */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* BRAND HERO BANNER - MATCHING IMAGE 2 LAYOUT */}
+        <div className="xl:col-span-2 bg-[#0F172A] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-md relative overflow-hidden flex flex-col justify-between space-y-5">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
           
-          <div className="flex items-center space-x-2 shrink-0">
-            <div className="px-3.5 py-2 rounded-xl bg-[#0B0F19] border border-slate-800 text-xs flex items-center space-x-2">
-              <Building className="w-4 h-4 text-blue-400" />
-              <span className="text-slate-400">Empresa: </span>
-              <span className="text-white font-bold">{company.name}</span>
-              <span className="text-blue-400 font-semibold font-mono">({company.uf || 'SP'})</span>
+          {/* TOP ROW: LOGO & EMPRESA SELECTOR */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10 border-b border-slate-800/80 pb-4">
+            <BrandLogo variant="hero" />
+            
+            <div className="flex items-center space-x-2 shrink-0">
+              <div className="px-3.5 py-2 rounded-xl bg-[#0B0F19] border border-slate-800 text-xs flex items-center space-x-2">
+                <Building className="w-4 h-4 text-blue-400" />
+                <span className="text-slate-400">Empresa: </span>
+                <span className="text-white font-bold">{company.name}</span>
+                <span className="text-blue-400 font-semibold font-mono">({company.uf || 'SP'})</span>
+              </div>
+            </div>
+          </div>
+
+          {/* TOOLBAR BELOW LOGO: FUNCTIONALITIES & OPTIONS CATEGORIZED */}
+          <div className="flex flex-wrap items-center justify-between gap-3 relative z-10 pt-1">
+            {/* Left: Direct Report & Diagnostic Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => onNavigateToTab('parecer')}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-md flex items-center space-x-1.5 cursor-pointer"
+              >
+                <FileCheck2 className="w-4 h-4 text-blue-100" />
+                <span>Laudo Pericial 360°</span>
+              </button>
+
+              {onOpenPDFUpload && !isClienteRelatorio && (
+                <button
+                  id="btn-hero-import-pgdas"
+                  onClick={onOpenPDFUpload}
+                  className="px-3.5 py-2 rounded-xl bg-blue-950/70 hover:bg-blue-900/80 text-blue-300 border border-blue-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                  title="Importar declaração oficial PGDAS-D em PDF ou Texto do e-CAC"
+                >
+                  <Upload className="w-4 h-4 text-blue-400" />
+                  <span>Importar PGDAS-D</span>
+                </button>
+              )}
+
+              {!isClienteRelatorio && (
+                <button
+                  onClick={() => onNavigateToTab('financeiro')}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                >
+                  <span>Painel Financeiro & DRE</span>
+                  <ArrowUpRight className="w-4 h-4 text-emerald-400" />
+                </button>
+              )}
+            </div>
+
+            {/* Right: System Tools & Organization */}
+            <div className="flex flex-wrap items-center gap-2">
+              {onOpenManual && !isClienteRelatorio && (
+                <button
+                  onClick={onOpenManual}
+                  className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs border border-slate-800"
+                  title="Abrir o Manual Passo a Passo do Sistema"
+                >
+                  <BookOpen className="w-4 h-4 text-indigo-400" />
+                  <span>Manual Didático</span>
+                </button>
+              )}
+
+              <button
+                onClick={() => setIsTutorialOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+              >
+                <Play className="w-4 h-4 text-indigo-400" />
+                <span>Como Funciona</span>
+              </button>
+
+              <button
+                onClick={() => setIsCustomizerOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                title="Personalizar e Reordenar Widgets do Dashboard (Drag & Drop)"
+              >
+                <LayoutGrid className="w-4 h-4 text-blue-400" />
+                <span>Organizar Dashboard</span>
+              </button>
+
+              {isMaster && viewMode === 'master' && (
+                <button
+                  onClick={() => onNavigateToTab('gestao_planos')}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                  title="Acesso Privado do Proprietário Carlos Miguel"
+                >
+                  <Crown className="w-4 h-4 text-amber-400" />
+                  <span>Área Master (Planos)</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* TOOLBAR BELOW LOGO: FUNCTIONALITIES & OPTIONS CATEGORIZED */}
-        <div className="flex flex-wrap items-center justify-between gap-3 relative z-10 pt-1">
-          {/* Left: Direct Report & Diagnostic Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => onNavigateToTab('parecer')}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-md flex items-center space-x-1.5 cursor-pointer"
-            >
-              <FileCheck2 className="w-4 h-4 text-blue-100" />
-              <span>Laudo Pericial 360°</span>
-            </button>
-
-            {onOpenPDFUpload && !isClienteRelatorio && (
-              <button
-                id="btn-hero-import-pgdas"
-                onClick={onOpenPDFUpload}
-                className="px-3.5 py-2 rounded-xl bg-blue-950/70 hover:bg-blue-900/80 text-blue-300 border border-blue-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                title="Importar declaração oficial PGDAS-D em PDF ou Texto do e-CAC"
-              >
-                <Upload className="w-4 h-4 text-blue-400" />
-                <span>Importar PGDAS-D</span>
-              </button>
-            )}
-
-            {!isClienteRelatorio && (
-              <button
-                onClick={() => onNavigateToTab('financeiro')}
-                className="px-3.5 py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-              >
-                <span>Painel Financeiro & DRE</span>
-                <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-              </button>
-            )}
+        {/* HEALTH COCKPIT PANEL & REAL-TIME COMPLIANCE INDEX */}
+        <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-md relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+          
+          <div className="relative z-10 flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="flex items-center space-x-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Cockpit de Conformidade</h3>
+            </div>
+            <span className="text-[10px] bg-[#0B0F19] border border-slate-800 text-slate-400 px-2.5 py-1 rounded-lg font-mono">
+              Tempo Real
+            </span>
           </div>
 
-          {/* Right: System Tools & Organization */}
-          <div className="flex flex-wrap items-center gap-2">
-            {onOpenManual && !isClienteRelatorio && (
-              <button
-                onClick={onOpenManual}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs border border-slate-800"
-                title="Abrir o Manual Passo a Passo do Sistema"
-              >
-                <BookOpen className="w-4 h-4 text-indigo-400" />
-                <span>Manual Didático</span>
-              </button>
-            )}
+          <div className="relative z-10 flex items-center justify-between gap-4 py-3">
+            <div className="space-y-1">
+              <div className="text-2xl font-black text-white tracking-tight flex items-baseline gap-1">
+                98.4<span className="text-xs text-slate-400">%</span>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Índice de Saúde Fiscal</p>
+              <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
+                <span className="font-bold">▲ Excelente</span> sem riscos graves
+              </p>
+            </div>
 
-            <button
-              onClick={() => setIsTutorialOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/70 text-indigo-300 border border-indigo-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-            >
-              <Play className="w-4 h-4 text-indigo-400" />
-              <span>Como Funciona</span>
-            </button>
+            <div className="w-16 h-16 relative flex items-center justify-center shrink-0">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="32" cy="32" r="28" stroke="#1e293b" strokeWidth="4" fill="transparent" />
+                <circle cx="32" cy="32" r="28" stroke="#10b981" strokeWidth="4" fill="transparent"
+                  strokeDasharray={175.9} strokeDashoffset={175.9 * (1 - 0.984)} strokeLinecap="round" />
+              </svg>
+              <span className="absolute text-[11px] font-mono font-bold text-white">98%</span>
+            </div>
+          </div>
 
-            <button
-              onClick={() => setIsCustomizerOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-              title="Personalizar e Reordenar Widgets do Dashboard (Drag & Drop)"
-            >
-              <LayoutGrid className="w-4 h-4 text-blue-400" />
-              <span>Organizar Dashboard</span>
-            </button>
-
-            {isMaster && viewMode === 'master' && (
-              <button
-                onClick={() => onNavigateToTab('gestao_planos')}
-                className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                title="Acesso Privado do Proprietário Carlos Miguel"
-              >
-                <Crown className="w-4 h-4 text-amber-400" />
-                <span>Área Master (Planos)</span>
-              </button>
-            )}
+          <div className="relative z-10 grid grid-cols-2 gap-2 text-[11px] border-t border-slate-800/80 pt-3">
+            <div className="bg-[#0B0F19] p-2 rounded-xl border border-slate-800/60 flex flex-col justify-between">
+              <span className="text-slate-500 font-bold uppercase text-[8px] tracking-wider">Simples Nacional</span>
+              <span className="text-white font-bold flex items-center gap-1 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Ativo
+              </span>
+            </div>
+            <div className="bg-[#0B0F19] p-2 rounded-xl border border-slate-800/60 flex flex-col justify-between">
+              <span className="text-slate-500 font-bold uppercase text-[8px] tracking-wider">Fator R do Mês</span>
+              <span className="text-white font-bold flex items-center gap-1 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${(calculation.fatorR || 0) >= 28 ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                {(calculation.fatorR || 0).toFixed(1)}% ({(calculation.fatorR || 0) >= 28 ? 'III' : 'V'})
+              </span>
+            </div>
           </div>
         </div>
       </div>

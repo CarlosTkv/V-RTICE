@@ -484,7 +484,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </nav>
 
         {/* Sub-tabs bar with specialized module color matrix */}
-        <div className="flex items-center space-x-1.5 py-2 border-t border-slate-800/60 overflow-x-auto no-scrollbar">
+        <div className="flex flex-wrap items-center gap-1.5 py-2 border-t border-slate-800/60">
           <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2.5 py-1 border-r border-slate-800 shrink-0 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
             <span>Ferramentas:</span>

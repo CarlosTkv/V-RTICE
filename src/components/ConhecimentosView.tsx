@@ -132,7 +132,7 @@ export const ConhecimentosView: React.FC<ConhecimentosViewProps> = ({
           </div>
 
           {/* Subdivisao Filter */}
-          <div className="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex flex-wrap items-center gap-2 pb-1 md:pb-0">
             <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
             <span className="text-xs text-slate-400 font-semibold flex-shrink-0">Esfera:</span>
             <button
@@ -162,7 +162,7 @@ export const ConhecimentosView: React.FC<ConhecimentosViewProps> = ({
         </div>
 
         {/* Assunto Category Tabs */}
-        <div className="flex items-center space-x-2 overflow-x-auto pt-2 border-t border-slate-800">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
           <button
             onClick={() => setSelectedAssunto('all')}
             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 flex-shrink-0 cursor-pointer ${

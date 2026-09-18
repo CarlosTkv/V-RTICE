@@ -742,7 +742,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-700/80 bg-[#0B0F19]/60 px-4 sm:px-6 pt-3 gap-2 overflow-x-auto">
+        <div className="flex flex-wrap border-b border-slate-700/80 bg-[#0B0F19]/60 px-4 sm:px-6 pt-3 gap-2">
           {/* TAB: LOGIN */}
           <button
             id="tab-login"

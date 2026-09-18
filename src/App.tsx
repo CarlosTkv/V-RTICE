@@ -749,7 +749,7 @@ export default function App() {
         />
 
         {/* Main App Container */}
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <motion.div
               key={activeTab}
               initial={{ opacity: 0, y: 10 }}
@@ -762,7 +762,7 @@ export default function App() {
 
         {/* Footer (Hidden when printing) Comfortable Dark theme */}
         <footer className="no-print border-t border-slate-800/80 bg-[#0B0F19] py-4 text-xs font-mono text-slate-400">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
             <span className="font-semibold text-slate-300">VÉRTICE AUDITOR FISCAL // Inteligência Tributária & Auditoria Pericial</span>
             <div className="flex items-center space-x-3 text-slate-400">
               <span className="text-emerald-400 font-semibold">LC 123/6006</span>

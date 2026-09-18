@@ -287,8 +287,8 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
           )}
 
           {/* Abas de Navegação */}
-          <div className="px-6 py-2 bg-[#090E1A] border-b border-slate-800/80 flex items-center justify-between gap-3 text-xs overflow-x-auto">
-            <div className="flex items-center space-x-2">
+          <div className="px-6 py-2 bg-[#090E1A] border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setActiveTab('notificacoes')}
                 className={`px-3 py-1.5 rounded-lg font-bold flex items-center space-x-1.5 transition cursor-pointer whitespace-nowrap ${
@@ -353,7 +353,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Filtros e Busca */}
               <div className="px-6 py-3 bg-[#0B101D] border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center space-x-2 overflow-x-auto">
+                <div className="flex flex-wrap items-center gap-2">
                   {[
                     { id: 'todos', label: 'Todas' },
                     { id: 'legislacao', label: 'DOU / Legislação' },
