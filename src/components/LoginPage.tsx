@@ -163,8 +163,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
 
   // Sincroniza certificados
   const refreshCerts = () => {
-    setAvailableCerts(AuthService.getAvailableCertificates());
+    const list = AuthService.getAvailableCertificates();
+    setAvailableCerts(list);
+    if (list.length > 0) {
+      setSelectedCertId(list[0].id);
+      setPopupSelectedCertId(list[0].id);
+    }
   };
+
+  useEffect(() => {
+    refreshCerts();
+  }, []);
 
   // Timer para o desafio de 2FA
   useEffect(() => {

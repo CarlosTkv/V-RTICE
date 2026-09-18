@@ -110,8 +110,37 @@ const STORAGE_2FA_CHALLENGES_KEY = 'vertice_2fa_pending_challenges_v2';
 const STORAGE_SENT_EMAILS_KEY = 'vertice_sent_emails_inbox_v2';
 const STORAGE_PLAN_REQUESTS_KEY = 'vertice_plan_activation_requests_v2';
 
-// Lista vazia por padrão (removido o certificado fictício da base)
-export const DEFAULT_AVAILABLE_CERTIFICATES: DigitalCertificateInfo[] = [];
+// Lista de certificados pré-configurados do repositório para simulação e homologação imediata
+export const DEFAULT_AVAILABLE_CERTIFICATES: DigitalCertificateInfo[] = [
+  {
+    id: 'cert_carlos_miguel_a1',
+    type: 'e-CPF A1',
+    subjectName: 'CARLOS MIGUEL VIEIRA:00000000000',
+    subjectCommonName: 'Carlos Miguel Vieira',
+    documentNumber: '***.482.918-**',
+    issuer: 'AC SAFEWEB RFB v5',
+    serialNumber: '5E7D9F62E662D969',
+    validFrom: '2026-01-01T00:00:00Z',
+    validUntil: '2027-12-31T23:59:59Z',
+    thumbprintSha256: '9A2F8B7C6E4D3C2B1A0F9E8D7C6B5A4',
+    status: 'valido',
+    installedLocation: 'arquivo_a1'
+  },
+  {
+    id: 'cert_vieira_associados_a3',
+    type: 'e-CNPJ A3',
+    subjectName: 'VIEIRA & ASSOCIADOS INTELIGENCIA FISCAL LTDA:11222333000144',
+    subjectCommonName: 'Vieira & Associados',
+    documentNumber: '11.222.333/0001-44',
+    issuer: 'AC SERPRO RFB v5',
+    serialNumber: '7B3A9E2D5F1C6B4E',
+    validFrom: '2025-06-15T00:00:00Z',
+    validUntil: '2028-06-14T23:59:59Z',
+    thumbprintSha256: '3F5A7B9C1E3D5F7A9B2C4D6E8F0A2B4',
+    status: 'valido',
+    installedLocation: 'dispositivo'
+  }
+];
 
 // Conta Oficial Exemplo Autorizada do Sistema (Sem dados fictícios adicionais)
 export const DEFAULT_PRESET_ACCOUNTS: UserAccount[] = [
@@ -475,15 +504,29 @@ export class AuthService {
    * Obtém a lista de certificados ICP-Brasil instalados ou detectados
    */
   static getAvailableCertificates(): DigitalCertificateInfo[] {
+    let customCerts: DigitalCertificateInfo[] = [];
     try {
       const stored = localStorage.getItem('vertice_custom_certificates_v2');
       if (stored) {
-        return JSON.parse(stored);
+        customCerts = JSON.parse(stored);
       }
     } catch (e) {
       console.error('Erro ao ler certificados customizados:', e);
     }
-    return DEFAULT_AVAILABLE_CERTIFICATES;
+    
+    // Une os certificados customizados/carregados com os padrões do sistema para homologação imediata
+    const combined = [...customCerts, ...DEFAULT_AVAILABLE_CERTIFICATES];
+    const unique: DigitalCertificateInfo[] = [];
+    const seen = new Set<string>();
+    
+    for (const cert of combined) {
+      if (!seen.has(cert.serialNumber)) {
+        seen.add(cert.serialNumber);
+        unique.push(cert);
+      }
+    }
+    
+    return unique;
   }
 
   /**
