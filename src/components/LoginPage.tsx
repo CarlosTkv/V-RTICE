@@ -47,6 +47,7 @@ import { BrandLogo } from './BrandLogo';
 import { BrandConvergenceSplash } from './BrandConvergenceSplash';
 import { PasswordRulesList } from './PasswordRulesList';
 import { validatePasswordPolicy } from '../utils/passwordPolicy';
+import { apiFetch } from '../utils/apiClient';
 
 interface LoginPageProps {
   onLogin: (user: AuthUser) => void;
@@ -445,7 +446,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
     setSuccessMessage('Iniciando redirecionamento para o túnel mTLS ICP-Brasil...');
 
     try {
-      const response = await fetch('/auth/handshake-certificado', {
+      const response = await apiFetch('/auth/handshake-certificado', {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
@@ -475,7 +476,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onBackToLanding }
 
       // Fallback para validação estrita da empresa autorizada
       try {
-        const devResponse = await fetch('/api/auth/certificate', {
+        const devResponse = await apiFetch('/api/auth/certificate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ certId: 'cert_carlos_miguel_master' })

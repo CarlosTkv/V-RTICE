@@ -26,6 +26,7 @@ import {
   Tag
 } from 'lucide-react';
 import { CompanyData, CalculationResult } from '../types';
+import { apiFetch } from '../utils/apiClient';
 
 interface AIAuditorModalProps {
   isOpen: boolean;
@@ -96,7 +97,7 @@ export const AIAuditorModal: React.FC<AIAuditorModalProps> = ({
 
     setIsGeneratingOpinion(true);
     try {
-      const res = await fetch('/api/tax-audit/opinion', {
+      const res = await apiFetch('/api/tax-audit/opinion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ company, calculation }),
@@ -129,7 +130,7 @@ export const AIAuditorModal: React.FC<AIAuditorModalProps> = ({
     setIsSendingMessage(true);
 
     try {
-      const res = await fetch('/api/tax-audit/chat', {
+      const res = await apiFetch('/api/tax-audit/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

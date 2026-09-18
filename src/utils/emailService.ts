@@ -1,7 +1,9 @@
 
+import { apiFetch } from './apiClient';
+
 export const sendWelcomeEmail = async (clientName: string, clientEmail: string) => {
   try {
-    const response = await fetch('/api/send-welcome-email', {
+    const response = await apiFetch('/api/send-welcome-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientName, clientEmail }),

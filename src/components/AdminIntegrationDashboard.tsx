@@ -21,6 +21,7 @@ import {
 import { NfseNacionalService } from '../utils/nfseService';
 import { GovApiHealthItem, PlanActivationRequest } from '../types';
 import { AuthService } from '../utils/authService';
+import { apiFetch } from '../utils/apiClient';
 
 export const AdminIntegrationDashboard: React.FC = () => {
   const [services, setServices] = useState<GovApiHealthItem[]>([]);
@@ -39,7 +40,7 @@ export const AdminIntegrationDashboard: React.FC = () => {
   const handleVerifyDns = async () => {
     setIsVerifyingDns(true);
     try {
-      const res = await fetch('/api/dns/verify');
+      const res = await apiFetch('/api/dns/verify');
       const data = await res.json();
       setDnsVerification(data);
     } catch (e) {
@@ -59,7 +60,7 @@ export const AdminIntegrationDashboard: React.FC = () => {
     if (res.success) {
       setPendingRequests(AuthService.getPlanActivationRequests());
       try {
-        await fetch('/api/send-welcome-email', {
+        await apiFetch('/api/send-welcome-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientName: reqItem.requesterName, clientEmail: reqItem.requesterEmail })
@@ -80,7 +81,7 @@ export const AdminIntegrationDashboard: React.FC = () => {
     if (res.success) {
       setPendingRequests(AuthService.getPlanActivationRequests());
       try {
-        await fetch('/api/send-rejection-email', {
+        await apiFetch('/api/send-rejection-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientName: reqItem.requesterName, clientEmail: reqItem.requesterEmail })

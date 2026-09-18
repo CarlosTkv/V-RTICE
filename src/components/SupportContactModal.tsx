@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Send, X, ShieldCheck, Building2, Phone, Briefcase } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { AuthService, SentEmailNotification } from '../utils/authService';
+import { apiFetch } from '../utils/apiClient';
 
 interface SupportContactModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export const SupportContactModal: React.FC<SupportContactModalProps> = ({ isOpen
 
     // Tentar disparo via API backend
     try {
-      await fetch('/api/email/send', {
+      await apiFetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

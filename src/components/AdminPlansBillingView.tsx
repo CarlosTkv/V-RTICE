@@ -80,6 +80,7 @@ import { CancellationSettlementModal } from './CancellationSettlementModal';
 import { AdminCertificatesTab } from './AdminCertificatesTab';
 import { sendWelcomeEmail } from '../utils/emailService';
 import { calculateProRataSubscription, CancellationSettlementResult } from '../utils/customPlanCalculator';
+import { apiFetch } from '../utils/apiClient';
 
 interface AdminPlansBillingViewProps {
   currentUser: AuthUser;
@@ -928,16 +929,16 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
 
     const reqs = AuthService.getPlanActivationRequests();
     const updated = reqs.map(r => {
-      if (r.id === requestId) {
-        // Enviar e-mail de rejeição/atualização em background
-        fetch('/api/send-rejection-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientName: r.requesterName,
-            clientEmail: r.requesterEmail
-          })
-        }).catch(err => console.error('Erro ao enviar e-mail de rejeição:', err));
+       if (r.id === requestId) {
+         // Enviar e-mail de rejeição/atualização em background
+         apiFetch('/api/send-rejection-email', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             clientName: r.requesterName,
+             clientEmail: r.requesterEmail
+           })
+         }).catch(err => console.error('Erro ao enviar e-mail de rejeição:', err));
 
         return {
           ...r,

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { AuthService, SentEmailNotification, EmailAttachment } from '../utils/authService';
 import { AuthUser } from '../types';
+import { apiFetch } from '../utils/apiClient';
 
 interface CustomFolder {
   id: string;
@@ -161,7 +162,7 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
   const syncImapServer = async () => {
     setIsFetchingImap(true);
     try {
-      const res = await fetch('/api/email/imap/fetch');
+      const res = await apiFetch('/api/email/imap/fetch');
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'connected' && Array.isArray(data.messages) && data.messages.length > 0) {
@@ -507,7 +508,7 @@ export const UmblerWebmailModule: React.FC<UmblerWebmailModuleProps> = ({ curren
     AuthService.recordSentEmail(newMail);
 
     try {
-      await fetch('/api/email/send', {
+      await apiFetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -442,7 +442,7 @@ Analisando a sua solicitação em consonância com a legislação tributária br
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json());
 
@@ -794,9 +794,13 @@ Estruture a resposta com:
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Vértice Auditor Fiscal - Auditoria Tributária Ultimate Server running on http://0.0.0.0:${PORT}`);
   });
+
+  // Ajustes de timeout robustos para compatibilidade com o Render (evita encerramento prematuro de conexões de longa duração)
+  server.keepAliveTimeout = 120000; // 2 minutos
+  server.headersTimeout = 125000; // ligeiramente superior ao keepAliveTimeout, conforme recomendação do Node.js
 }
 
 startServer();
