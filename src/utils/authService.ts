@@ -103,7 +103,7 @@ export interface SentEmailNotification {
 }
 
 const STORAGE_USERS_KEY = 'vertice_registered_accounts_v2';
-const STORAGE_SESSION_KEY = 'vertice_auth_user_v2';
+const STORAGE_SESSION_KEY = 'sna_auth_user';
 const STORAGE_PENDING_REGISTRATIONS_KEY = 'vertice_pending_registrations_v2';
 const STORAGE_PENDING_RESETS_KEY = 'vertice_pending_password_resets_v2';
 const STORAGE_2FA_CHALLENGES_KEY = 'vertice_2fa_pending_challenges_v2';
@@ -1111,16 +1111,21 @@ export class AuthService {
   }
 
   /**
-   * Salva a sessão ativa no sessionStorage (fecha ao fechar o navegador/aba)
+   * Salva a sessão ativa no localStorage (Compartilhado entre abas)
    */
   static saveCurrentSession(user: AuthUser | null): void {
     try {
       if (user) {
-        sessionStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(user));
-        sessionStorage.setItem('sna_app_view_mode', user.viewMode || 'master');
+        localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(user));
+        localStorage.setItem('sna_app_view_mode', user.viewMode || 'master');
+        localStorage.removeItem('sna_auth_logged_out');
+        // Define cookie de sessão (sem expiração, limpa ao fechar navegador)
+        document.cookie = "sna_session_active=true; path=/";
       } else {
-        sessionStorage.removeItem(STORAGE_SESSION_KEY);
-        sessionStorage.removeItem('sna_app_view_mode');
+        localStorage.removeItem(STORAGE_SESSION_KEY);
+        localStorage.removeItem('sna_app_view_mode');
+        // Limpa cookie de sessão
+        document.cookie = "sna_session_active=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
       }
     } catch (e) {
       console.error('Erro ao salvar sessão:', e);
@@ -1128,11 +1133,11 @@ export class AuthService {
   }
 
   /**
-   * Obtém a sessão salva no sessionStorage
+   * Obtém a sessão salva no localStorage
    */
   static getStoredSession(): AuthUser | null {
     try {
-      const stored = sessionStorage.getItem(STORAGE_SESSION_KEY);
+      const stored = localStorage.getItem(STORAGE_SESSION_KEY);
       if (stored) {
         const parsed: AuthUser = JSON.parse(stored);
         if (parsed && (parsed.email?.toLowerCase() === 'carlosmiguelvieira1@gmail.com' || parsed.id === 'usr_carlos_miguel_master' || parsed.name === 'Carlos Miguel Vieira')) {

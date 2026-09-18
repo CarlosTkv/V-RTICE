@@ -130,11 +130,27 @@ export default function App() {
     return 'master';
   });
 
-  // Auth and user state with MASTER VIP privileges
+  // Auth and user state with MASTER VIP privileges and Session Lifecycle Management
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
+    // 1. Verificar Ciclo de Vida da Sessão do Navegador (Session Cookie)
+    const isSessionActive = typeof document !== 'undefined' && document.cookie.split(';').some(c => c.trim().startsWith('sna_session_active='));
+    
+    if (!isSessionActive) {
+      // Navegador foi fechado ou é o primeiro acesso -> Forçar Logoff limpando resíduos de sessão
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('sna_auth_user');
+        localStorage.removeItem('sna_app_view_mode');
+        localStorage.removeItem('sna_auth_logged_out');
+      }
+      return null;
+    }
+
+    // 2. Verificar se o usuário efetuou logout manualmente
     if (localStorage.getItem('sna_auth_logged_out') === 'true') {
       return null;
     }
+
+    // 3. Carregar usuário da persistência compartilhada
     const savedUser = localStorage.getItem('sna_auth_user');
     if (savedUser) {
       try {
@@ -156,6 +172,11 @@ export default function App() {
     }
     return null;
   });
+
+  // Efeito para garantir que o cookie de sessão esteja ativo (limpa ao fechar navegador)
+  useEffect(() => {
+    document.cookie = "sna_session_active=true; path=/";
+  }, []);
 
   const [activeTab, setActiveTab] = useState<AppActiveTab>('dashboard');
 
