@@ -42,11 +42,15 @@ import {
   FileCheck,
   Users,
   AlertCircle,
-  Wand2
+  Wand2,
+  Upload,
+  Cpu,
+  Bot
 } from 'lucide-react';
 import { CompanyData } from '../types';
 import { BrandLogo } from './BrandLogo';
 import { ExecutiveDocumentViewer } from './ExecutiveDocumentViewer';
+import { AutomatedFilingRobot } from './societario/AutomatedFilingRobot';
 import { 
   JUNTAS_COMERCIAIS_DATABASE, 
   COMPANY_TYPES_DATABASE, 
@@ -201,10 +205,30 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
   const [auditorDraftText, setAuditorDraftText] = useState<string>('');
   const [auditorSelectedType, setAuditorSelectedType] = useState<string>('CON-070');
   const [isAuditing, setIsAuditing] = useState<boolean>(false);
+  const [isUploadingDraft, setIsUploadingDraft] = useState<boolean>(false);
+  const [showFilingRobot, setShowFilingRobot] = useState<boolean>(false);
+  const [robotOperationType, setRobotOperationType] = useState<string>('Alteração de Matriz e Consolidação');
   const [auditResult, setAuditResult] = useState<AuditResultData | null>(null);
   const [auditorViewMode, setAuditorViewMode] = useState<'diagnostico' | 'tribunais' | 'vulnerabilidades' | 'biblioteca' | 'parecer_oficial'>('diagnostico');
   const [issueSeverityFilter, setIssueSeverityFilter] = useState<'all' | 'Crítico' | 'Alto' | 'Moderado' | 'Preventivo'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Estado do Modal de Pergunta do Robô (Validação e Encaminhamento DBE/Junta)
+  const [validationPromptData, setValidationPromptData] = useState<{
+    isOpen: boolean;
+    title: string;
+    operationType: string;
+    uf: string;
+    score: number;
+    contractText: string;
+    issuesCount: number;
+    warnings: Array<{ id: string; title: string; desc: string; severity?: string; law?: string }>;
+    canProceedToFiling: boolean;
+  } | null>(null);
+
+  const canLaunchRobot = useMemo(() => {
+    return (auditResult?.score || 0) >= 80;
+  }, [auditResult]);
 
 
   // --- ESTADOS DO PASSO A PASSO DAS JUNTAS COMERCIAIS ---
@@ -596,10 +620,80 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
     setGeneratedContractText(text);
   }, [generateContractText]);
 
-  const handleGenerateContractDocument = () => {
-    const text = generateContractText();
+  // Função centralizada do Robô: Valida minuta (DREI, 14.451/22, Art 50 CC) e questiona seguimento com DBE/Junta
+  const handleGenerateAndValidateWithRobot = useCallback((
+    textToAudit?: string,
+    overrideTitle?: string,
+    overrideOperation?: string,
+    overrideUf?: string
+  ) => {
+    // 1. Obter texto da minuta (se não passado, gerar com base no modo atual)
+    const text = textToAudit || generateContractText();
     setGeneratedContractText(text);
+    setAuditorDraftText(text);
     setShowClausesModal(false);
+
+    // Determinar dados da operação
+    const title = overrideTitle || (
+      contractMode === 'abertura' ? 'Contrato Social de Constituição' :
+      contractMode === 'transformacao' ? 'Instrumento Particular de Transformação Societária' :
+      contractMode === 'distrato' ? 'Distrato Social e Liquidação' :
+      contractMode === 'acordo_socios' ? 'Acordo de Sócios e Governança' :
+      contractMode === 'mutuo_conversivel' ? 'Contrato de Mútuo Conversível em Participação' :
+      'Alteração Contratual Consolidada'
+    );
+
+    const operation = overrideOperation || (
+      contractMode === 'abertura' ? 'Abertura de Matriz / Constituição' :
+      contractMode === 'transformacao' ? 'Transformação de Tipo Jurídico' :
+      contractMode === 'distrato' ? 'Distrato e Baixa Mercantil' :
+      'Alteração de Matriz e Consolidação'
+    );
+
+    const uf = overrideUf || ufEmpresa || currentCompany?.uf || 'PR';
+
+    // 2. Executar auditoria forense instantânea com runForensicAuditEngine
+    const result = runForensicAuditEngine(text, {
+      id: 'VALIDACAO-ROBO-RPA',
+      title: `${title} - ${nomeEmpresarial || currentCompany?.name || 'Sociedade'}`,
+      vertical: 'Auditoria Societária e Registro Mercantil'
+    });
+    setAuditResult(result);
+    setRobotOperationType(operation);
+
+    // 3. Preparar avisos e checagens
+    const warningsList = result.issues.map(iss => ({
+      id: iss.id,
+      title: iss.title,
+      desc: iss.reason || iss.desc || '',
+      severity: iss.severity,
+      law: iss.legalBase
+    }));
+
+    const canProceed = result.score >= 80;
+
+    // 4. Abrir o modal interativo do Robô perguntando se deseja dar seguimento com o DBE e Junta Comercial
+    setValidationPromptData({
+      isOpen: true,
+      title,
+      operationType: operation,
+      uf,
+      score: result.score,
+      contractText: text,
+      issuesCount: result.issues.length,
+      warnings: warningsList,
+      canProceedToFiling: canProceed
+    });
+  }, [
+    generateContractText,
+    contractMode,
+    ufEmpresa,
+    currentCompany,
+    nomeEmpresarial
+  ]);
+
+  const handleGenerateContractDocument = () => {
+    handleGenerateAndValidateWithRobot();
   };
 
   const handleCopyContractText = () => {
@@ -1133,6 +1227,53 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
       .replace(/\{\{?PERCENTUAL_MAXIMO\}?\}/g, '15')
       .replace(/\{\{?VALOR_TOTAL_IMOVEIS\}?\}/g, 'R$ 2.500.000,00');
   }, [nomeEmpresarial, currentCompany, cidade, ufEmpresa, logradouro, numero, bairro, cep, capitalSocial, holdingSocioPF, holdingHeireiros]);
+
+  // Disparo do Robô para qualquer minuta do módulo de Blindagem Patrimonial
+  const handleGenerateShieldingWithRobot = useCallback(() => {
+    const shieldText = generateShieldingDocument();
+    const model = STRUCTURING_MODELS_DATA.find(m => m.id === shieldingType) || STRUCTURING_MODELS_DATA[0];
+    handleGenerateAndValidateWithRobot(
+      shieldText,
+      model.title,
+      `Blindagem Patrimonial: ${model.title}`,
+      ufEmpresa || currentCompany?.uf || 'PR'
+    );
+  }, [
+    generateShieldingDocument,
+    shieldingType,
+    handleGenerateAndValidateWithRobot,
+    ufEmpresa,
+    currentCompany
+  ]);
+
+  // Confirmação do usuário no Modal de Validação para disparar o robô RPA na Junta Comercial
+  const handleConfirmFilingFromValidation = () => {
+    if (!validationPromptData) return;
+    if (validationPromptData.score < 80) {
+      setToastMessage(`Atenção: A minuta obteve score de higidez de ${validationPromptData.score}%. O arquivamento automatizado exige no mínimo 80% para evitar exigências dos vogais da Junta Comercial.`);
+      return;
+    }
+    setRobotOperationType(validationPromptData.operationType);
+    setValidationPromptData(null);
+    setShowFilingRobot(true);
+  };
+
+  // Aplicação instantânea de correções e salvaguardas para atingir 95%+ e liberar o robô
+  const handleApplyQuickFixAndRevalidate = () => {
+    setIncludeConsolidacaoDrei(true);
+    setIncludeAutonomiaPatrimonialArt50(true);
+    setIncludeApuracaoHaveresSTJ(true);
+    setIncludeAssinaturaDigitalICP(true);
+    setIncludeDireitoPreferenciaTagAlong(true);
+    setIncludeDistribuicaoDesproporcional(true);
+    setIncludeNaoConcorrencia(true);
+
+    setTimeout(() => {
+      handleGenerateAndValidateWithRobot();
+      setToastMessage('Cláusulas essenciais do DREI e salvaguardas aplicadas! Minuta revalidada com higidez máxima.');
+      setTimeout(() => setToastMessage(null), 4000);
+    }, 120);
+  };
 
   // Download PDF de qualquer minuta da Biblioteca com formatação executiva
   const handleDownloadMatrixPDF = (model: ContractModelItem) => {
@@ -2700,10 +2841,10 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
               <button
                 type="button"
                 onClick={handleGenerateContractDocument}
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg transition cursor-pointer flex items-center gap-1.5"
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-blue-900/40 transition cursor-pointer flex items-center gap-2"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirmar e Gerar Minuta Completa</span>
+                <Cpu className="w-4 h-4 text-blue-200" />
+                <span>Confirmar, Gerar & Validar no Robô</span>
               </button>
             </div>
           </div>
@@ -3770,6 +3911,16 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
 
                 <div className="flex items-center gap-1.5">
                   <button
+                    type="button"
+                    onClick={handleGenerateShieldingWithRobot}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-blue-900/30 cursor-pointer"
+                    title="Validar Minuta de Blindagem com o Robô e Iniciar Registro"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-blue-200" />
+                    <span>Validar com Robô & Registrar</span>
+                  </button>
+
+                  <button
                     onClick={() => {
                       navigator.clipboard.writeText(generateShieldingDocument());
                       setCopiedShieldDoc(true);
@@ -4004,6 +4155,23 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                         <button
                           type="button"
                           onClick={() => {
+                            handleGenerateAndValidateWithRobot(
+                              dynamicDraft,
+                              model.title,
+                              `Registro & Minuta / ${model.vertical}`,
+                              ufEmpresa || currentCompany?.uf || 'PR'
+                            );
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md shadow-blue-900/30 cursor-pointer"
+                          title="Validar Minuta com o Robô e Prosseguir para Registro"
+                        >
+                          <Cpu className="w-3.5 h-3.5 text-blue-200" />
+                          <span>Validar com Robô</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
                             handleDownloadMatrixPDF(model);
                           }}
                           className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
@@ -4170,15 +4338,28 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                 </button>
 
                 {auditResult && (
-                  <button
-                    type="button"
-                    onClick={handleDownloadAuditOpinionPDF}
-                    className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition border border-slate-700 flex items-center space-x-2 cursor-pointer shadow"
-                    title="Baixar Parecer Técnico de Auditoria Jurídica em PDF"
-                  >
-                    <Download className="w-4 h-4 text-orange-400" />
-                    <span>Baixar Parecer Técnico (PDF)</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {auditResult.score >= 80 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowFilingRobot(true)}
+                        className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs transition shadow-lg shadow-emerald-950/50 cursor-pointer flex items-center space-x-2 border border-emerald-400/40 animate-pulse"
+                      >
+                        <Cpu className="w-4 h-4" />
+                        <span>Transmitir via Robô Vértice RPA</span>
+                      </button>
+                    )}
+                    
+                    <button
+                      type="button"
+                      onClick={handleDownloadAuditOpinionPDF}
+                      className="px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition border border-slate-700 flex items-center space-x-2 cursor-pointer shadow"
+                      title="Baixar Parecer Técnico de Auditoria Jurídica em PDF"
+                    >
+                      <Download className="w-4 h-4 text-orange-400" />
+                      <span>Baixar Parecer Técnico (PDF)</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -4228,7 +4409,36 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                   className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition flex items-center space-x-1.5 cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-orange-400" />
-                  <span>Recarregar Modelo com Dados Ativos</span>
+                  <span>Recarregar Modelo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.txt,.doc,.docx,.pdf';
+                    input.onchange = (e: any) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setIsUploadingDraft(true);
+                        const reader = new FileReader();
+                        reader.onload = (event: any) => {
+                          const text = event.target.result;
+                          setAuditorDraftText(text as string);
+                          setIsUploadingDraft(false);
+                          setToastMessage('Minuta externa carregada com sucesso para auditoria!');
+                          setTimeout(() => setToastMessage(null), 3000);
+                        };
+                        reader.readAsText(file);
+                      }
+                    };
+                    input.click();
+                  }}
+                  className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white shadow-md transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload de Minuta Externa</span>
                 </button>
               </div>
 
@@ -4501,7 +4711,37 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                       </div>
                     </div>
 
-                    {/* SÍNTESE DO DIAGNÓSTICO JURÍDICO */}
+                    {/* BOTÃO DE ARQUIVAMENTO AUTOMÁTICO (ROBÔ RPA) */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (canLaunchRobot) {
+                            setShowFilingRobot(true);
+                          } else {
+                            setToastMessage(`Atenção: O índice de higidez do contrato (${auditResult.score}%) está abaixo do mínimo exigido (80%) para o arquivamento automatizado via Robô. Por favor, aplique as correções recomendadas.`);
+                            setTimeout(() => setToastMessage(null), 5000);
+                          }
+                        }}
+                        className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 transition-all shadow-xl group ${
+                          canLaunchRobot 
+                            ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-400/30 animate-pulse-slow shadow-blue-900/40 cursor-pointer' 
+                            : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed grayscale'
+                        }`}
+                      >
+                        <div className={`p-1.5 rounded-lg border transition-colors ${canLaunchRobot ? 'bg-blue-500/20 border-blue-400/40 group-hover:bg-blue-500/30' : 'bg-slate-900 border-slate-800'}`}>
+                          <Cpu className={`w-5 h-5 ${canLaunchRobot ? 'text-blue-300' : 'text-slate-600'}`} />
+                        </div>
+                        <div className="text-left leading-none">
+                          <span className="block font-black">Arquivamento Automático via Robô</span>
+                          <span className={`text-[10px] font-bold ${canLaunchRobot ? 'text-blue-200' : 'text-slate-600'}`}>
+                            {canLaunchRobot ? 'Disponível para este contrato (Score ≥ 80%)' : 'Indisponível (Score < 80%)'}
+                          </span>
+                        </div>
+                        <ChevronRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${canLaunchRobot ? 'text-blue-400' : 'text-slate-700'}`} />
+                      </button>
+                    </div>
+
                     <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
                         <span className="flex items-center gap-1">
@@ -5008,6 +5248,190 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
 
     </div>
   )}
+
+      {/* MODAL DE VALIDAÇÃO DO ROBÔ & QUESTIONAMENTO DE ARQUIVAMENTO REDESIM / JUNTA */}
+      {validationPromptData && validationPromptData.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-[#0F172A] border border-slate-700/80 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 text-slate-200">
+            {/* Header com Robô e status */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-lg shadow-blue-900/40 relative">
+                  <Bot className="w-6 h-6 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0F172A]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-400 font-mono">
+                      Vértice Robotics • Redesim & Junta Comercial
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Validação Pericial Concluída
+                    </span>
+                  </div>
+                  <h3 className="text-base font-black text-white">
+                    Minuta Auditada & Pronta para Encaminhamento
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setValidationPromptData(null)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Painel com Dados do Documento & Junta */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-[#0B0F19] p-3 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Ato Societário
+                </span>
+                <p className="text-xs font-bold text-slate-100 truncate" title={validationPromptData.title}>
+                  {validationPromptData.title}
+                </p>
+                <span className="text-[10px] text-blue-400 font-mono block truncate">
+                  {validationPromptData.operationType}
+                </span>
+              </div>
+
+              <div className="bg-[#0B0F19] p-3 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Sociedade / Empresa
+                </span>
+                <p className="text-xs font-bold text-slate-100 truncate" title={nomeEmpresarial || currentCompany?.name || 'Sociedade'}>
+                  {nomeEmpresarial || currentCompany?.name || 'Sociedade'}
+                </p>
+                <span className="text-[10px] text-slate-400 font-mono block">
+                  CNPJ: {currentCompany?.cnpj || 'Em Constituição'}
+                </span>
+              </div>
+
+              <div className="bg-[#0B0F19] p-3 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Junta Comercial
+                </span>
+                <p className="text-xs font-bold text-slate-100 flex items-center gap-1 truncate">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Junta Comercial ({validationPromptData.uf})</span>
+                </p>
+                <span className="text-[10px] text-emerald-400 font-mono block">
+                  Empresa Fácil / Redesim
+                </span>
+              </div>
+            </div>
+
+            {/* Score & Higidez do Contrato */}
+            <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${
+              validationPromptData.score >= 80
+                ? 'bg-emerald-950/20 border-emerald-800/50 text-emerald-200'
+                : 'bg-amber-950/20 border-amber-800/50 text-amber-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl font-mono border shrink-0 ${
+                  validationPromptData.score >= 80
+                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                    : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                }`}>
+                  {validationPromptData.score}%
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    {validationPromptData.score >= 80 ? (
+                      <>
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        <span>Alta Higidez & Segurança Jurídica</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        <span>Conformidade Parcial (Exige Ajustes)</span>
+                      </>
+                    )}
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
+                    {validationPromptData.score >= 80 
+                      ? 'Minuta rigorosamente aderente às Instruções Normativas DREI nº 81/2020 e Lei 14.451/2022.'
+                      : 'O arquivamento automatizado exige no mínimo 80% de score para evitar exigências dos vogais.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 justify-end">
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300">
+                  DREI IN 81
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300">
+                  Lei 14.451/22
+                </span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 border border-slate-700 text-slate-300">
+                  Art. 50 CC
+                </span>
+              </div>
+            </div>
+
+            {/* A Pergunta Central */}
+            <div className="p-4 bg-gradient-to-r from-blue-950/40 via-indigo-950/40 to-blue-950/40 border border-blue-800/50 rounded-xl space-y-2">
+              <div className="flex items-center gap-2 text-blue-400 font-bold text-xs uppercase tracking-wider">
+                <Zap className="w-4 h-4 text-amber-300 animate-bounce" />
+                <span>Sequência Operacional Governamental</span>
+              </div>
+              <p className="text-sm font-medium text-slate-100 leading-relaxed">
+                Deseja que o Robô dê <strong>seguimento imediato</strong> com a abertura e transmissão do <strong>DBE no Coletor Nacional Redesim</strong>, protocolo de viabilidade e registro oficial na <strong>Junta Comercial ({validationPromptData.uf})</strong>?
+              </p>
+            </div>
+
+            {/* Ações */}
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setValidationPromptData(null);
+                  setToastMessage('Minuta carregada no Visualizador Executivo para revisão.');
+                  setTimeout(() => setToastMessage(null), 3500);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 transition cursor-pointer"
+              >
+                Revisar no Visualizador Executivo
+              </button>
+
+              {validationPromptData.score >= 80 ? (
+                <button
+                  type="button"
+                  onClick={handleConfirmFilingFromValidation}
+                  className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-wider shadow-xl shadow-blue-900/40 transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Cpu className="w-4 h-4 text-blue-200" />
+                  <span>Sim, Iniciar Arquivamento Automático (DBE & Junta)</span>
+                  <ChevronRight className="w-4 h-4 text-blue-200" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApplyQuickFixAndRevalidate}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4 text-amber-200" />
+                  <span>Aplicar Salvaguardas DREI (+25%) e Liberar Robô</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DO ROBÔ DE AUTOMAÇÃO RPA */}
+      <AutomatedFilingRobot
+        isOpen={showFilingRobot}
+        onClose={() => setShowFilingRobot(false)}
+        companyName={nomeEmpresarial || currentCompany.name || 'Empresa em Análise'}
+        cnpj={currentCompany.cnpj}
+        uf={ufEmpresa}
+        operationType={robotOperationType}
+        contractScore={auditResult?.score || 0}
+      />
 
     </div>
   );

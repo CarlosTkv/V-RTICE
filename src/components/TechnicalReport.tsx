@@ -21,6 +21,7 @@ import {
 } from '../utils/reportExporter';
 import { BrandLogo } from './BrandLogo';
 import { DocumentValidatorModal } from './DocumentValidatorModal';
+import { ExecutiveDocumentViewer } from './ExecutiveDocumentViewer';
 
 interface TechnicalReportProps {
   company: CompanyData;
@@ -192,17 +193,6 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({
               <span>Validar Laudo</span>
             </button>
 
-            {/* Botão Pré-visualizar Parecer */}
-            <button
-              type="button"
-              onClick={() => setShowPreview(true)}
-              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition cursor-pointer shadow-xs"
-              title="Pré-visualizar o parecer em formato A4 real antes de imprimir"
-            >
-              <Eye className="w-4 h-4 text-sky-400" />
-              <span>Pré-visualizar</span>
-            </button>
-
             {/* Botão Imprimir Nativo */}
             <button
               type="button"
@@ -212,28 +202,6 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({
             >
               <Printer className="w-4 h-4 text-blue-400" />
               <span>Imprimir</span>
-            </button>
-
-            {/* Botão Abrir em Nova Aba (bypassa qualquer bloqueio de iframe) */}
-            <button
-              type="button"
-              onClick={handleOpenStandaloneTab}
-              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 font-bold text-xs border border-emerald-800/60 transition cursor-pointer shadow-xs"
-              title="Abre o parecer em tela cheia fora do iframe do sistema para impressão livre"
-            >
-              <ExternalLink className="w-4 h-4 text-emerald-400" />
-              <span>Nova Aba</span>
-            </button>
-
-            {/* Botão Baixar HTML Autônomo */}
-            <button
-              type="button"
-              onClick={handleDownloadHtmlFile}
-              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition cursor-pointer shadow-xs"
-              title="Baixar arquivo portátil (.HTML) com layout A4 completo para abrir offline"
-            >
-              <FileText className="w-4 h-4 text-amber-400" />
-              <span>Baixar HTML</span>
             </button>
           </div>
         </div>
@@ -267,114 +235,22 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({
         )}
       </div>
 
-      {/* The Printable A4 Report Card */}
-      <div 
-        id="technical-report-page"
-        className="print-mode bg-white text-slate-900 p-8 sm:p-14 rounded-3xl shadow-xl border-t-[10px] border-slate-900 max-w-4xl mx-auto space-y-12"
-      >
-        <TechnicalReportContent company={company} calculation={calculation} />
+      {/* The Standardized Document Viewer */}
+      <div id="technical-report-page">
+        <ExecutiveDocumentViewer
+          documentTitle="PARECER TÉCNICO & AUDITORIA TRIBUTÁRIA 360°"
+          documentCategory="RELATÓRIO TRIBUTÁRIO 360°"
+          normativeBase="Análise técnica fundamentada na Lei Complementar 123/2006, Instruções Normativas da RFB, Leis 10.406/02 e 13.874/19, e Precedentes dos Tribunais Superiores (STF/STJ)."
+          companyName={company.name || 'EMPRESA AUDITADA'}
+          cnpj={company.cnpj}
+          uf={company.uf}
+          documentScore={calculation.effectiveRate < 10 ? 95 : 85}
+          documentRating={calculation.effectiveRate < 10 ? 'EXCELENTE' : 'BOM'}
+        >
+          <TechnicalReportContent company={company} calculation={calculation} />
+        </ExecutiveDocumentViewer>
       </div>
 
-      {/* A4 High-Fidelity Print Preview Modal */}
-      {showPreview && (
-        <div className="fixed inset-0 h-screen w-screen overflow-hidden z-50 flex flex-col bg-slate-950/95 backdrop-blur-md animate-fade-in font-sans">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900 shadow-md">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400 border border-sky-500/20">
-                <Eye className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
-                  Pré-visualização do Parecer Técnico (A4)
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Verifique a legibilidade, margens e cores dos gráficos em alta definição antes de enviar para impressão.
-                </p>
-              </div>
-            </div>
-
-            {/* Top Toolbar Actions */}
-            <div className="flex items-center space-x-4">
-              {/* Zoom Controls */}
-              <div className="flex items-center bg-slate-800/80 border border-slate-700/60 rounded-lg px-2.5 py-1 text-xs">
-                <span className="text-slate-400 mr-2 font-semibold">Zoom:</span>
-                <button 
-                  type="button"
-                  onClick={() => setZoom(prev => Math.max(50, prev - 10))}
-                  className="px-2 py-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded font-bold cursor-pointer"
-                  title="Diminuir Zoom"
-                >
-                  -
-                </button>
-                <span className="px-2 font-mono text-slate-100 font-bold w-12 text-center">{zoom}%</span>
-                <button 
-                  type="button"
-                  onClick={() => setZoom(prev => Math.min(150, prev + 10))}
-                  className="px-2 py-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded font-bold cursor-pointer"
-                  title="Aumentar Zoom"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Action Buttons */}
-              <button
-                type="button"
-                onClick={handlePrintAction}
-                className="flex items-center space-x-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-md transition cursor-pointer"
-              >
-                <Printer className="w-4 h-4 text-white" />
-                <span>Imprimir Agora</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDownloadPdf}
-                disabled={isExportingPdf}
-                className="flex items-center space-x-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-md transition cursor-pointer animate-none"
-              >
-                {isExportingPdf ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>{exportProgress || 'Gerando...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4 text-white" />
-                    <span>Baixar PDF</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowPreview(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider rounded-lg border border-slate-700 transition cursor-pointer"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-
-          {/* Paper View Container */}
-          <div className="flex-1 overflow-y-auto p-8 bg-[#0B0F19] flex justify-center items-start">
-            <div 
-              id="technical-report-preview-sheet"
-              className="print-mode bg-white text-slate-900 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] max-w-[210mm] w-full min-h-[297mm] rounded-xs border border-slate-200 transition-all duration-300 origin-top"
-              style={{ 
-                transform: `scale(${zoom / 100})`,
-                marginBottom: `${(zoom - 100) * 2}px`
-              }}
-            >
-              {/* Simulate Real Printable Padding and Layout */}
-              <div className="p-8 sm:p-14 space-y-12 leading-relaxed">
-                <TechnicalReportContent company={company} calculation={calculation} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Modal Validador de Documentos */}
       <DocumentValidatorModal
         isOpen={isValidatorOpen}
