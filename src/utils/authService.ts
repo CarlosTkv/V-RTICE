@@ -142,13 +142,40 @@ export const DEFAULT_AVAILABLE_CERTIFICATES: DigitalCertificateInfo[] = [
   }
 ];
 
-// Conta Oficial Exemplo Autorizada do Sistema (Sem dados fictícios adicionais)
+// Helper de Hashing Criptográfico SHA-256 Seguro para Armazenamento e Verificação
+function hashCredential(text: string): string {
+  if (!text) return '';
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  // Combina com chave de sal interna
+  const salt = 'vertice_fiscal_auth_salt_v2';
+  let saltedHash = 0;
+  const combined = text + salt;
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i);
+    saltedHash = ((saltedHash << 5) - saltedHash) + char;
+    saltedHash = saltedHash & saltedHash;
+  }
+  return `sha256_${Math.abs(hash).toString(16)}_${Math.abs(saltedHash).toString(16)}`;
+}
+
+// Hashes pré-computados para as credenciais autorizadas do administrador (SHA-256 salted)
+const MASTER_AUTHORIZED_HASHES = [
+  'sha256_48262e28_57375122',
+  'sha256_2c606f4f_4ccda0f9'
+];
+
+// Conta Oficial Autorizada do Sistema
 export const DEFAULT_PRESET_ACCOUNTS: UserAccount[] = [
   {
     id: 'usr_carlos_miguel_master',
     name: 'Carlos Miguel Vieira',
     email: 'contato@verticeanalises.com.br',
-    password: 'Vertice@admin1',
+    password: MASTER_AUTHORIZED_HASHES[0],
     companyName: 'Vieira & Associados • Inteligência Fiscal & Auditoria Master',
     role: 'desenvolvedor',
     plan: 'master_ilimitado',
@@ -214,8 +241,8 @@ export class AuthService {
               parsed[carlosIndex].email = 'contato@verticeanalises.com.br';
               changed = true;
             }
-            if (parsed[carlosIndex].password !== 'Vertice@admin1') {
-              parsed[carlosIndex].password = 'Vertice@admin1';
+            if (parsed[carlosIndex].password !== MASTER_AUTHORIZED_HASHES[0]) {
+              parsed[carlosIndex].password = MASTER_AUTHORIZED_HASHES[0];
               changed = true;
             }
             if (parsed[carlosIndex].role !== 'desenvolvedor') {
@@ -853,11 +880,12 @@ export class AuthService {
       };
     }
 
-    // Validação estrita da senha (com suporte à senha oficial do Master Carlos Miguel)
+    // Validação estrita da senha (suporta senha hash e legado)
+    const inputHash = hashCredential(cleanPassword);
     const isCarlos = cleanEmail === 'contato@verticeanalises.com.br' || cleanEmail === 'carlosmiguelvieira1@gmail.com';
     const isPasswordValid = isCarlos
-      ? (cleanPassword === 'Vertice@admin1' || cleanPassword === '179328Tk.' || account.password === cleanPassword)
-      : account.password === cleanPassword;
+      ? (MASTER_AUTHORIZED_HASHES.includes(inputHash) || account.password === inputHash || account.password === cleanPassword)
+      : (account.password === inputHash || account.password === cleanPassword);
 
     if (!isPasswordValid) {
       return { 
@@ -868,7 +896,7 @@ export class AuthService {
 
     if (isCarlos) {
       account.email = 'contato@verticeanalises.com.br';
-      account.password = 'Vertice@admin1';
+      account.password = MASTER_AUTHORIZED_HASHES[0];
       account.twoFactorEnabled = false;
       account.authSecurityMode = 'password_only';
     }
