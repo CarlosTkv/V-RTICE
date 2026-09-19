@@ -312,10 +312,51 @@ export async function validateCompanyWithRFB(
  * Searches / extracts linked companies for a partner strictly from real queries
  */
 export async function searchPartnerOtherCompanies(
-  _partnerName: string,
-  _partnerCpf?: string
+  partnerName: string,
+  partnerCpf?: string,
+  currentCnpj?: string
 ): Promise<PartnerOtherCompany[]> {
-  // Return strictly empty array if no external search engine / database is linked
+  if (!partnerName || partnerName.trim().length < 3) return [];
+
+  try {
+    const response = await fetch('/api/socios/outras-empresas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        partnerName,
+        partnerCpf,
+        currentCnpj
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && Array.isArray(data.companies)) {
+        return data.companies.map((c: any) => ({
+          id: c.id || `outra-${Date.now()}-${Math.random()}`,
+          name: c.name || 'Sem dados disponíveis',
+          cnpj: c.cnpj || 'Sem dados disponíveis',
+          revenue12m: c.revenue12m || 0,
+          participationPercent: c.participationPercent || 0,
+          isManager: c.isManager ?? false,
+          regime: c.regime || 'simples',
+          cnae: c.cnae,
+          cnaeDescription: c.cnaeDescription,
+          uf: c.uf || 'PR',
+          city: c.city || 'Sem dados disponíveis',
+          status: c.status || 'ATIVA',
+          capitalSocial: c.capitalSocial || 0,
+          simplesOptant: c.simplesOptant ?? true,
+          meiOptant: c.meiOptant ?? false,
+          partnerRole: c.partnerRole || 'Sócio',
+          source: 'api'
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('Falha na consulta remota de outras empresas do sócio:', err);
+  }
+
   return [];
 }
 

@@ -41,6 +41,11 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
     'societario',
     'agenda',
     'conhecimentos',
+    'teses',
+    'legalizacao',
+    'auditoria',
+    'tax',
+    'contratos',
     'parceiros',
     'parecer'
   ], []);

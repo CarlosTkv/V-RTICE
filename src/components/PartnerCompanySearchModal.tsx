@@ -35,7 +35,7 @@ export const PartnerCompanySearchModal: React.FC<PartnerCompanySearchModalProps>
   partner,
   onAddCompany,
 }) => {
-  const [activeTab, setActiveTab] = useState<'cnpj' | 'auto_search'>('cnpj');
+  const [activeTab, setActiveTab] = useState<'auto_search' | 'cnpj'>('auto_search');
   const [cnpjInput, setCnpjInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +50,12 @@ export const PartnerCompanySearchModal: React.FC<PartnerCompanySearchModalProps>
   const [customParticipation, setCustomParticipation] = useState('0');
   const [customIsManager, setCustomIsManager] = useState(false);
   const [customRegime, setCustomRegime] = useState<TaxRegime>('simples');
+
+  React.useEffect(() => {
+    if (isOpen && activeTab === 'auto_search' && !hasSearchedAuto && partner.name && partner.name.length > 2) {
+      handleAutoSearchByPartner();
+    }
+  }, [isOpen, activeTab, partner.name]);
 
   if (!isOpen) return null;
 
@@ -398,9 +404,22 @@ export const PartnerCompanySearchModal: React.FC<PartnerCompanySearchModalProps>
                 </div>
               ) : discoveredCompanies.length > 0 ? (
                 <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                    {discoveredCompanies.length} Empresa(s) encontrada(s) vinculada(s) ao sócio:
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                      {discoveredCompanies.length} Empresa(s) encontrada(s) vinculada(s) ao sócio:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        discoveredCompanies.forEach(c => onAddCompany(c));
+                        onClose();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold transition flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-emerald-400" />
+                      <span>Vincular Todas ({discoveredCompanies.length})</span>
+                    </button>
+                  </div>
                   {discoveredCompanies.map((comp) => (
                     <div
                       key={comp.id}

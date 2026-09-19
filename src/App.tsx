@@ -794,6 +794,7 @@ export default function App() {
             setActiveTab(tab);
             setIsManualOpen(false);
           }}
+          isMasterUser={authUser?.role === 'master' || authUser?.isMaster || authUser?.email === 'contato@verticeanalises.com.br' || authUser?.email === 'carlosmiguelvieira1@gmail.com'}
         />
 
         <AuthModal

@@ -41,7 +41,8 @@ import {
   Tags,
   Receipt,
   Zap,
-  BarChart3
+  BarChart3,
+  Server
 } from 'lucide-react';
 import { CompanyData, CalculationResult, AuthUser, AppViewMode, AppActiveTab } from '../types';
 import { BrandLogo, updateDynamicFavicon, BrandModuleKey } from './BrandLogo';
@@ -281,10 +282,30 @@ export const Navbar: React.FC<NavbarProps> = ({
                    <span className="hidden xl:inline">E-mail Umbler</span>
                  </button>
                )}
+               {isMasterUser && (
+                 <button
+                   onClick={() => setActiveTab && setActiveTab('gestao_planos')}
+                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-purple-950/70 hover:bg-purple-900/70 text-purple-300 border border-purple-800/70 transition text-[10px] font-bold cursor-pointer"
+                   title="Mapa Global de APIs e Integrações Governamentais (Exclusivo Master/Dev)"
+                 >
+                   <Server className="w-3.5 h-3.5 text-purple-400" />
+                   <span className="hidden xl:inline">Mapa de APIs & Robôs</span>
+                 </button>
+               )}
                <button onClick={onOpenNotifications} className="p-2 text-slate-500 hover:text-amber-400 transition relative">
                  <Bell className="w-4 h-4" />
                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-[#0B0F19]" />
                </button>
+               {onOpenManual && (
+                 <button 
+                   onClick={onOpenManual} 
+                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-blue-950/70 hover:bg-blue-900/70 text-blue-300 border border-blue-800/70 transition text-[10px] font-bold cursor-pointer"
+                   title="Manual Completo de Treinamento, Implantação e Operação 360°"
+                 >
+                   <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                   <span className="hidden xl:inline">Manual 360°</span>
+                 </button>
+               )}
                <button onClick={onOpenSystemTour} className="p-2 text-slate-500 hover:text-blue-400 transition">
                  <HelpCircle className="w-4 h-4" />
                </button>

@@ -126,6 +126,45 @@ export const NFSEServiceModule: React.FC<NFSEServiceModuleProps> = ({
         </div>
       </div>
 
+      {/* CARD TÉCNICO DE TRANSPARÊNCIA: REFLEXO NO PORTAL NACIONAL NFSE.GOV.BR */}
+      <div className="bg-[#0B1120] border border-blue-500/30 rounded-2xl p-5 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-blue-400" />
+            <h4 className="text-sm font-bold text-white">
+              Como funciona o Reflexo no Portal Nacional (nfse.gov.br) da Receita Federal
+            </h4>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono text-[10px] font-bold">
+            Diretriz Técnica de Produção Oficial
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1.5">
+            <div className="font-bold text-amber-300 flex items-center gap-1.5">
+              <span>⚠️ O que acontece hoje em ambiente de homologação/simulação:</span>
+            </div>
+            <p className="text-slate-300 leading-relaxed text-[11px]">
+              O sistema gera a <strong>DPS (Declaração de Prestação de Serviços)</strong> com assinatura de schema XSD v1.01 oficial, calcula impostos (ISSQN, retenções federais) e gera a Chave de Acesso de 50 dígitos no formato nacional. Os arquivos XML e DANFSE ficam arquivados no banco de dados da sua empresa.
+            </p>
+          </div>
+
+          <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1.5">
+            <div className="font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>✅ Para a nota ser autorizada diretamente na Receita Federal:</span>
+            </div>
+            <p className="text-slate-300 leading-relaxed text-[11px]">
+              O WebService oficial da Receita Federal (ADN Gov.br) exige autenticação síncrona via mTLS com ICP-Brasil. Basta:
+            </p>
+            <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5 pl-1">
+              <li>Upload do <strong>Certificado Digital e-CNPJ A1 (.pfx)</strong> com a senha no campo abaixo;</li>
+              <li>O sistema assina a DPS com a chave privada, envia diretamente à API do Emissor Nacional e recebe a autorização oficial com a Chave de 50 dígitos.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-6">
         <CertificateUploadField 
           label="Atualizar Certificado de Emissão"

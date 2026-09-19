@@ -51,6 +51,7 @@ import { CompanyData } from '../types';
 import { BrandLogo } from './BrandLogo';
 import { ExecutiveDocumentViewer } from './ExecutiveDocumentViewer';
 import { AutomatedFilingRobot } from './societario/AutomatedFilingRobot';
+import { GovernmentIntegrationMatrixModal } from './societario/GovernmentIntegrationMatrixModal';
 import { 
   JUNTAS_COMERCIAIS_DATABASE, 
   COMPANY_TYPES_DATABASE, 
@@ -207,6 +208,7 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
   const [isAuditing, setIsAuditing] = useState<boolean>(false);
   const [isUploadingDraft, setIsUploadingDraft] = useState<boolean>(false);
   const [showFilingRobot, setShowFilingRobot] = useState<boolean>(false);
+  const [showMatrixModal, setShowMatrixModal] = useState<boolean>(false);
   const [robotOperationType, setRobotOperationType] = useState<string>('Alteração de Matriz e Consolidação');
   const [auditResult, setAuditResult] = useState<AuditResultData | null>(null);
   const [auditorViewMode, setAuditorViewMode] = useState<'diagnostico' | 'tribunais' | 'vulnerabilidades' | 'biblioteca' | 'parecer_oficial'>('diagnostico');
@@ -1574,14 +1576,34 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
           </div>
         </div>
 
-          <button
-            onClick={handlePullActiveCompanyData}
-            className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg transition cursor-pointer shrink-0 border border-cyan-400/40"
-            title="Preencher gerador com dados da empresa ativa no cockpit"
-          >
-            <RefreshCw className="w-4 h-4 text-cyan-200 animate-spin-slow" />
-            <span>Puxar Dados da Empresa Ativa</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => setShowMatrixModal(true)}
+              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-blue-950/80 hover:bg-blue-900 text-blue-300 border border-blue-600/40 text-xs font-bold transition shadow cursor-pointer"
+              title="Ver Checklist de Integrações da Redesim e Arquitetura da VPS Oracle"
+            >
+              <Cpu className="w-4 h-4 text-blue-400" />
+              <span>Matriz & Checklist VPS</span>
+            </button>
+
+            <button
+              onClick={() => setShowFilingRobot(true)}
+              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/40 text-xs font-bold transition shadow cursor-pointer"
+              title="Abrir Central de Protocolos, Dossiê e Automação Redesim"
+            >
+              <Bot className="w-4 h-4 text-emerald-400" />
+              <span>Dossiê Mercantil (Robô)</span>
+            </button>
+
+            <button
+              onClick={handlePullActiveCompanyData}
+              className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg transition cursor-pointer shrink-0 border border-cyan-400/40"
+              title="Preencher gerador com dados da empresa ativa no cockpit"
+            >
+              <RefreshCw className="w-4 h-4 text-cyan-200 animate-spin-slow" />
+              <span>Puxar Empresa Ativa</span>
+            </button>
+          </div>
         </div>
 
         {/* NAVEGAÇÃO INTERNA DO MÓDULO SOCIETÁRIO - GRID HORIZONTAL 4 COLUNAS EM 1 LINHA */}
@@ -5431,6 +5453,13 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
         uf={ufEmpresa}
         operationType={robotOperationType}
         contractScore={auditResult?.score || 0}
+      />
+
+      {/* MODAL DA MATRIZ TÉCNICA E CHECKLIST DE INTEGRAÇÃO VPS */}
+      <GovernmentIntegrationMatrixModal
+        isOpen={showMatrixModal}
+        onClose={() => setShowMatrixModal(false)}
+        uf={ufEmpresa}
       />
 
     </div>

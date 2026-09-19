@@ -1549,14 +1549,17 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
 
           <button
             onClick={() => setActiveSubTab('integracao_governamental')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
               activeSubTab === 'integracao_governamental'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                ? 'bg-purple-600 text-white shadow-xs ring-2 ring-purple-400/50'
+                : 'bg-purple-950/40 text-purple-300 hover:bg-purple-900/60 border border-purple-800/60'
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
-            <span>Status de Integração Governamental</span>
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+            <span>Mapa de APIs & Robôs Governamentais</span>
+            <span className="px-1.5 py-0.5 rounded bg-purple-900 text-purple-200 text-[10px] font-mono">
+              Dev/Master
+            </span>
           </button>
 
           <button

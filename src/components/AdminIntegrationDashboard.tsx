@@ -22,8 +22,10 @@ import { NfseNacionalService } from '../utils/nfseService';
 import { GovApiHealthItem, PlanActivationRequest } from '../types';
 import { AuthService } from '../utils/authService';
 import { apiFetch } from '../utils/apiClient';
+import { SystemIntegrationMapView } from './SystemIntegrationMapView';
 
 export const AdminIntegrationDashboard: React.FC = () => {
+  const [activeDashboardView, setActiveDashboardView] = useState<'endpoints_live' | 'mapa_completo'>('mapa_completo');
   const [services, setServices] = useState<GovApiHealthItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [lastCheckTime, setLastCheckTime] = useState<string>('');
@@ -207,8 +209,49 @@ export const AdminIntegrationDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* HEADER DE DIAGNÓSTICO */}
-      <div className="bg-[#0F172A] rounded-2xl border border-slate-800 p-6 shadow-xl relative overflow-hidden">
+      {/* SELETOR DE MODO DO PAINEL DE INTEGRAÇÕES DO DESENVOLVEDOR */}
+      <div className="bg-[#090D16] p-2 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setActiveDashboardView('mapa_completo')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+              activeDashboardView === 'mapa_completo'
+                ? 'bg-blue-600 text-white shadow-md ring-1 ring-blue-400'
+                : 'bg-transparent text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Server className="w-4 h-4 text-blue-300" />
+            <span>Mapa Global de Integrações (Gatilhos, Impactos & Barramentos)</span>
+            <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-200 text-[10px] font-mono border border-blue-800">
+              100% Mapeado
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveDashboardView('endpoints_live')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+              activeDashboardView === 'endpoints_live'
+                ? 'bg-emerald-600 text-white shadow-md ring-1 ring-emerald-400'
+                : 'bg-transparent text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Activity className="w-4 h-4 text-emerald-300" />
+            <span>Monitor de Endpoints Live & Verificação DNS</span>
+          </button>
+        </div>
+
+        <div className="px-3 py-1 bg-purple-950/50 border border-purple-800/60 rounded-xl text-[10px] font-mono text-purple-300 flex items-center space-x-1.5">
+          <Cpu className="w-3.5 h-3.5 text-purple-400" />
+          <span>Vértice Core System • Modo Desenvolvedor</span>
+        </div>
+      </div>
+
+      {activeDashboardView === 'mapa_completo' ? (
+        <SystemIntegrationMapView />
+      ) : (
+        <div className="space-y-6">
+          {/* HEADER DE DIAGNÓSTICO */}
+          <div className="bg-[#0F172A] rounded-2xl border border-slate-800 p-6 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
         
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
@@ -661,6 +704,8 @@ export const AdminIntegrationDashboard: React.FC = () => {
           )}
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 };

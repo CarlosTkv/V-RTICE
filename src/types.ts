@@ -1390,4 +1390,85 @@ export interface GovApiHealthItem {
   description: string;
 }
 
+export type IntegrationSphere = 'federal' | 'estadual' | 'municipal' | 'bancario' | 'pericial' | 'comunicacao';
+export type IntegrationType = 'rest' | 'soap' | 'mtls' | 'scraping_bot' | 'webhook' | 'smtp_imap' | 'ai_gemini';
+
+export interface SystemIntegrationEntry {
+  id: string;
+  title: string;
+  sphere: IntegrationSphere;
+  organ: string;
+  category: 'Societário & Juntas' | 'Fiscal & Tributário' | 'Prefeituras & Alvarás' | 'Certidões & Regularidade' | 'Bancário & Cobrança' | 'Comunicação & Mensageria' | 'Auditoria & IA';
+  purpose: string;
+  triggerEvent: string; // Qual evento ou preenchimento do sistema dispara essa busca
+  reflectsIn: string; // Em qual módulo, tela, cálculo ou dossiê essa busca reflete
+  endpointUrl: string;
+  type: IntegrationType;
+  authMethod: string;
+  latencyMs: number;
+  statusCode: number;
+  status: 'online' | 'offline' | 'maintenance';
+  lastPing?: string;
+  isRealImplementationAvailable: boolean; // Se a consulta real/teste direto pode ser executada
+  testActionName?: string; // Ex: 'Consultar CNPJ na Receita', 'Validar Simples', 'Testar DNS'
+  inputParamPlaceholder?: string; // Ex: '04.921.832/0001-99', '80010-000', '12345678909'
+  samplePayload?: Record<string, any>;
+  vpsRequired?: boolean;
+  manualActionRequired?: {
+    isFullyAutomatedNow: boolean; // Se já opera 100% de forma pública/automática
+    actionTitle: string; // Ex: 'Credenciamento Serpro / e-CNPJ A1 ICP-Brasil'
+    actionStepByStep: string[]; // Passo a passo do que o usuário/proprietário precisa fazer manualmente
+    requiredAccountOrService: string; // Ex: 'Portal Gov.br Empresa + Certificado Digital e-CNPJ A1'
+    documentationUrl?: string;
+  };
+}
+
+export type FilingStageStatus = 'pendente' | 'em_andamento' | 'aguardando_aprovacao' | 'deferido' | 'exigencia' | 'rejeitado';
+
+export interface FilingOfficialDocument {
+  id: string;
+  title: string;
+  type: 'viabilidade' | 'dbe' | 'fcn' | 'taxa_dare' | 'minuta_contrato' | 'certidao_registro' | 'cartao_cnpj';
+  fileName: string;
+  issuedAt: string;
+  organ: string;
+  status: 'valido' | 'pendente' | 'aprovado';
+  protocolReference?: string;
+  summary: string;
+  fileSize?: string;
+}
+
+export interface FilingProcess {
+  id: string;
+  companyName: string;
+  cnpj?: string;
+  operationType: 'Abertura de Empresa' | 'Alteração de Matriz' | 'Transformação Societária' | 'Distrato Social';
+  uf: string;
+  municipio: string;
+  protocolNumber: string; // Ex: PRP-2026/048192-1
+  viabilityProtocol: string; // Ex: PRV-2026/001923
+  dbeProtocol: string; // Ex: PR98124019
+  fcnProtocol: string; // Ex: FCN-PR-89210
+  currentStage: number; // 1 a 6
+  status: 'aguardando_viabilidade' | 'viabilidade_deferida' | 'dbe_em_analise' | 'dbe_deferido' | 'aguardando_taxas' | 'taxas_pagas' | 'protocolado_junta' | 'em_exigencia' | 'deferido_registrado';
+  createdAt: string;
+  updatedAt: string;
+  documents: FilingOfficialDocument[];
+  feeDetails: {
+    amount: number;
+    barcode: string;
+    pixPayload: string;
+    paid: boolean;
+    paidAt?: string;
+  };
+  logs: Array<{
+    id: string;
+    timestamp: string;
+    stage: string;
+    message: string;
+    type: 'info' | 'success' | 'warning' | 'error';
+  }>;
+}
+
+
 
