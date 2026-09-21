@@ -348,8 +348,37 @@ export const FinancialStatementsView: React.FC<FinancialStatementsViewProps> = (
               </div>
 
               <div className="mb-8">
-                <label className="text-[10px] text-slate-500 font-black uppercase mb-2 block">Conteúdo do Documento (Paste / Text)</label>
-                <textarea rows={10} placeholder="Cole aqui as linhas do seu balancete ou DRE..." value={rawContent} onChange={e => setRawContent(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-emerald-400/90 focus:border-blue-500 focus:outline-none transition resize-none shadow-inner" />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[10px] text-slate-500 font-black uppercase block">Conteúdo do Documento (OFX / CSV / DRE / Balancete)</label>
+                  <label className="text-[10px] bg-blue-600/20 text-blue-300 border border-blue-500/30 px-3 py-1 rounded-lg font-bold cursor-pointer hover:bg-blue-600/30 transition flex items-center gap-1.5">
+                    <Upload className="w-3 h-3" />
+                    <span>Carregar Arquivo OFX / CSV / TXT</span>
+                    <input 
+                      type="file" 
+                      accept=".ofx,.csv,.txt,.ret" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const text = event.target?.result as string;
+                          if (text) {
+                            setRawContent(text);
+                            if (!periodLabel) {
+                              setPeriodLabel(file.name.replace(/\.[^/.]+$/, ''));
+                            }
+                            if (!periodDate) {
+                              setPeriodDate(new Date().toISOString().split('T')[0]);
+                            }
+                          }
+                        };
+                        reader.readAsText(file);
+                      }}
+                    />
+                  </label>
+                </div>
+                <textarea rows={10} placeholder="Cole aqui as linhas do seu balancete, DRE ou arquivo OFX bancário..." value={rawContent} onChange={e => setRawContent(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs font-mono text-emerald-400/90 focus:border-blue-500 focus:outline-none transition resize-none shadow-inner" />
               </div>
 
               <button onClick={handleImport} disabled={isProcessing} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black uppercase tracking-widest transition shadow-lg shadow-emerald-900/20 flex items-center justify-center space-x-3">

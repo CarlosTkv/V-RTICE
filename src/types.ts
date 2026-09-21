@@ -747,6 +747,9 @@ export interface AuthUser {
   twoFactorEnabled?: boolean;
   digitalCertificate?: DigitalCertificateInfo;
   mustChangePassword?: boolean;
+  crcNumber?: string;
+  oabNumber?: string;
+  technicalRoleTitle?: string;
 }
 
 // Periodicidades Segregadas de Planos

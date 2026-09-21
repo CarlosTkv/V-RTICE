@@ -35,12 +35,14 @@ import {
   CartesianGrid,
   Cell 
 } from 'recharts';
-import { CompanyData, CalculationResult } from '../../types';
+import { CompanyData, CalculationResult, AuthUser } from '../../types';
 import { SimplesHibridoResult } from '../../utils/simplesHibridoEngine';
 import { formatCurrencyBRL, formatPercentBR } from '../../utils/taxRules';
 import { BrandLogo } from '../BrandLogo';
 import { generateDocumentSecurity, VerifiedDocumentRecord } from '../../utils/documentSecurity';
 import { SimplesHibridoReportMode } from './SimplesHibridoReportModal';
+import { getReportSignatoryInfo } from '../../utils/reportSignatoryUtils';
+import { AuthService } from '../../utils/authService';
 
 interface SimplesHibridoReportContentProps {
   company: CompanyData;
@@ -48,6 +50,7 @@ interface SimplesHibridoReportContentProps {
   comparisonResult: SimplesHibridoResult;
   viewLayout?: 'vertical' | 'horizontal';
   reportMode?: SimplesHibridoReportMode;
+  currentUser?: AuthUser | null;
 }
 
 export const SimplesHibridoReportContent: React.FC<SimplesHibridoReportContentProps> = ({
@@ -56,8 +59,12 @@ export const SimplesHibridoReportContent: React.FC<SimplesHibridoReportContentPr
   comparisonResult,
   viewLayout = 'vertical',
   reportMode = 'parecer_unificado',
+  currentUser
 }) => {
   const [securityRecord, setSecurityRecord] = useState<VerifiedDocumentRecord | null>(null);
+
+  const activeUser = currentUser || AuthService.getStoredSession();
+  const signatoryInfo = getReportSignatoryInfo(activeUser, securityRecord);
 
   const currentDate = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -1342,15 +1349,15 @@ export const SimplesHibridoReportContent: React.FC<SimplesHibridoReportContentPr
               </div>
 
               <div className="text-center md:text-right">
-                <div className="inline-block text-center border-t border-slate-700 print:border-slate-400 pt-1 px-6 min-w-[200px]">
+                <div className="inline-block text-center border-t border-slate-700 print:border-slate-400 pt-1 px-6 min-w-[220px]">
                   <div className="font-bold text-[10px] text-white print:text-slate-900">
-                    {securityRecord?.auditorName || 'Dr. Carlos Miguel Vieira'}
+                    {signatoryInfo.signatoryName}
                   </div>
-                  <div className="text-[8.5px] text-slate-400 print:text-slate-600">
-                    {securityRecord?.auditorRole || 'Auditor Tributário & Perito Contábil'}
+                  <div className="text-[8.5px] text-slate-400 print:text-slate-600 font-medium">
+                    {signatoryInfo.signatoryRoleTitle}
                   </div>
-                  <div className="text-[8px] font-mono text-indigo-400 print:text-indigo-800 mt-0.5">
-                    CRC/OAB: 1SP298341/O-8 • Vértice Intelligence
+                  <div className="text-[8px] font-mono text-indigo-400 print:text-indigo-800 mt-0.5 font-semibold">
+                    {signatoryInfo.signatoryDocumentLine}
                   </div>
                 </div>
               </div>

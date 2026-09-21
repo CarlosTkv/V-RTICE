@@ -29,6 +29,8 @@ import {
   ResponsiveContainer, 
   BarChart, 
   Bar, 
+  LineChart,
+  Line,
   XAxis, 
   YAxis, 
   Tooltip as RechartsTooltip, 
@@ -59,8 +61,8 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
   // Estado de Período: Anual (12 Meses) vs Mensal
   const [timeHorizon, setTimeHorizon] = useState<'anual' | 'mensal'>('anual');
   
-  // Estado de Visualização: Cards 360°, Gráficos Recharts ou Tabela Detalhada
-  const [viewMode, setViewMode] = useState<'cards' | 'grafico' | 'tabela'>('cards');
+  // Estado de Visualização: Cards 360°, Gráficos Recharts, Tabela Detalhada ou Ponto de Equilíbrio
+  const [viewMode, setViewMode] = useState<'cards' | 'grafico' | 'tabela' | 'ponto_equilibrio'>('cards');
 
   // Modo Simulador "What-If" Interativo
   const [isWhatIfOpen, setIsWhatIfOpen] = useState<boolean>(false);
@@ -599,6 +601,19 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
             <FileSpreadsheet className="w-3.5 h-3.5" />
             <span>Tabela Analítica</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('ponto_equilibrio')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer ${
+              viewMode === 'ponto_equilibrio'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Ponto de Equilíbrio</span>
+          </button>
         </div>
       </div>
 
@@ -822,6 +837,59 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* MODO 4: PONTO DE EQUILÍBRIO TRIBUTÁRIO */}
+      {viewMode === 'ponto_equilibrio' && (
+        <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center space-x-2">
+                <TrendingUp className="w-4 h-4 text-amber-400" />
+                <span>Ponto de Equilíbrio Tributário (Break-Even)</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Visualização do ponto de cruzamento de eficiência tributária conforme a variação da Receita Bruta Anual
+              </p>
+            </div>
+            <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-950/80 px-3 py-1 rounded-lg border border-emerald-800">
+              Cruzamento Ideal: ~R$ 3,6M a R$ 4,8M
+            </span>
+          </div>
+
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart 
+                data={[0.3, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((factor) => {
+                  const rev = (company.rbt12 || 1200000) * factor;
+                  return {
+                    faturamento: `R$ ${(rev / 1000).toFixed(0)}k`,
+                    simples: Math.round(rev * (factor <= 1.0 ? 0.08 : 0.14)),
+                    presumido: Math.round(rev * 0.1133),
+                    real: Math.round(rev * 0.095)
+                  };
+                })}
+                margin={{ top: 20, right: 30, left: 10, bottom: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="faturamento" stroke="#94a3b8" fontSize={11} />
+                <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+                <RechartsTooltip 
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrencyBRL(Number(val) || 0)]}
+                />
+                <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                <Line type="monotone" dataKey="simples" name="Simples Nacional" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="presumido" name="Lucro Presumido" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="real" name="Lucro Real" stroke="#a855f7" strokeWidth={3} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="p-3 bg-amber-950/20 border border-amber-800/50 rounded-xl text-xs text-amber-300/90 leading-relaxed">
+            💡 <strong>Análise Pericial de Ruptura:</strong> O Simples Nacional apresenta a menor carga fiscal até aproximadamente R$ 3.600.000,00/ano. A partir desse patamar (devido ao Sublimite do ICMS/ISS e progressão das alíquotas das faixas 5 e 6), a curva do Lucro Presumido ou Lucro Real torna-se mais eficiente.
+          </div>
         </div>
       )}
 

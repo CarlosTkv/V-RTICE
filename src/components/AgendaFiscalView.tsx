@@ -241,6 +241,51 @@ export const AgendaFiscalView: React.FC<AgendaFiscalViewProps> = ({ currentCompa
           </div>
           
           <div className="flex items-center gap-3">
+             <button
+               onClick={() => {
+                 let icsLines = [
+                   'BEGIN:VCALENDAR',
+                   'VERSION:2.0',
+                   'PRODID:-//VERTICE TRIBUTARIO//AGENDA FISCAL//PT-BR',
+                   'CALSCALE:GREGORIAN',
+                   'METHOD:PUBLISH',
+                   `X-WR-CALNAME:Agenda Fiscal - ${currentCompany?.name || 'Vértice'}`
+                 ];
+
+                 filteredObrigacoes.forEach(ob => {
+                   const today = new Date();
+                   const year = today.getFullYear();
+                   const month = String(today.getMonth() + 1).padStart(2, '0');
+                   const day = ob.diaEntregaSugerido.includes('15') ? '15' : ob.diaEntregaSugerido.includes('20') ? '20' : '28';
+                   
+                   icsLines.push('BEGIN:VEVENT');
+                   icsLines.push(`SUMMARY:[FISCAL] ${ob.sigla} - ${ob.nome}`);
+                   icsLines.push(`DESCRIPTION:${ob.descricao.replace(/\n/g, ' ')}\\n\\nPenalidade: ${ob.penalidade.replace(/\n/g, ' ')}`);
+                   icsLines.push(`DTSTART;VALUE=DATE:${year}${month}${day}`);
+                   icsLines.push(`DTEND;VALUE=DATE:${year}${month}${day}`);
+                   icsLines.push('STATUS:CONFIRMED');
+                   icsLines.push('END:VEVENT');
+                 });
+
+                 icsLines.push('END:VCALENDAR');
+
+                 const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+                 const url = URL.createObjectURL(blob);
+                 const a = document.createElement('a');
+                 a.href = url;
+                 a.download = `Agenda_Fiscal_${(currentCompany?.name || 'Vertice').replace(/\s+/g, '_')}.ics`;
+                 document.body.appendChild(a);
+                 a.click();
+                 document.body.removeChild(a);
+                 URL.revokeObjectURL(url);
+               }}
+               className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md transition cursor-pointer"
+               title="Exportar arquivo .ics para Google Agenda, Outlook ou Apple Calendar"
+             >
+               <Calendar className="w-4 h-4" />
+               <span>Sincronizar iCal / Google Calendar</span>
+             </button>
+
              <div className="text-right">
                 <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Última Atualização</div>
                 <div className="text-xs font-mono text-slate-300">Hoje, 19:54</div>

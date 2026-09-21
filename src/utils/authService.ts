@@ -44,6 +44,9 @@ export interface UserAccount {
   canAccessPlatformBilling?: boolean;
   canVerifyClients?: boolean;
   mustChangePassword?: boolean;
+  crcNumber?: string;
+  oabNumber?: string;
+  technicalRoleTitle?: string;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -424,6 +427,9 @@ export class AuthService {
       canAccessPlatformBilling: account.canAccessPlatformBilling ?? (account.role === 'desenvolvedor' || isCarlos),
       canVerifyClients: account.canVerifyClients ?? (account.role === 'desenvolvedor' || isCarlos),
       mustChangePassword: account.mustChangePassword,
+      crcNumber: account.crcNumber,
+      oabNumber: account.oabNumber,
+      technicalRoleTitle: account.technicalRoleTitle,
     };
   }
 
@@ -851,6 +857,10 @@ export class AuthService {
       name?: string;
       role?: AuthUser['role'];
       companyName?: string;
+      crcNumber?: string;
+      oabNumber?: string;
+      technicalRoleTitle?: string;
+      cnpj?: string;
       isDeveloper?: boolean;
       canAccessPlatformBilling?: boolean;
       canVerifyClients?: boolean;
@@ -867,7 +877,7 @@ export class AuthService {
     }
 
     const acc = accounts[index];
-    if (updates.name) acc.name = updates.name;
+    if (updates.name !== undefined) acc.name = updates.name;
     if (updates.role) {
       acc.role = updates.role;
       // Atualizar viewMode se aplicável
@@ -877,7 +887,11 @@ export class AuthService {
       else if (updates.role === 'analista' || updates.role === 'assistente_fiscal') acc.viewMode = 'analista';
       else if (updates.role === 'empresa' || updates.role === 'cliente_empresa') acc.viewMode = 'empresa';
     }
-    if (updates.companyName) acc.companyName = updates.companyName;
+    if (updates.companyName !== undefined) acc.companyName = updates.companyName;
+    if (updates.crcNumber !== undefined) acc.crcNumber = updates.crcNumber;
+    if (updates.oabNumber !== undefined) acc.oabNumber = updates.oabNumber;
+    if (updates.technicalRoleTitle !== undefined) acc.technicalRoleTitle = updates.technicalRoleTitle;
+    if (updates.cnpj !== undefined) acc.cnpj = updates.cnpj;
     if (updates.isDeveloper !== undefined) acc.isDeveloper = updates.isDeveloper;
     if (updates.canAccessPlatformBilling !== undefined) acc.canAccessPlatformBilling = updates.canAccessPlatformBilling;
     if (updates.canVerifyClients !== undefined) acc.canVerifyClients = updates.canVerifyClients;

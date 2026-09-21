@@ -41,7 +41,7 @@ import {
   Pie, 
   LabelList 
 } from 'recharts';
-import { CompanyData, CalculationResult, CFOPItem } from '../types';
+import { CompanyData, CalculationResult, CFOPItem, AuthUser } from '../types';
 import { 
   formatCurrencyBRL, 
   formatPercentBR, 
@@ -51,17 +51,24 @@ import {
 } from '../utils/taxRules';
 import { BrandLogo } from './BrandLogo';
 import { generateDocumentSecurity, VerifiedDocumentRecord } from '../utils/documentSecurity';
+import { getReportSignatoryInfo } from '../utils/reportSignatoryUtils';
+import { AuthService } from '../utils/authService';
 
 interface TechnicalReportContentProps {
   company: CompanyData;
   calculation: CalculationResult;
+  currentUser?: AuthUser | null;
 }
 
 export const TechnicalReportContent: React.FC<TechnicalReportContentProps> = ({
   company,
   calculation,
+  currentUser,
 }) => {
   const [securityRecord, setSecurityRecord] = useState<VerifiedDocumentRecord | null>(null);
+
+  const activeUser = currentUser || AuthService.getStoredSession();
+  const signatoryInfo = getReportSignatoryInfo(activeUser, securityRecord);
 
   const currentDate = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -1281,17 +1288,17 @@ export const TechnicalReportContent: React.FC<TechnicalReportContentProps> = ({
             <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-center space-y-2">
               <div className="pt-4 border-b border-slate-700 w-4/5 mx-auto">
                 <span className="font-serif-display italic text-lg text-white font-bold block pb-1">
-                  Carlos Miguel Vieira
+                  {signatoryInfo.signatoryName}
                 </span>
               </div>
               <p className="text-xs font-bold text-white uppercase font-sans">
-                Carlos Miguel Vieira
+                {signatoryInfo.signatoryName}
               </p>
-              <p className="text-[10px] text-slate-300 font-sans">
-                Auditor Fiscal & Consultor Tributário Master Responsável
+              <p className="text-[10px] text-slate-300 font-sans font-medium">
+                {signatoryInfo.signatoryRoleTitle}
               </p>
-              <p className="text-[9px] text-slate-400 font-mono">
-                Vieira & Associados // Auditoria & Planejamento Tributário
+              <p className="text-[9px] text-indigo-400 font-mono font-semibold">
+                {signatoryInfo.signatoryDocumentLine}
               </p>
             </div>
           </div>

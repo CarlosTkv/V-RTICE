@@ -37,7 +37,8 @@ import {
   UploadCloud,
   FileCheck,
   Shield,
-  FolderOpen
+  FolderOpen,
+  Briefcase
 } from 'lucide-react';
 import { AuthUser, SoldSubscription, SystemUser, SystemUserPermission, PlanPeriodicity, PlanAllowedModules, AuthSecurityMode, DigitalCertificateInfo } from '../types';
 import { AuthService, SentEmailNotification, PendingRegistration, PendingPasswordReset, DEFAULT_AVAILABLE_CERTIFICATES } from '../utils/authService';
@@ -302,6 +303,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Estados para Edição de Perfil e Documentos Profissionais no Laudo
+  const [profName, setProfName] = useState(currentUser?.name || '');
+  const [profCompanyName, setProfCompanyName] = useState(currentUser?.companyName || '');
+  const [profRoleTitle, setProfRoleTitle] = useState(currentUser?.technicalRoleTitle || '');
+  const [profCrc, setProfCrc] = useState(currentUser?.crcNumber || '');
+  const [profOab, setProfOab] = useState(currentUser?.oabNumber || '');
+  const [profCnpj, setProfCnpj] = useState(currentUser?.cnpj || currentUser?.cpf || '');
+
+  useEffect(() => {
+    if (currentUser) {
+      setProfName(currentUser.name || '');
+      setProfCompanyName(currentUser.companyName || '');
+      setProfRoleTitle(currentUser.technicalRoleTitle || '');
+      setProfCrc(currentUser.crcNumber || '');
+      setProfOab(currentUser.oabNumber || '');
+      setProfCnpj(currentUser.cnpj || currentUser.cpf || '');
+    }
+  }, [currentUser]);
+
+  const handleSaveProfileDocuments = () => {
+    if (!currentUser) return;
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const result = AuthService.updateUserAccountProfile(currentUser.id, {
+      name: profName,
+      companyName: profCompanyName,
+      technicalRoleTitle: profRoleTitle,
+      crcNumber: profCrc,
+      oabNumber: profOab,
+      cnpj: profCnpj,
+    });
+
+    setIsLoading(false);
+    if (result.success && result.user) {
+      setSuccessMessage('✓ Dados do profissional e documentos de emissão salvos com sucesso! Os laudos emitidos refletirão estas informações.');
+      if (onLogin) {
+        onLogin(result.user);
+      }
+    } else {
+      setErrorMessage(result.error || 'Erro ao atualizar dados do perfil.');
+    }
+  };
 
   // Identificação do Usuário e Assinatura Ativa
   const isMasterUser = currentUser?.role === 'master' || currentUser?.plan === 'master_ilimitado' || currentUser?.email === 'contato@verticeanalises.com.br' || currentUser?.email === 'carlosmiguelvieira1@gmail.com';
@@ -1265,6 +1311,122 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Configurar 2FA / Certificado</span>
                 </button>
+              </div>
+
+              {/* SEÇÃO DADOS DO PROFISSIONAL & DOCUMENTOS DE CHANCELA NOS LAUDOS */}
+              <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-indigo-400" />
+                    <div>
+                      <h4 className="font-bold text-white text-xs">Dados Profissionais & Documentos para Laudos e Relatórios</h4>
+                      <p className="text-[11px] text-slate-400">
+                        As informações abaixo serão chanceladas nas assinaturas e cabeçalhos dos pareceres emitidos.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 text-[10px] font-mono border border-indigo-500/20 uppercase font-semibold">
+                    {currentUser.role === 'escritorio' ? 'Escritório Contábil' :
+                     currentUser.role === 'auditor' ? 'Auditor / Perito' :
+                     currentUser.role === 'analista' ? 'Analista Fiscal' : 'Contador / Profissional'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      {currentUser.role === 'escritorio' ? 'Nome do Escritório / Razão Social' : 'Nome do Profissional Responsável'}
+                    </label>
+                    <input
+                      type="text"
+                      value={profName}
+                      onChange={(e) => setProfName(e.target.value)}
+                      placeholder="Ex: Dra. Alessandra Handza"
+                      className="w-full px-3 py-2 bg-[#0F172A] border border-slate-800 rounded-lg text-white text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      Empresa / Escritório Vinculado
+                    </label>
+                    <input
+                      type="text"
+                      value={profCompanyName}
+                      onChange={(e) => setProfCompanyName(e.target.value)}
+                      placeholder="Ex: Decision Making Consultoria"
+                      className="w-full px-3 py-2 bg-[#0F172A] border border-slate-800 rounded-lg text-white text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      Cargo / Título de Exibição no Laudo
+                    </label>
+                    <input
+                      type="text"
+                      value={profRoleTitle}
+                      onChange={(e) => setProfRoleTitle(e.target.value)}
+                      placeholder={
+                        currentUser.role === 'escritorio' ? 'Escritório Contábil & Consultoria Homologada' :
+                        currentUser.role === 'auditor' ? 'Auditor Fiscal Master & Perito Tributário' :
+                        currentUser.role === 'analista' ? 'Analista Fiscal & Consultor' : 'Contador Responsável Técnico'
+                      }
+                      className="w-full px-3 py-2 bg-[#0F172A] border border-slate-800 rounded-lg text-white text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      CNPJ / CPF do Responsável
+                    </label>
+                    <input
+                      type="text"
+                      value={profCnpj}
+                      onChange={(e) => setProfCnpj(e.target.value)}
+                      placeholder="00.000.000/0001-00"
+                      className="w-full px-3 py-2 bg-[#0F172A] border border-slate-800 rounded-lg text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      Registro CRC (se houver Contador / Auditor / Escritório)
+                    </label>
+                    <input
+                      type="text"
+                      value={profCrc}
+                      onChange={(e) => setProfCrc(e.target.value)}
+                      placeholder="Ex: 1SP298341/O-8"
+                      className="w-full px-3 py-2 bg-[#0F172A] border border-slate-800 rounded-lg text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 font-semibold mb-1">
+                      Registro OAB (se houver Advogado / Auditor Jurídico)
+                    </label>
+                    <input
+                      type="text"
+                      value={profOab}
+                      onChange={(e) => setProfOab(e.target.value)}
+                      placeholder="Ex: OAB/SP 412.390"
+                      className="w-full px-3 py-2 bg-[#0F172A] border border-slate-800 rounded-lg text-white text-xs font-mono focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveProfileDocuments}
+                    disabled={isLoading}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Salvar Alterações de Perfil e Laudos</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
