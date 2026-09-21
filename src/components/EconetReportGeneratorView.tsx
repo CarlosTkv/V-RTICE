@@ -203,17 +203,20 @@ Permanecemos à disposição para eventuais esclarecimentos.`;
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
       <style>{`
         @media print {
+          @page {
+            size: auto;
+            margin: 10mm;
+          }
           body > *:not(#econet-report-container) {
             display: none !important;
           }
           #econet-report-container {
             display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
+            position: static !important;
+            width: 100% !important;
             box-shadow: none !important;
             border: none !important;
+            overflow: visible !important;
           }
           .print\\:page-break {
             page-break-before: always;
