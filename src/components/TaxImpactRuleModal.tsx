@@ -69,11 +69,11 @@ export const TaxImpactRuleModal: React.FC<TaxImpactRuleModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in select-none">
-      <div className="relative w-full max-w-4xl bg-[#0B101D] border border-blue-900/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div data-lenis-prevent className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
+      <div data-lenis-prevent className="relative w-full max-w-4xl bg-[#0B101D] border border-blue-900/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-4 border-b border-slate-800 bg-[#080C16]">
+        <div className="shrink-0 flex items-start justify-between px-6 py-4 border-b border-slate-800 bg-[#080C16]">
           <div className="space-y-1 max-w-2xl">
             <div className="flex items-center gap-2">
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -131,7 +131,7 @@ export const TaxImpactRuleModal: React.FC<TaxImpactRuleModalProps> = ({
         </div>
 
         {/* Corpo com o Resumo Visual de Impacto */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1 text-slate-200 text-xs">
+        <div data-lenis-prevent className="p-6 overflow-y-auto space-y-6 flex-1 min-h-0 text-slate-200 text-xs custom-scrollbar overscroll-contain">
           
           {/* Card de Síntese Executiva */}
           <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-[#0E1629] to-indigo-950/40 border border-blue-900/60 space-y-2">
@@ -257,7 +257,7 @@ export const TaxImpactRuleModal: React.FC<TaxImpactRuleModalProps> = ({
         </div>
 
         {/* Footer com Botões de Ação */}
-        <div className="px-6 py-3.5 bg-[#080C16] border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div className="shrink-0 px-6 py-3.5 bg-[#080C16] border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             {item.sourceUrl && (
               <a

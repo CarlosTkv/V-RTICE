@@ -16,7 +16,9 @@ import {
   Sparkles,
   Layers,
   FileSpreadsheet,
-  FileText
+  FileText,
+  Share2,
+  Sliders
 } from 'lucide-react';
 import { CompanyData, Partner, PartnerOtherCompany, CalculationResult } from '../types';
 import { formatCurrencyBRL, FEDERAL_LIMIT } from '../utils/taxRules';
@@ -24,6 +26,9 @@ import { PartnerCompanySearchModal } from './PartnerCompanySearchModal';
 import { ReportViewerModal } from './ReportViewerModal';
 import { fetchCNPJData, convertQSAToPartners, formatCNPJ } from '../utils/cnpjService';
 import { BrandLogo } from './BrandLogo';
+import { GlobalCapCapacityBar } from './societario/GlobalCapCapacityBar';
+import { CorporateNetworkVisualMap } from './societario/CorporateNetworkVisualMap';
+import { CorporatePlanningSimulator } from './societario/CorporatePlanningSimulator';
 
 interface PartnersManagerProps {
   company: CompanyData;
@@ -43,6 +48,7 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isSyncingQSA, setIsSyncingQSA] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [activeSocietarioTab, setActiveSocietarioTab] = useState<'cadastro' | 'mapa' | 'simulador'>('cadastro');
 
   const selectedPartner = company.partners.find(p => p.id === selectedPartnerId);
 
@@ -200,6 +206,28 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
 
   const totalParticipation = company.partners.reduce((sum, p) => sum + (p.participationPercent || 0), 0);
 
+  // Export QSA Report in CSV format
+  const handleExportCSV = () => {
+    if (company.partners.length === 0) return;
+    const headers = ['Sócio', 'CPF', 'Participação (%)', 'Função', 'Outras Empresas (Qtd)', 'Receita das Vinculadas (R$)'];
+    const rows = company.partners.map(p => [
+      `"${p.name || 'Sem nome'}"`,
+      `"${p.cpf || ''}"`,
+      `${p.participationPercent || 0}%`,
+      p.isManager ? 'Administrador' : 'Cotista',
+      p.otherCompanies.length,
+      p.otherCompanies.reduce((s, o) => s + (o.revenue12m || 0), 0).toFixed(2)
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `QSA_${company.name.replace(/\s+/g, '_')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8 animate-fadeIn">
       
@@ -233,6 +261,17 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
               <FileText className="w-3.5 h-3.5" />
               <span>Relatório Societário</span>
             </button>
+
+            {company.partners.length > 0 && (
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center space-x-1.5 px-3 py-2.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 font-bold text-xs uppercase tracking-wider transition cursor-pointer"
+                title="Exportar Quadro Societário em Planilha CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Exportar CSV</span>
+              </button>
+            )}
 
             {company.partners.length > 0 && (
               <button
@@ -345,8 +384,71 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
         </div>
       )}
 
-      {/* Partners List & Detail View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* BARRA CUMULATIVA DO TETO GLOBAL (R$ 4,8 MILHÕES) */}
+      <GlobalCapCapacityBar company={company} calculation={calculation} />
+
+      {/* SELETOR DE SUB-MÓDULOS SOCIETÁRIOS */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-[#0B0F19] rounded-2xl border border-slate-800 shadow-md">
+        <button
+          type="button"
+          onClick={() => setActiveSocietarioTab('cadastro')}
+          className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
+            activeSocietarioTab === 'cadastro' 
+              ? 'bg-blue-600 text-white shadow-md' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Quadro de Sócios & Cadastro</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSocietarioTab('mapa')}
+          className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
+            activeSocietarioTab === 'mapa' 
+              ? 'bg-blue-600 text-white shadow-md' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Share2 className="w-4 h-4" />
+          <span>Mapa Visual da Rede (Teia de Coligadas)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSocietarioTab('simulador')}
+          className={`flex-1 min-w-[200px] py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer ${
+            activeSocietarioTab === 'simulador' 
+              ? 'bg-purple-600 text-white shadow-md' 
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>Simulador Societário ("E se alterarmos o contrato?")</span>
+        </button>
+      </div>
+
+      {activeSocietarioTab === 'mapa' && (
+        <CorporateNetworkVisualMap 
+          company={company} 
+          onSelectPartner={(id) => {
+            setSelectedPartnerId(id);
+            setActiveSocietarioTab('cadastro');
+          }} 
+        />
+      )}
+
+      {activeSocietarioTab === 'simulador' && (
+        <CorporatePlanningSimulator 
+          company={company} 
+          onApplyContractChanges={(updated) => onChangeCompany(updated)} 
+        />
+      )}
+
+      {activeSocietarioTab === 'cadastro' && (
+        /* Partners List & Detail View */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left Column: Partners Cards */}
         <div className="space-y-3">
@@ -545,22 +647,62 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
                 ) : (
                   <div className="space-y-4">
                     {selectedPartner.otherCompanies.map((other) => {
-                      // Check if this company triggers Art. 3 § 4
-                      const isSimplesRule = selectedPartner.participationPercent > 10 && other.participationPercent > 10 && other.regime === 'simples';
-                      const isManagerRule = selectedPartner.isManager && other.participationPercent > 10;
-                      const isDualManagerRule = selectedPartner.isManager && other.isManager;
-                      const triggersSum = isSimplesRule || isManagerRule || isDualManagerRule;
+                      // Determine precise legal badge for Art. 3º, § 4º LC 123/06
+                      const isSimples = other.regime === 'simples';
+                      const isPresumidoOrReal = other.regime === 'lucro_presumido' || other.regime === 'lucro_real';
+
+                      let badgeInfo = {
+                        code: 'Isenta',
+                        label: 'Participação ≤ 10% sem poderes de administração (não soma)',
+                        color: 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40',
+                        dot: 'bg-emerald-400',
+                        triggersSum: false
+                      };
+
+                      if (selectedPartner.isManager && other.isManager) {
+                        badgeInfo = {
+                          code: 'Inciso V',
+                          label: 'Sócio Administrador em mais de uma PJ (Soma Obrigatória)',
+                          color: 'bg-red-950/80 text-red-300 border-red-500/50',
+                          dot: 'bg-red-400',
+                          triggersSum: true
+                        };
+                      } else if (selectedPartner.isManager && (other.participationPercent || 0) > 10) {
+                        badgeInfo = {
+                          code: 'Inciso III',
+                          label: 'Administrador nesta PJ e > 10% na coligada (Soma Obrigatória)',
+                          color: 'bg-amber-950/80 text-amber-300 border-amber-500/50',
+                          dot: 'bg-amber-400',
+                          triggersSum: true
+                        };
+                      } else if (selectedPartner.participationPercent > 10 && (other.participationPercent || 0) > 10 && isSimples) {
+                        badgeInfo = {
+                          code: 'Inciso III',
+                          label: 'Participação > 10% em outra empresa do Simples Nacional (Soma Obrigatória)',
+                          color: 'bg-indigo-950/80 text-indigo-300 border-indigo-500/50',
+                          dot: 'bg-indigo-400',
+                          triggersSum: true
+                        };
+                      } else if (selectedPartner.participationPercent > 10 && (other.participationPercent || 0) > 10 && isPresumidoOrReal) {
+                        badgeInfo = {
+                          code: 'Inciso IV',
+                          label: 'Participação > 10% em empresa do Lucro Presumido/Real (Soma Obrigatória)',
+                          color: 'bg-purple-950/80 text-purple-300 border-purple-500/50',
+                          dot: 'bg-purple-400',
+                          triggersSum: true
+                        };
+                      }
 
                       return (
                         <div
                           key={other.id}
                           className={`bg-[#0B0F19] p-4 rounded-xl border space-y-3.5 ${
-                            triggersSum ? 'border-amber-500/50 bg-amber-950/20' : 'border-slate-800'
+                            badgeInfo.triggersSum ? 'border-amber-500/50 bg-amber-950/20' : 'border-slate-800'
                           }`}
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 mr-4 space-y-1">
-                              <div className="flex items-center space-x-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 {other.cnpj && (
                                   <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-300 border border-blue-500/30">
                                     {formatCNPJ(other.cnpj)}
@@ -571,12 +713,10 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
                                     {other.city ? `${other.city} / ` : ''}{other.uf}
                                   </span>
                                 )}
-                                {triggersSum && (
-                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-500/40 flex items-center space-x-1">
-                                    <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
-                                    <span>Soma Obrigatória (LC 123/06 Art. 3º § 4º)</span>
-                                  </span>
-                                )}
+                                <span className={`text-[9px] font-bold px-2.5 py-0.5 rounded-md border flex items-center space-x-1.5 ${badgeInfo.color}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${badgeInfo.dot}`} />
+                                  <span><b>{badgeInfo.code}:</b> {badgeInfo.label}</span>
+                                </span>
                               </div>
 
                               <input
@@ -673,6 +813,7 @@ export const PartnersManager: React.FC<PartnersManagerProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* Partner Company Search Modal */}
       {selectedPartner && (

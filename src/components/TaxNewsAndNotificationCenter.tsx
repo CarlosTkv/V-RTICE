@@ -198,11 +198,11 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in select-none">
-        <div className="relative w-full max-w-5xl bg-[#0B101D] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div data-lenis-prevent className="fixed inset-0 z-50 w-screen h-screen bg-[#070B14] flex flex-col overflow-hidden animate-fade-in">
+        <div data-lenis-prevent className="relative w-full h-full bg-[#0B101D] border border-slate-800 flex flex-col overflow-hidden min-h-0">
           
           {/* Header Principal */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#080C16]">
+          <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-[#080C16]">
             <div className="flex items-center space-x-3">
               <div className="p-2.5 rounded-xl bg-blue-600/20 border border-blue-500/40 text-blue-400">
                 <Radio className="w-5 h-5 animate-pulse" />
@@ -250,7 +250,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
           </div>
 
           {/* Banner Prominente de Atualização Global de Fórmulas e Entendimentos */}
-          <div className="px-6 py-2.5 bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-950 border-b border-blue-800/40 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="shrink-0 px-6 py-2.5 bg-gradient-to-r from-blue-950/60 via-indigo-950/40 to-slate-950 border-b border-blue-800/40 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center space-x-2 text-slate-200">
               <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
               <span>
@@ -269,7 +269,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
 
           {/* Barra de Progresso da Varredura ao Vivo */}
           {isSyncing && syncProgress && (
-            <div className="px-6 py-2.5 bg-blue-950/40 border-b border-blue-800/60 flex flex-col space-y-1.5 animate-fadeIn">
+            <div className="shrink-0 px-6 py-2.5 bg-blue-950/40 border-b border-blue-800/60 flex flex-col space-y-1.5 animate-fadeIn">
               <div className="flex items-center justify-between text-xs text-blue-300">
                 <span className="font-semibold flex items-center gap-1.5">
                   <Bot className="w-3.5 h-3.5 animate-bounce text-cyan-400" />
@@ -287,7 +287,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
           )}
 
           {/* Abas de Navegação */}
-          <div className="px-6 py-2 bg-[#090E1A] border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="shrink-0 px-6 py-2 bg-[#090E1A] border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setActiveTab('notificacoes')}
@@ -350,9 +350,9 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
 
           {/* CONTEÚDO DA ABA NOTIFICAÇÕES */}
           {activeTab === 'notificacoes' && (
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Filtros e Busca */}
-              <div className="px-6 py-3 bg-[#0B101D] border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="shrink-0 px-6 py-3 bg-[#0B101D] border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {[
                     { id: 'todos', label: 'Todas' },
@@ -399,8 +399,15 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
                 </div>
               </div>
 
-              {/* Lista de Notificações Capturadas */}
-              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Lista de Notificações Capturadas em Grid Horizontal com Rolagem por Scroll do Mouse */}
+              <div 
+                data-lenis-prevent
+                tabIndex={0}
+                onWheel={(e) => {
+                  e.currentTarget.scrollTop += e.deltaY;
+                }}
+                className="flex-1 min-h-0 overflow-y-auto p-6 custom-scrollbar overscroll-contain focus:outline-hidden"
+              >
                 {filteredNews.length === 0 ? (
                   <div className="text-center py-16 text-slate-400 space-y-3">
                     <Bot className="w-10 h-10 mx-auto text-slate-600" />
@@ -414,10 +421,11 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
                     </button>
                   </div>
                 ) : (
-                  filteredNews.map(item => (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 pb-14">
+                    {filteredNews.map(item => (
                     <div 
                       key={item.id}
-                      className={`p-4 rounded-xl border transition ${
+                      className={`p-4 rounded-xl border transition flex flex-col justify-between ${
                         item.read 
                           ? 'bg-[#080C16]/60 border-slate-800/80 text-slate-300' 
                           : 'bg-[#0E1629] border-blue-900/60 text-white shadow-md'
@@ -566,15 +574,16 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
           {/* CONTEÚDO DA ABA FÓRMULAS & ALÍQUOTAS RECALIBRADAS */}
           {activeTab === 'regras' && (
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto space-y-6">
+            <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 custom-scrollbar overscroll-contain">
               
               <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-gradient-to-r from-blue-950/40 via-indigo-950/30 to-slate-900 border border-blue-900/50">
                 <div className="space-y-1 max-w-xl">
@@ -680,7 +689,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
 
           {/* CONTEÚDO DA ABA SITES & ROBÔS VINCULADOS */}
           {activeTab === 'robos' && (
-            <div className="flex-1 flex flex-col p-6 overflow-y-auto space-y-6">
+            <div data-lenis-prevent className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 custom-scrollbar overscroll-contain">
               
               {/* Cabeçalho da Aba com Ação de Adicionar Fonte */}
               <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-blue-950/20 border border-blue-900/40">
@@ -861,8 +870,8 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
 
           {/* CONTEÚDO DA ABA LOGS DE EXECUÇÃO */}
           {activeTab === 'logs' && (
-            <div className="flex-1 flex flex-col p-6 overflow-hidden">
-              <div className="flex items-center justify-between mb-3 text-xs text-slate-400">
+            <div className="flex-1 flex flex-col p-6 overflow-hidden min-h-0">
+              <div className="shrink-0 flex items-center justify-between mb-3 text-xs text-slate-400">
                 <span className="font-mono flex items-center gap-2">
                   <Terminal className="w-4 h-4 text-emerald-400" />
                   Terminal do Rastreador Fiscal (Live Crawler Logs)
@@ -870,7 +879,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
                 <span>{logs.length} eventos registrados</span>
               </div>
 
-              <div className="flex-1 bg-slate-950 rounded-xl p-4 font-mono text-[11px] overflow-y-auto border border-slate-800 space-y-2">
+              <div data-lenis-prevent className="flex-1 min-h-0 bg-slate-950 rounded-xl p-4 font-mono text-[11px] overflow-y-auto border border-slate-800 space-y-2 custom-scrollbar overscroll-contain">
                 {logs.map(log => (
                   <div key={log.id} className="flex items-start space-x-3 border-b border-slate-900/80 pb-1.5">
                     <span className="text-slate-500 shrink-0">[{log.timestamp}]</span>
@@ -891,7 +900,7 @@ export const TaxNewsAndNotificationCenter: React.FC<TaxNewsAndNotificationCenter
           )}
 
           {/* Footer */}
-          <div className="px-6 py-3 bg-[#080C16] border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+          <div className="shrink-0 px-6 py-3 bg-[#080C16] border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center space-x-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>Motores Vértice sincronizados com LC 123/06, EC 132/23 e ADN da NFS-e.</span>

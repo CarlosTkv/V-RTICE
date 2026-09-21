@@ -477,6 +477,20 @@ async function startServer() {
     }
   });
 
+  app.post('/api/email/dispatch', async (req, res) => {
+    const { to, subject, text, html } = req.body;
+    try {
+      if (!to || !subject) {
+        return res.status(400).json({ success: false, error: 'Missing to or subject' });
+      }
+      await sendTransactionalEmail(to, subject, text || '', html || '');
+      res.json({ success: true, message: 'Email dispatched successfully' });
+    } catch (error) {
+      console.error('Error dispatching email:', error);
+      res.status(500).json({ success: false, error: 'Failed to dispatch email' });
+    }
+  });
+
   app.post('/api/auth/forgot-password', async (req, res) => {
     const { email, clientName } = req.body;
     try {

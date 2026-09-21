@@ -46,8 +46,9 @@ import { PRESET_COMPANIES } from './data/presets';
 import { CompanyData, AuthUser, AppViewMode, AppActiveTab } from './types';
 import { calculateTaxAudit } from './utils/taxRules';
 import { AuthService, DEFAULT_PRESET_ACCOUNTS } from './utils/authService';
+import { taxCrawlerEngine } from './utils/taxCrawlerEngine';
 import { canUserAccessTab } from './utils/permissionRules';
-import { Lock } from 'lucide-react';
+import { Lock, Bell, ArrowUpRight } from 'lucide-react';
 import { CosmicPrismaBackground } from './components/CosmicPrismaBackground';
 import bgImage from './assets/images/corporate_tech_office_bg_1789415696102.jpg';
 
@@ -191,6 +192,53 @@ export default function App() {
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isPartnerPortalOpen, setIsPartnerPortalOpen] = useState(false);
   const [isDocumentValidatorOpen, setIsDocumentValidatorOpen] = useState(false);
+  const [govUpdatePopup, setGovUpdatePopup] = useState<{ open: boolean; count: number; message: string } | null>(null);
+
+  // Verificação automática diária 2 vezes (08:00 e 14:00) de novas publicações governamentais e envio de e-mail se offline/online
+  useEffect(() => {
+    const checkScheduledGovSync = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const todayStr = now.toDateString();
+      const lastCheckKey = 'vertice_last_gov_sync_check';
+      const lastCheckVal = localStorage.getItem(lastCheckKey);
+
+      const isMorningSlot = hour === 8 && minute <= 15;
+      const isAfternoonSlot = hour === 14 && minute <= 15;
+      const slotId = `${todayStr}_${hour >= 12 ? '14' : '08'}`;
+
+      if ((isMorningSlot || isAfternoonSlot) && lastCheckVal !== slotId) {
+        localStorage.setItem(lastCheckKey, slotId);
+        taxCrawlerEngine.executeFullCrawlerSweep().then(result => {
+          if (result.success && result.newArticlesCount > 0) {
+            setGovUpdatePopup({
+              open: true,
+              count: result.newArticlesCount,
+              message: `Novas Publicações Governamentais: Foram detectados ${result.newArticlesCount} novos atos oficiais nas fontes monitoradas (DOU, RFB, CGSN, STJ, Reforma Tributária).`
+            });
+
+            // Enviar e-mail de notificação (mesmo que o cliente não esteja logado no momento)
+            fetch('/api/email/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: authUser?.email || 'contato@verticeanalises.com.br',
+                subject: 'Comunicado Oficial: Novas Publicações Governamentais - Vértice Auditor Fiscal',
+                text: `Prezado(a), o sistema Vértice Auditor Fiscal realizou a varredura automática (08:00/14:00) e identificou ${result.newArticlesCount} novas atualizações governamentais. Acesse o sistema para visualizar os atos e notas técnicas.`,
+                html: `<p>Prezado(a),</p><p>O sistema <strong>Vértice Auditor Fiscal</strong> identificou <strong>${result.newArticlesCount} novas atualizações governamentais</strong> (DOU, RFB, CGSN, STJ, Reforma Tributária).</p><p>Acesse o painel para visualizar e auditar as novas regras.</p>`
+              })
+            }).catch(e => console.warn('Email dispatch warning:', e));
+          }
+          // Se não houver novas atualizações, nenhuma mensagem ou popup é trazido.
+        });
+      }
+    };
+
+    checkScheduledGovSync();
+    const interval = setInterval(checkScheduledGovSync, 300000);
+    return () => clearInterval(interval);
+  }, [authUser]);
 
   // Auto-open AuthModal if hash contains set-password or reset-password action
   useEffect(() => {
@@ -685,9 +733,43 @@ export default function App() {
     }
   };
 
+  const isAnyModalOpen = Boolean(
+    isNotificationsOpen ||
+    isPDFUploadOpen ||
+    isLegalGuideOpen ||
+    isAIAuditorOpen ||
+    isSystemTourOpen ||
+    isManualOpen ||
+    isPublishShareOpen ||
+    isAuthModalOpen ||
+    isCompanyManagerOpen ||
+    isPrivacyModalOpen ||
+    isPartnerPortalOpen ||
+    isDocumentValidatorOpen ||
+    govUpdatePopup?.open
+  );
+
+  const lenisOptions = useMemo(() => ({
+    prevent: (node: HTMLElement | Element | null | any) => {
+      if (isAnyModalOpen) return true;
+      if (!node) return false;
+      try {
+        const el = node instanceof Element ? node : node?.parentElement;
+        if (!el) return false;
+        const scrollable = el.closest(
+          '[data-lenis-prevent], .overflow-y-auto, .overflow-y-scroll, .overflow-auto, .overflow-x-auto, [class*="overflow-y"], .fixed, .custom-scrollbar, [role="dialog"], [aria-modal="true"]'
+        );
+        if (scrollable) return true;
+      } catch {
+        // ignore
+      }
+      return false;
+    }
+  }), [isAnyModalOpen]);
+
   if (!authUser) {
     return (
-      <ReactLenis root>
+      <ReactLenis root options={lenisOptions}>
         <ErrorBoundary>
           <LandingWelcomePortal
             forceInitialSplash={true}
@@ -701,7 +783,7 @@ export default function App() {
   }
 
   return (
-    <ReactLenis root>
+    <ReactLenis root options={lenisOptions}>
       <ErrorBoundary>
         <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans relative">
         
@@ -864,6 +946,43 @@ export default function App() {
           onClose={() => setIsDocumentValidatorOpen(false)}
           currentCompany={safeCurrentCompany}
         />
+
+        {govUpdatePopup?.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in select-none">
+            <div className="relative w-full max-w-lg bg-[#0E1629] border border-blue-500/50 rounded-2xl shadow-2xl p-6 text-white space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 rounded-xl bg-blue-600/30 text-blue-400 border border-blue-500/40">
+                  <Bell className="w-6 h-6 animate-bounce" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Novas Publicações Governamentais</h3>
+                  <p className="text-xs text-slate-400">Varredura automática realizada (08:00 / 14:00)</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-200 leading-relaxed">
+                {govUpdatePopup.message}
+              </p>
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+                <button
+                  onClick={() => setGovUpdatePopup(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+                <button
+                  onClick={() => {
+                    setGovUpdatePopup(null);
+                    setIsNotificationsOpen(true);
+                  }}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-blue-600/25 cursor-pointer"
+                >
+                  <span>Ver na Central de Notificações</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Removed EmailDispatchNotifierModal */}
 

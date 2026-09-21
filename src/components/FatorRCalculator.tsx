@@ -18,7 +18,12 @@ import {
   Percent,
   PieChart as PieChartIcon,
   BarChart3,
-  Activity
+  Activity,
+  Target,
+  RotateCcw,
+  Shield,
+  Sparkles,
+  Check
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -57,6 +62,7 @@ export const FatorRCalculator: React.FC<FatorRCalculatorProps> = ({
   const [simulatedMonthlyPayrollAdd, setSimulatedMonthlyPayrollAdd] = useState<number>(0);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [applyFeedback, setApplyFeedback] = useState<string | null>(null);
 
   const currentRbt12 = Math.max(1, company.rbt12);
   const currentPayroll12 = company.payroll12m || 0;
@@ -66,6 +72,28 @@ export const FatorRCalculator: React.FC<FatorRCalculatorProps> = ({
   const requiredPayroll12 = Math.ceil(currentRbt12 * 0.28);
   const deficitPayroll12 = requiredPayroll12 - currentPayroll12; // missing payroll to hit 28%
   const monthlyAddNeeded = deficitPayroll12 > 0 ? Math.ceil(deficitPayroll12 / 12) : 0;
+
+  // Metas e Presets Rápidos 360° (28%, 29%, 30%)
+  const target28Payroll12 = Math.ceil(currentRbt12 * 0.28);
+  const diff28 = Math.max(0, target28Payroll12 - currentPayroll12);
+  const monthlyAdd28 = diff28 > 0 ? Math.ceil(diff28 / 12) : 0;
+
+  const target29Payroll12 = Math.ceil(currentRbt12 * 0.29);
+  const diff29 = Math.max(0, target29Payroll12 - currentPayroll12);
+  const monthlyAdd29 = diff29 > 0 ? Math.ceil(diff29 / 12) : 0;
+
+  const target30Payroll12 = Math.ceil(currentRbt12 * 0.30);
+  const diff30 = Math.max(0, target30Payroll12 - currentPayroll12);
+  const monthlyAdd30 = diff30 > 0 ? Math.ceil(diff30 / 12) : 0;
+
+  const handleApplySimulatedToCompany = () => {
+    onChangeCompany({
+      ...company,
+      payroll12m: simPayroll12,
+    });
+    setApplyFeedback('Folha e Pró-labore atualizados com sucesso no cadastro da empresa!');
+    setTimeout(() => setApplyFeedback(null), 4000);
+  };
 
   // CPP (INSS Patronal) da Guia DAS / Encargos da Folha
   const [cppMonthly, setCppMonthly] = useState<number>(
@@ -228,6 +256,367 @@ export const FatorRCalculator: React.FC<FatorRCalculatorProps> = ({
         </div>
       </div>
 
+      {/* CENTRO DE METAS E PRESETS RÁPIDOS 360° */}
+      <div className="bg-gradient-to-br from-[#0F172A] via-[#131C31] to-[#0F172A] p-6 sm:p-7 rounded-2xl border border-indigo-500/30 space-y-6 shadow-2xl w-full relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4 relative z-10">
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="p-1.5 bg-indigo-500/10 rounded-lg border border-indigo-500/30 text-indigo-400">
+                <Target className="w-4 h-4" />
+              </span>
+              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em]">Engenharia de Pró-Labore em Tempo Real</p>
+            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight mt-1 flex items-center space-x-2">
+              <span>Centro de Metas & Simulador do Fator R 360°</span>
+              <span className="text-xs font-normal text-slate-400 font-mono">
+                (Calibre e aplique o pró-labore ideal com segurança jurídica)
+              </span>
+            </h3>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setSimulatedMonthlyPayrollAdd(0)}
+              className="px-3.5 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
+              title="Restaurar valores cadastrados da empresa e zerar a simulação"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+              <span>Zerar Simulação</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleApplySimulatedToCompany}
+              disabled={simulatedMonthlyPayrollAdd === 0}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition cursor-pointer shadow-md ${
+                simulatedMonthlyPayrollAdd > 0
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-800'
+              }`}
+              title="Gravar o pró-labore simulado diretamente na folha cadastrada da empresa"
+            >
+              <Check className="w-4 h-4" />
+              <span>Gravar na Folha da Empresa</span>
+            </button>
+          </div>
+        </div>
+
+        {applyFeedback && (
+          <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center space-x-2 animate-fadeIn">
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-bold">{applyFeedback}</span>
+          </div>
+        )}
+
+        {/* COMPARATIVO DIRETO DE IMPACTO FISCAL (ANEXO V vs ANEXO III) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
+          <div className="bg-[#0B0F19] p-4 rounded-xl border border-rose-900/40 space-y-1.5">
+            <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block">
+              1. Sem Fator R (Anexo V - 15,50%+)
+            </span>
+            <div className="text-lg font-bold font-mono text-rose-300">
+              {formatCurrencyBRL(annualSimplesTaxAnexo5)}/ano
+            </div>
+            <p className="text-[11px] text-slate-400 font-mono">
+              ~{formatCurrencyBRL(annualSimplesTaxAnexo5 / 12)}/mês na Guia DAS
+            </p>
+          </div>
+
+          <div className="bg-[#0B0F19] p-4 rounded-xl border border-emerald-900/40 space-y-1.5">
+            <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+              2. Com Fator R ≥ 28% (Anexo III - 6,00%+)
+            </span>
+            <div className="text-lg font-bold font-mono text-emerald-400">
+              {formatCurrencyBRL(annualSimplesTaxAnexo3)}/ano
+            </div>
+            <p className="text-[11px] text-slate-400 font-mono">
+              ~{formatCurrencyBRL(annualSimplesTaxAnexo3 / 12)}/mês na Guia DAS
+            </p>
+          </div>
+
+          <div className="bg-[#0B0F19] p-4 rounded-xl border border-blue-900/40 space-y-1.5">
+            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
+              3. Economia Tributária Bruta no DAS
+            </span>
+            <div className="text-lg font-bold font-mono text-blue-300">
+              +{formatCurrencyBRL(annualGrossTaxSavings)}/ano
+            </div>
+            <p className="text-[11px] text-slate-400 font-mono">
+              +{formatCurrencyBRL(annualGrossTaxSavings / 12)}/mês de redução
+            </p>
+          </div>
+        </div>
+
+        {/* SLIDER INTERATIVO EM TEMPO REAL DE PRÓ-LABORE */}
+        <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 space-y-3 relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center space-x-2">
+              <Sliders className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                Ajuste Dinâmico de Pró-Labore Adicional:
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-mono font-bold text-indigo-300">
+                Acréscimo: +{formatCurrencyBRL(simulatedMonthlyPayrollAdd)}/mês (+{formatCurrencyBRL(simulatedMonthlyPayrollAdd * 12)}/ano)
+              </span>
+              <span className={`text-xs font-mono font-black px-2 py-0.5 rounded border ${
+                simFatorR >= 28 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+              }`}>
+                Fator R Simulado: {simFatorR.toFixed(2)}% ({simFatorR >= 28 ? 'Anexo III' : 'Anexo V'})
+              </span>
+            </div>
+          </div>
+
+          <input
+            type="range"
+            min="0"
+            max={Math.max(40000, Math.ceil(monthlyAddNeeded * 2.5))}
+            step="200"
+            value={simulatedMonthlyPayrollAdd}
+            onChange={(e) => setSimulatedMonthlyPayrollAdd(parseFloat(e.target.value) || 0)}
+            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 border border-slate-700"
+          />
+          <div className="flex justify-between text-[10px] font-mono text-slate-500">
+            <span>R$ 0,00</span>
+            <span className="text-indigo-400 font-bold">Arraste para calibrar o Pró-Labore ideal</span>
+            <span>R$ {Math.max(40000, Math.ceil(monthlyAddNeeded * 2.5)).toLocaleString('pt-BR')}</span>
+          </div>
+        </div>
+
+        {/* 4 CARDS DE PRESET RÁPIDO */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
+          
+          {/* Preset 1: Exatos 28,0% */}
+          <div 
+            onClick={() => setSimulatedMonthlyPayrollAdd(monthlyAdd28)}
+            className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+              simulatedMonthlyPayrollAdd === monthlyAdd28 && monthlyAdd28 > 0
+                ? 'bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/30 shadow-lg'
+                : 'bg-[#0B0F19] border-slate-800 hover:border-blue-500/50 hover:bg-slate-900/60'
+            }`}
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 flex items-center space-x-1">
+                  <Target className="w-3.5 h-3.5" />
+                  <span>Meta Exata</span>
+                </span>
+                <span className="text-xs font-mono font-black text-white bg-blue-500/20 px-2 py-0.5 rounded border border-blue-500/30">
+                  28,00%
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-slate-100">Enquadramento Mínimo</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Atinge estritamente o patamar legal do Art. 18 § 5º-J para migrar ao Anexo III.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] text-slate-400">Acréscimo:</span>
+                <span className="text-xs font-mono font-bold text-blue-300">
+                  +{formatCurrencyBRL(monthlyAdd28)}/mês
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[10px] text-slate-500 font-mono">
+                <span>Anual:</span>
+                <span>+{formatCurrencyBRL(monthlyAdd28 * 12)}/ano</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`w-full py-1.5 rounded-lg text-xs font-bold transition ${
+                simulatedMonthlyPayrollAdd === monthlyAdd28 && monthlyAdd28 > 0
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-blue-600 hover:text-white'
+              }`}
+            >
+              {simulatedMonthlyPayrollAdd === monthlyAdd28 && monthlyAdd28 > 0 ? '✓ Preset Ativo' : 'Ativar Exatos 28%'}
+            </button>
+          </div>
+
+          {/* Preset 2: Margem de Segurança 29,0% */}
+          <div 
+            onClick={() => setSimulatedMonthlyPayrollAdd(monthlyAdd29)}
+            className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+              simulatedMonthlyPayrollAdd === monthlyAdd29 && monthlyAdd29 > 0
+                ? 'bg-indigo-950/60 border-indigo-500 ring-2 ring-indigo-500/30 shadow-lg'
+                : 'bg-[#0B0F19] border-slate-800 hover:border-indigo-500/50 hover:bg-slate-900/60'
+            }`}
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 flex items-center space-x-1">
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Recomendado</span>
+                </span>
+                <span className="text-xs font-mono font-black text-white bg-indigo-500/20 px-2 py-0.5 rounded border border-indigo-500/30">
+                  29,00%
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-slate-100">Margem de Segurança</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Protege contra pequenas oscilações de faturamento mensal sem risco de desenquadrar.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] text-slate-400">Acréscimo:</span>
+                <span className="text-xs font-mono font-bold text-indigo-300">
+                  +{formatCurrencyBRL(monthlyAdd29)}/mês
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[10px] text-slate-500 font-mono">
+                <span>Anual:</span>
+                <span>+{formatCurrencyBRL(monthlyAdd29 * 12)}/ano</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`w-full py-1.5 rounded-lg text-xs font-bold transition ${
+                simulatedMonthlyPayrollAdd === monthlyAdd29 && monthlyAdd29 > 0
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-indigo-600 hover:text-white'
+              }`}
+            >
+              {simulatedMonthlyPayrollAdd === monthlyAdd29 && monthlyAdd29 > 0 ? '✓ Preset Ativo' : 'Ativar Margem 29%'}
+            </button>
+          </div>
+
+          {/* Preset 3: Margem Confortável 30,0% */}
+          <div 
+            onClick={() => setSimulatedMonthlyPayrollAdd(monthlyAdd30)}
+            className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+              simulatedMonthlyPayrollAdd === monthlyAdd30 && monthlyAdd30 > 0
+                ? 'bg-purple-950/60 border-purple-500 ring-2 ring-purple-500/30 shadow-lg'
+                : 'bg-[#0B0F19] border-slate-800 hover:border-purple-500/50 hover:bg-slate-900/60'
+            }`}
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center space-x-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Crescimento</span>
+                </span>
+                <span className="text-xs font-mono font-black text-white bg-purple-500/20 px-2 py-0.5 rounded border border-purple-500/30">
+                  30,00%
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-slate-100">Margem Confortável</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Suporta expansão de receita de até ~7% no ano mantendo 100% no Anexo III.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] text-slate-400">Acréscimo:</span>
+                <span className="text-xs font-mono font-bold text-purple-300">
+                  +{formatCurrencyBRL(monthlyAdd30)}/mês
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[10px] text-slate-500 font-mono">
+                <span>Anual:</span>
+                <span>+{formatCurrencyBRL(monthlyAdd30 * 12)}/ano</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`w-full py-1.5 rounded-lg text-xs font-bold transition ${
+                simulatedMonthlyPayrollAdd === monthlyAdd30 && monthlyAdd30 > 0
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-purple-600 hover:text-white'
+              }`}
+            >
+              {simulatedMonthlyPayrollAdd === monthlyAdd30 && monthlyAdd30 > 0 ? '✓ Preset Ativo' : 'Ativar Confortável 30%'}
+            </button>
+          </div>
+
+          {/* Preset 4: Situação Atual / Zerado */}
+          <div 
+            onClick={() => setSimulatedMonthlyPayrollAdd(0)}
+            className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+              simulatedMonthlyPayrollAdd === 0
+                ? 'bg-slate-800/80 border-slate-600 ring-2 ring-slate-500/30 shadow-lg'
+                : 'bg-[#0B0F19] border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
+            }`}
+          >
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center space-x-1">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Base Cadastrada</span>
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+                  {currentFatorR.toFixed(2)}%
+                </span>
+              </div>
+              <h4 className="text-sm font-bold text-slate-100">Situação Cadastrada</h4>
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                Visualiza os dados atuais sem nenhuma projeção de pró-labore adicional.
+              </p>
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 space-y-1">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] text-slate-400">Acréscimo:</span>
+                <span className="text-xs font-mono font-bold text-slate-300">
+                  R$ 0,00/mês
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[10px] text-slate-500 font-mono">
+                <span>Anual:</span>
+                <span>R$ 0,00/ano</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className={`w-full py-1.5 rounded-lg text-xs font-bold transition ${
+                simulatedMonthlyPayrollAdd === 0
+                  ? 'bg-slate-700 text-white'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              {simulatedMonthlyPayrollAdd === 0 ? '✓ Base Atual' : 'Zerar Simulação'}
+            </button>
+          </div>
+
+        </div>
+
+        {/* COMPARATIVO DE BOLSO: PJ vs PF */}
+        <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800 relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/30 text-emerald-400">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cálculo de Viabilidade Econômica (No Bolso do Sócio)</p>
+              <div className="text-sm font-bold text-white flex flex-wrap items-center gap-3">
+                <span>Economia Tributária Anual (DAS): <b className="text-emerald-400 font-mono">+{formatCurrencyBRL(annualGrossTaxSavings)}</b></span>
+                <span className="text-slate-600">|</span>
+                <span>Custo Retenções PF (INSS 11% + IRRF): <b className="text-amber-400 font-mono">-{formatCurrencyBRL(annualProLaborePFRetentions)}</b></span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#090D16] px-4 py-2 rounded-xl border border-emerald-500/30 text-right shrink-0">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Ganho Líquido Real Anual:</span>
+            <span className={`text-base font-black font-mono ${netAnnualFinancialBenefit > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {netAnnualFinancialBenefit > 0 ? `+${formatCurrencyBRL(netAnnualFinancialBenefit)}/ano` : 'R$ 0,00'}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* FULL-WIDTH SECTION 1: PARÂMETROS DE FOLHA & CONTROLES */}
       <div className="bg-[#0F172A] p-6 sm:p-7 rounded-2xl border border-slate-800 space-y-6 shadow-xl w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
@@ -341,7 +730,7 @@ export const FatorRCalculator: React.FC<FatorRCalculatorProps> = ({
               </div>
             </div>
 
-            {/* Ações Inteligentes para Projeção */}
+            {/* Ações Rápidas de Ajuste */}
             <div className="flex flex-col justify-center space-y-2">
               <button
                 type="button"
@@ -349,60 +738,25 @@ export const FatorRCalculator: React.FC<FatorRCalculatorProps> = ({
                 className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider transition cursor-pointer shadow-md shadow-blue-600/20 flex items-center justify-center space-x-2"
               >
                 <Sliders className="w-4 h-4" />
-                <span>Projetar Adicional Complementar (+{formatCurrencyBRL(monthlyAddNeeded)}/mês)</span>
+                <span>Aplicar Meta 28% (+{formatCurrencyBRL(monthlyAddNeeded)}/mês)</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  const finalPayroll12 = Math.ceil(requiredPayroll12);
-                  const finalMonthlyPayroll = Math.ceil(finalPayroll12 / 12);
-                  onChangeCompany({
-                    ...company,
-                    payroll12m: finalPayroll12,
-                    monthlyPayroll: finalMonthlyPayroll
-                  });
-                  setSimulatedMonthlyPayrollAdd(0);
-                }}
-                className="w-full py-2 px-3 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-xs font-bold uppercase tracking-wider border border-emerald-800/80 transition cursor-pointer flex items-center justify-center space-x-2"
+                onClick={handleApplySimulatedToCompany}
+                disabled={simulatedMonthlyPayrollAdd === 0}
+                className={`w-full py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition cursor-pointer flex items-center justify-center space-x-2 ${
+                  simulatedMonthlyPayrollAdd > 0
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500 shadow-emerald-600/20'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed border-slate-800'
+                }`}
               >
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <CheckCircle className="w-4 h-4" />
                 <span>Gravar na Folha Real da Empresa</span>
               </button>
             </div>
 
           </div>
-
-          {/* SLIDER DE AJUSTE MANUAL COMPLEMENTAR */}
-          <div className="bg-[#0B0F19] p-4 rounded-xl border border-slate-800 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center space-x-2">
-                <Sliders className="w-4 h-4 text-blue-400" />
-                <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Simulador de Ajuste Adicional Complementar:
-                </span>
-              </div>
-              <span className="text-xs font-mono font-bold text-blue-400">
-                Acréscimo Adicional: +{formatCurrencyBRL(simulatedMonthlyPayrollAdd)}/mês (+{formatCurrencyBRL(simulatedMonthlyPayrollAdd * 12)}/ano)
-              </span>
-            </div>
-
-            <input
-              type="range"
-              min="0"
-              max={Math.max(50000, monthlyAddNeeded * 3)}
-              step="250"
-              value={simulatedMonthlyPayrollAdd}
-              onChange={(e) => setSimulatedMonthlyPayrollAdd(parseFloat(e.target.value) || 0)}
-              className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500 border border-slate-700"
-            />
-            <div className="flex justify-between text-[10px] font-mono text-slate-500">
-              <span>R$ 0,00</span>
-              <span>Projeção Complementar: {formatCurrencyBRL(simulatedMonthlyPayrollAdd)}</span>
-              <span>R$ {Math.max(50000, monthlyAddNeeded * 3).toLocaleString('pt-BR')}</span>
-            </div>
-          </div>
-
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { 
   DollarSign, 
@@ -31,7 +31,11 @@ import {
   Play,
   Calendar,
   ChevronRight,
-  Clock
+  Clock,
+  Zap,
+  CheckCircle,
+  Eye,
+  Activity
 } from 'lucide-react';
 import { CompanyData, CalculationResult, AppViewMode, DashboardWidgetConfig, DashboardWidgetId, ObrigacaoFiscal } from '../types';
 import { OBRIGACOES_DATABASE } from './AgendaFiscalView';
@@ -63,6 +67,8 @@ import {
 } from '../utils/widgetStorage';
 import { DashboardWidgetCustomizerModal } from './DashboardWidgetCustomizerModal';
 import { ModuleTutorialModal } from './ModuleTutorialModal';
+import { GlobalCapCapacityBar } from './societario/GlobalCapCapacityBar';
+import { CockpitExecutiveSummary } from './dashboard/CockpitExecutiveSummary';
 
 interface DashboardViewProps {
   company: CompanyData;
@@ -98,6 +104,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [draggedWidgetId, setDraggedWidgetId] = useState<DashboardWidgetId | null>(null);
   const [dragOverWidgetId, setDragOverWidgetId] = useState<DashboardWidgetId | null>(null);
+
+  // Time horizon toggle: 'annual' (Custo Anual) vs 'monthly' (Mensal / Guia DAS)
+  const [timeHorizon, setTimeHorizon] = useState<'annual' | 'monthly'>('annual');
+  // Dynamic What-If Slider Simulator (+/- % faturamento)
+  const [whatIfPercent, setWhatIfPercent] = useState<number>(0);
+
+  // Health Score Calculation 360 (0 to 100)
+  const healthScore = useMemo(() => {
+    let score = 100;
+    // Penalize if exceeds limits
+    if (calculation.exceedsFederalLimit) score -= 45;
+    else if (calculation.exceedsSublimit) score -= 25;
+    else if (company.rbt12 >= 3200000) score -= 10;
+
+    // Fator R status
+    if (calculation.fatorR < 28 && (company.anexo === 'V' || !company.anexo)) {
+      score -= 15;
+    }
+
+    // Partner irregularity
+    if (calculation.hasPartnerIrregularity) score -= 20;
+
+    return Math.max(15, Math.min(100, score));
+  }, [calculation, company]);
 
   // Interactive Checklist State for LC 123/06
   const [manualChecklist, setManualChecklist] = useState<{ [key: string]: boolean }>(() => {
@@ -185,29 +215,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { month: '+12 Meses (Proj)', revenue: currentRbt12 * (1 + growth), sublimit: STATE_SUBLIMIT, federalLimit: FEDERAL_LIMIT, criticalLimit: CRITICAL_EXCLUSION_THRESHOLD },
   ];
 
-  // Chart 2: Regimes Comparison (4 Regimes)
+  // Chart 2: Regimes Comparison (4 Regimes) - Adaptable to Annual or Monthly
+  const divisor = timeHorizon === 'monthly' ? 12 : 1;
   const regimeComparisonData = [
     { 
       name: 'Simples Padrão', 
-      impostoAnual: Math.round(calculation.effectiveTaxAnnual), 
+      impostoAnual: Math.round(calculation.effectiveTaxAnnual / divisor), 
       aliquotaEfetiva: calculation.effectiveRate,
       fill: calculation.exceedsFederalLimit ? '#ef4444' : '#2563eb'
     },
     { 
       name: 'Simples Híbrido', 
-      impostoAnual: Math.round(calculation.simplesHibridoAnnualTax), 
+      impostoAnual: Math.round(calculation.simplesHibridoAnnualTax / divisor), 
       aliquotaEfetiva: calculation.simplesHibridoEffectiveRate,
       fill: '#0284c7' 
     },
     { 
       name: 'Lucro Presumido', 
-      impostoAnual: Math.round(calculation.lucroPresumidoAnnualTax), 
+      impostoAnual: Math.round(calculation.lucroPresumidoAnnualTax / divisor), 
       aliquotaEfetiva: calculation.lucroPresumidoEffectiveRate,
       fill: '#6366f1' 
     },
     { 
       name: 'Lucro Real', 
-      impostoAnual: Math.round(calculation.lucroRealAnnualTax), 
+      impostoAnual: Math.round(calculation.lucroRealAnnualTax / divisor), 
       aliquotaEfetiva: calculation.lucroRealEffectiveRate,
       fill: '#059669' 
     },
@@ -1636,7 +1667,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Benchmark Tributário</p>
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
                     <Layers className="w-4 h-4 text-blue-400" />
-                    <span>Carga Tributária Anual</span>
+                    <span>Carga Tributária {timeHorizon === 'monthly' ? 'Mensal (DAS)' : 'Anual'}</span>
                   </h3>
                 </div>
                 <button
@@ -1661,7 +1692,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <Tooltip 
                       formatter={(val: any, name: any, item: any) => [
                         `${formatCurrencyBRL(Number(val))} (${item.payload.aliquotaEfetiva.toFixed(2)}% efetiva)`, 
-                        'Imposto Anual'
+                        timeHorizon === 'monthly' ? 'Imposto Mensal Estimado' : 'Imposto Anual'
                       ]}
                       contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '8px', fontSize: '11px', color: '#F8FAFC', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.5)' }}
                     />
@@ -1704,7 +1735,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </h3>
                 </div>
                 <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Em R$ Anuais
+                  {timeHorizon === 'monthly' ? 'Em R$ Mensais' : 'Em R$ Anuais'}
                 </span>
               </div>
 
@@ -1819,6 +1850,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <ArrowUpRight className="w-4 h-4 text-emerald-400" />
                 </button>
               )}
+
+              {/* TOGGLE ANUAL VS MENSAL */}
+              <div className="flex items-center bg-[#0B0F19] p-0.5 rounded-xl border border-slate-800 text-xs font-bold">
+                <button
+                  onClick={() => setTimeHorizon('annual')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    timeHorizon === 'annual'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Exibir projeções em base Anual"
+                >
+                  Visão Anual
+                </button>
+                <button
+                  onClick={() => setTimeHorizon('monthly')}
+                  className={`px-3 py-1.5 rounded-lg transition ${
+                    timeHorizon === 'monthly'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Exibir projeções em base Mensal (Guia DAS / Mês)"
+                >
+                  Visão Mensal
+                </button>
+              </div>
             </div>
 
             {/* Right: System Tools & Organization */}
@@ -1865,13 +1922,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* HEALTH COCKPIT PANEL & REAL-TIME COMPLIANCE INDEX */}
+        {/* HEALTH COCKPIT PANEL & REAL-TIME COMPLIANCE INDEX DINÂMICO */}
         <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-md relative overflow-hidden flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
           
           <div className="relative z-10 flex items-center justify-between border-b border-slate-800/80 pb-3">
             <div className="flex items-center space-x-2">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className={`flex h-2 w-2 rounded-full ${healthScore >= 80 ? 'bg-emerald-500' : healthScore >= 60 ? 'bg-amber-500' : 'bg-rose-500'} animate-pulse`} />
               <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Cockpit de Conformidade</h3>
             </div>
             <span className="text-[10px] bg-[#0B0F19] border border-slate-800 text-slate-400 px-2.5 py-1 rounded-lg font-mono">
@@ -1882,21 +1939,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="relative z-10 flex items-center justify-between gap-4 py-3">
             <div className="space-y-1">
               <div className="text-2xl font-black text-white tracking-tight flex items-baseline gap-1">
-                98.4<span className="text-xs text-slate-400">%</span>
+                {healthScore.toFixed(1)}<span className="text-xs text-slate-400">%</span>
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Índice de Saúde Fiscal</p>
-              <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
-                <span className="font-bold">▲ Excelente</span> sem riscos graves
+              <p className={`text-[10px] flex items-center gap-1 font-mono ${
+                healthScore >= 80 ? 'text-emerald-400' : healthScore >= 60 ? 'text-amber-400' : 'text-rose-400'
+              }`}>
+                <span className="font-bold">▲ {healthScore >= 80 ? 'Excelente' : healthScore >= 60 ? 'Atenção Requerida' : 'Risco de Exclusão'}</span>
+                {healthScore >= 80 ? 'sem riscos graves' : 'ver pendências'}
               </p>
             </div>
 
             <div className="w-16 h-16 relative flex items-center justify-center shrink-0">
               <svg className="w-full h-full transform -rotate-90">
                 <circle cx="32" cy="32" r="28" stroke="#1e293b" strokeWidth="4" fill="transparent" />
-                <circle cx="32" cy="32" r="28" stroke="#10b981" strokeWidth="4" fill="transparent"
-                  strokeDasharray={175.9} strokeDashoffset={175.9 * (1 - 0.984)} strokeLinecap="round" />
+                <circle 
+                  cx="32" 
+                  cy="32" 
+                  r="28" 
+                  stroke={healthScore >= 80 ? '#10b981' : healthScore >= 60 ? '#f59e0b' : '#ef4444'} 
+                  strokeWidth="4" 
+                  fill="transparent"
+                  strokeDasharray={175.9} 
+                  strokeDashoffset={175.9 * (1 - (healthScore / 100))} 
+                  strokeLinecap="round" 
+                />
               </svg>
-              <span className="absolute text-[11px] font-mono font-bold text-white">98%</span>
+              <span className="absolute text-[11px] font-mono font-bold text-white">{Math.round(healthScore)}%</span>
             </div>
           </div>
 
@@ -1904,7 +1973,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="bg-[#0B0F19] p-2 rounded-xl border border-slate-800/60 flex flex-col justify-between">
               <span className="text-slate-500 font-bold uppercase text-[8px] tracking-wider">Simples Nacional</span>
               <span className="text-white font-bold flex items-center gap-1 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Ativo
+                <span className={`w-1.5 h-1.5 rounded-full ${calculation.exceedsFederalLimit ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+                {calculation.exceedsFederalLimit ? 'Excedido' : 'Ativo'}
               </span>
             </div>
             <div className="bg-[#0B0F19] p-2 rounded-xl border border-slate-800/60 flex flex-col justify-between">
@@ -2051,6 +2121,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* DASHBOARD HUB: FULL HORIZONTAL LAYOUT FOR MAXIMUM VISIBILITY (REQUEST 2º & 3º) */}
       <div className="space-y-6 w-full">
+        {/* SÍNTESE EXECUTIVA DE DECISÃO & SIMULADOR WHAT-IF 360° */}
+        <CockpitExecutiveSummary
+          company={company}
+          calculation={calculation}
+          timeHorizon={timeHorizon}
+          onChangeTimeHorizon={setTimeHorizon}
+          onNavigateToTab={onNavigateToTab}
+          onChangeCompany={onChangeCompany}
+        />
+
+        {/* BARRA CUMULATIVA DO TETO GLOBAL (TERMÔMETRO DOS R$ 4,8 MILHÕES) */}
+        <GlobalCapCapacityBar company={company} calculation={calculation} />
+
         {/* KPI ROW */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
           {kpiWidgetIds.map(id => renderKpiWidget(id))}

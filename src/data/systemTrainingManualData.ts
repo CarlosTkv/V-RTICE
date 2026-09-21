@@ -87,6 +87,26 @@ export const SYSTEM_TRAINING_MANUAL_DATA: ManualModule[] = [
             legalBase: 'Art. 19 e 20 da LC 123/2006.',
             systemImpact: 'Ao ultrapassar o sublimite, expurga a fração de ICMS/ISS da alíquota do DAS e soma o imposto por fora no Comparador de Regimes.',
             reflectsIn: ['Alerta de Sublimite', 'Segregação de ICMS/ISS no DAS', 'Comparador de Regimes']
+          },
+          {
+            fieldName: 'Alternador de Horizonte Temporal (Visão Anual vs Mensal / DAS)',
+            fieldCode: 'timeHorizonToggle',
+            inputType: 'Seleção Única',
+            acceptedValues: 'Visão Anual | Visão Mensal',
+            technicalPurpose: 'Permite ao gestor e ao cliente alternar instantaneamente as projeções gráficas de carga tributária e benchmark entre a despesa anual consolidada e a guia DAS mensal estimada.',
+            legalBase: 'Resolução CGSN nº 140/2018 (Periodicidade Mensal do Simples Nacional).',
+            systemImpact: 'Recalcula dinamicamente a escala dos gráficos de Benchmark Tributário e Projeção de Economia em tempo real, dividindo os montantes anuais por 12 sem alterar a base fiscal de apuração.',
+            reflectsIn: ['Cockpit Executivo', 'Gráfico de Carga Tributária', 'Gráfico de Projeção de Economia', 'Apresentação Consultiva']
+          },
+          {
+            fieldName: 'Termômetro de Saúde Fiscal 360° (Score 0-100%)',
+            fieldCode: 'healthScore360',
+            inputType: 'Texto',
+            acceptedValues: 'Calculado em tempo real (0 a 100%)',
+            technicalPurpose: 'Avalia holisticamente a segurança fiscal da empresa contra riscos de desenquadramento da LC 123/06, exclusão de ofício e irregularidades societárias.',
+            legalBase: 'LC 123/2006, Art. 3º e Art. 29.',
+            systemImpact: 'Aplica pontuação dedutiva: penaliza em 45 pontos excesso de teto federal (R$ 4,8M), 25 pontos excesso de sublimite (R$ 3,6M), 15 pontos se o Fator R for inferior a 28% no Anexo V, e 20 pontos para irregularidades no QSA.',
+            reflectsIn: ['Cockpit de Conformidade', 'Velocímetro de Saúde Fiscal', 'Parecer Pericial 360°']
           }
         ]
       },
@@ -126,6 +146,16 @@ export const SYSTEM_TRAINING_MANUAL_DATA: ManualModule[] = [
             legalBase: 'Resolução CGSN nº 140/2018, Art. 26.',
             systemImpact: 'Aumenta o numerador da FS12, facilitando o alcance dos 28% sem necessidade de inflar excessivamente o pró-labore puro.',
             reflectsIn: ['Cálculo Fator R', 'Deduções Trabalhistas']
+          },
+          {
+            fieldName: 'Simulador Dinâmico com Presets Rápidos (28%, 29% e 30%)',
+            fieldCode: 'fatorRPresets',
+            inputType: 'Seleção Única',
+            acceptedValues: 'Exatos 28,0% | Margem de Segurança 29,0% | Margem Confortável 30,0%',
+            technicalPurpose: 'Permite projetar em um clique o pró-labore complementar necessário com margens de segurança para flutuações de receita no fechamento do mês.',
+            legalBase: 'LC 123/2006, Art. 18, § 5º-J.',
+            systemImpact: 'Calcula o acréscimo mensal exato na folha para atingir cada patamar de segurança e recalcula o ganho patrimonial líquido após retenção de INSS/IRPF.',
+            reflectsIn: ['Simulador Fator R', 'Gráficos Analíticos', 'Gravação de Folha Real']
           }
         ]
       },
@@ -172,6 +202,16 @@ export const SYSTEM_TRAINING_MANUAL_DATA: ManualModule[] = [
             legalBase: 'Art. 3º, § 4º, incisos III, IV e V da LC 123/2006.',
             systemImpact: 'Se o sócio possuir mais de 10% em outra empresa não-optante ou for administrador em outra empresa, a soma das receitas que exceder R$ 4,8M causa a exclusão automática do Simples Nacional.',
             reflectsIn: ['Termômetro de Risco Societário', 'Cockpit de Risco', 'Parecer Pericial']
+          },
+          {
+            fieldName: 'Exportação do QSA em Planilha CSV Auditável',
+            fieldCode: 'qsaCsvExport',
+            inputType: 'Arquivo / Certificado',
+            acceptedValues: 'Download instantâneo de arquivo CSV formatado em UTF-8 com BOM',
+            technicalPurpose: 'Permite aos auditores e controllers exportar a relação societária completa com percentuais, funções e soma de empresas vinculadas para auditoria externa e cruzamentos contábeis.',
+            legalBase: 'IN DREI nº 81/2020 e LC 123/2006 Art. 3º.',
+            systemImpact: 'Gera e baixa diretamente no navegador a tabela consolidada do Quadro de Sócios com todas as empresas correlatas para conciliação fiscal e documental.',
+            reflectsIn: ['Quadro de Sócios', 'Auditoria Externa', 'Dossiê do Cliente']
           }
         ]
       }

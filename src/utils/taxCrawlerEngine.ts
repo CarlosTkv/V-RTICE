@@ -76,8 +76,68 @@ export interface CrawlerEngineState {
   news: TaxNewsItem[];
 }
 
-// Fontes Governamentais e Tributárias Oficiais de Rastreamento
+/// Fontes Governamentais e Tributárias Oficiais de Rastreamento
 export const DEFAULT_CRAWLER_SOURCES: CrawlerBotSource[] = [
+  {
+    id: 'bot_comex_radar',
+    name: 'Comex / Radar Siscomex (Receita Federal)',
+    category: 'RFB',
+    url: 'https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior',
+    targetEndpoint: 'https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior/noticias',
+    feedType: 'REST_API',
+    checkIntervalMinutes: 15,
+    status: 'online',
+    lastPing: 'Agora',
+    latencyMs: 104,
+    totalArticlesFound: 29,
+    enabled: true,
+    description: 'Monitoramento em tempo real de Habilitação Radar (Expressa, Limitada e Ilimitada), DU-E, Licenciamento de Importação e Drawback.',
+  },
+  {
+    id: 'bot_cfc_contabilidade',
+    name: 'Conselho Federal de Contabilidade (CFC / CRCs)',
+    category: 'DOU',
+    url: 'https://cfc.org.br/',
+    targetEndpoint: 'https://cfc.org.br/noticias/',
+    feedType: 'RSS',
+    checkIntervalMinutes: 60,
+    status: 'online',
+    lastPing: 'Agora',
+    latencyMs: 135,
+    totalArticlesFound: 21,
+    enabled: true,
+    description: 'Normas Brasileiras de Contabilidade (NBC TG), IFRS, obrigações acessórias e resoluções do exercício profissional.',
+  },
+  {
+    id: 'bot_sefaz_icms',
+    name: 'Sefaz Estaduais (Conselho Nacional de Política Fazendária - ICMS/DIFAL)',
+    category: 'CONFAZ',
+    url: 'https://www.confaz.fazenda.gov.br/',
+    targetEndpoint: 'https://www.confaz.fazenda.gov.br/legislacao/ajustes',
+    feedType: 'HTML_SCRAPE',
+    checkIntervalMinutes: 20,
+    status: 'online',
+    lastPing: 'Agora',
+    latencyMs: 148,
+    totalArticlesFound: 37,
+    enabled: true,
+    description: 'Ajustes SINIEF, alíquotas modais de ICMS dos 26 Estados e Distrito Federal, e regras de Substituição Tributária.',
+  },
+  {
+    id: 'bot_prefeituras_iss',
+    name: 'Prefeituras Municipais & Frente Nacional de Prefeitos (ISS / NFS-e)',
+    category: 'NFSe',
+    url: 'https://www.gov.br/nfse/pt-br',
+    targetEndpoint: 'https://www.gov.br/nfse/pt-br/municipios-conveniados',
+    feedType: 'REST_API',
+    checkIntervalMinutes: 30,
+    status: 'online',
+    lastPing: 'Agora',
+    latencyMs: 95,
+    totalArticlesFound: 42,
+    enabled: true,
+    description: 'Homologação de prefeituras no Ambiente de Dados Nacional (ADN), alíquotas de ISS e retenções obrigatórias na fonte.',
+  },
   {
     id: 'bot_dou_secao1',
     name: 'Diário Oficial da União (DOU - Seção 1)',
@@ -89,7 +149,7 @@ export const DEFAULT_CRAWLER_SOURCES: CrawlerBotSource[] = [
     status: 'online',
     lastPing: 'Agora',
     latencyMs: 142,
-    totalArticlesFound: 24,
+    totalArticlesFound: 54,
     enabled: true,
     description: 'Varredura de Leis Complementares, Decretos Presidenciais e Portarias Ministeriais publicadas na íntegra.',
   },
@@ -104,7 +164,7 @@ export const DEFAULT_CRAWLER_SOURCES: CrawlerBotSource[] = [
     status: 'online',
     lastPing: 'Agora',
     latencyMs: 98,
-    totalArticlesFound: 18,
+    totalArticlesFound: 38,
     enabled: true,
     description: 'Monitoramento de Resoluções CGSN, sublimites estaduais, prorrogações do DAS e comunicados de exclusão.',
   },
@@ -119,7 +179,7 @@ export const DEFAULT_CRAWLER_SOURCES: CrawlerBotSource[] = [
     status: 'online',
     lastPing: 'Agora',
     latencyMs: 110,
-    totalArticlesFound: 32,
+    totalArticlesFound: 63,
     enabled: true,
     description: 'Rastreamento de Instruções Normativas, Soluções de Consulta COSIT e Soluções de Divergência vinculantes.',
   },
@@ -134,39 +194,9 @@ export const DEFAULT_CRAWLER_SOURCES: CrawlerBotSource[] = [
     status: 'online',
     lastPing: 'Agora',
     latencyMs: 165,
-    totalArticlesFound: 15,
+    totalArticlesFound: 31,
     enabled: true,
     description: 'Acompanhamento da regulamentação do IVA Dual (CBS/IBS), PLP 68/2024, Cesta Básica Nacional e Comitê Gestor.',
-  },
-  {
-    id: 'bot_confaz_icms',
-    name: 'CONFAZ (Convênios ICMS & SINIEF)',
-    category: 'CONFAZ',
-    url: 'https://www.confaz.fazenda.gov.br/',
-    targetEndpoint: 'https://www.confaz.fazenda.gov.br/legislacao/convenios',
-    feedType: 'HTML_SCRAPE',
-    checkIntervalMinutes: 45,
-    status: 'online',
-    lastPing: 'Agora',
-    latencyMs: 185,
-    totalArticlesFound: 12,
-    enabled: true,
-    description: 'Varredura de Convênios ICMS de Substituição Tributária, Protocolos Interestaduais e Ajustes SINIEF.',
-  },
-  {
-    id: 'bot_nfse_nacional',
-    name: 'Portal Nacional da NFS-e (ADN & Convênios)',
-    category: 'NFSe',
-    url: 'https://www.gov.br/nfse/pt-br',
-    targetEndpoint: 'https://www.gov.br/nfse/pt-br/noticias',
-    feedType: 'REST_API',
-    checkIntervalMinutes: 30,
-    status: 'online',
-    lastPing: 'Agora',
-    latencyMs: 92,
-    totalArticlesFound: 9,
-    enabled: true,
-    description: 'Varredura do Ambiente de Dados Nacional (ADN), novos municípios conveniados e layout de emissão A1/Gov.br.',
   },
   {
     id: 'bot_stj_tributario',
@@ -179,41 +209,120 @@ export const DEFAULT_CRAWLER_SOURCES: CrawlerBotSource[] = [
     status: 'online',
     lastPing: 'Agora',
     latencyMs: 220,
-    totalArticlesFound: 14,
+    totalArticlesFound: 28,
     enabled: true,
     description: 'Monitoramento de Recursos Especiais Repetitivos, teses tributárias transitadas em julgado e restituições.',
-  },
-  {
-    id: 'bot_redesim_drei',
-    name: 'Portal REDESIM / DREI (Juntas Comerciais)',
-    category: 'REDESIM',
-    url: 'https://www.gov.br/empresas-e-negocios/pt-br/redesim',
-    targetEndpoint: 'https://www.gov.br/empresas-e-negocios/pt-br/redesim/noticias',
-    feedType: 'GOV_PORTAL',
-    checkIntervalMinutes: 120,
-    status: 'online',
-    lastPing: 'Agora',
-    latencyMs: 130,
-    totalArticlesFound: 8,
-    enabled: true,
-    description: 'Regulamentações de abertura, alteração, baixa e integração nacional das 27 Juntas Comerciais.',
   }
 ];
 
 export const INITIAL_CRAWLED_NOTICES: TaxNewsItem[] = [
   {
-    id: 'notice-dou-01',
+    id: 'notice-comex-01',
+    title: 'Comex / Radar Siscomex (RFB): Nova Instrução Normativa Simplifica Habilitação Radar Expresso e Amplia Limites para US$ 150 Mil',
+    category: 'Legislacao',
+    date: '21/09/2026',
+    summary: 'A Receita Federal do Brasil publicou alteração nos procedimentos de habilitação ao Radar Siscomex. Empresas com modalidade Expressa passam a contar com limite automático de US$ 150 mil por semestre sem necessidade de comprovação patrimonial complexa, acelerando operações de importação.',
+    impactLevel: 'Crítico',
+    source: 'Comex / Radar Siscomex (Receita Federal)',
+    sourceUrl: 'https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior',
+    officialDocNumber: 'Instrução Normativa RFB nº 2.312/2026',
+    applicableModules: ['Auditoria Fiscal', 'Planejamento Tributário', 'Gestão Financeira'],
+    read: false,
+    createdAt: new Date().toISOString(),
+    autoAudited: true,
+    visualSummary: {
+      ruleCode: 'RADAR_SISCOMEX_150K_2026',
+      whatChanged: 'Ampliação do teto da modalidade Radar Expresso de US$ 50 mil para US$ 150 mil por semestre com liberação digital imediata via e-CAC e e-CNPJ.',
+      impactOnCalculations: 'Permite importadores diretos realizarem desembaraço aduaneiro sem travas burocráticas prévias, otimizando o fluxo de caixa cambial.',
+      beforeVsAfter: {
+        beforeText: 'Teto de US$ 50 mil semestrais na modalidade Expressa com exigência de balanço auditado para limites superiores.',
+        afterText: 'Teto de US$ 150 mil semestrais automáticos na modalidade Expressa para empresas regulares.',
+        formulaBefore: 'Limite_Importação_Semestre = US$ 50.000 (Expressa padrão)',
+        formulaAfter: 'Limite_Importação_Semestre = US$ 150.000 (Expressa ampliada)',
+      },
+      rateChanges: [
+        { parameter: 'Limite Semestral Radar Expresso', oldRate: 'US$ 50.000', newRate: 'US$ 150.000', variation: '+200% no teto semestral' },
+        { parameter: 'Prazo de Análise RFB', oldRate: '10 dias úteis', newRate: 'Automático (D+0)', variation: 'Liberação instantânea' }
+      ],
+      affectedModules: ['Auditoria Fiscal', 'Planejamento Tributário', 'Emissor Fiscal'],
+      systemActionTaken: 'Módulo de Comex e Auditoria aduaneira sincronizado com os novos parâmetros da IN RFB 2.312/2026.'
+    }
+  },
+  {
+    id: 'notice-cfc-02',
+    title: 'Conselho Federal de Contabilidade (CFC): Publicada NBC TG Atualizada sobre Evidenciação de Benefícios Fiscais e Subvenções',
+    category: 'Legislacao',
+    date: '20/09/2026',
+    summary: 'O CFC emitiu nova Norma Brasileira de Contabilidade alinhada aos padrões internacionais de relatórios financeiros, determinando rigor na evidenciação de subvenções de investimento e créditos presumidos de ICMS/IBS na DRE.',
+    impactLevel: 'Crítico',
+    source: 'Conselho Federal de Contabilidade (CFC)',
+    sourceUrl: 'https://cfc.org.br/',
+    officialDocNumber: 'NBC TG 07 (Revisão 2026)',
+    applicableModules: ['Planejamento Tributário', 'Auditoria Digital', 'DRE & Balancete'],
+    read: false,
+    createdAt: new Date(Date.now() - 43200000).toISOString(),
+    autoAudited: true,
+    visualSummary: {
+      ruleCode: 'NBC_TG_SUBVENCOES_2026',
+      whatChanged: 'Exigência de reserva de incentivos fiscais no patrimônio líquido antes da distribuição de dividendos e nova forma de dedução na base de IRPJ/CSLL.',
+      impactOnCalculations: 'Altera o tratamento contábil dos créditos fiscais estaduais e federais apurados nas auditorias do Vértice.',
+      beforeVsAfter: {
+        beforeText: 'Lançamento direto no resultado sem exigência de reserva de lucros incentivados.',
+        afterText: 'Destinação obrigatória para Reserva de Incentivos Fiscais (Conta específica do PL).',
+        formulaBefore: 'Lucro_Líquido = Receitas - Despesas + Subvenção_Direta',
+        formulaAfter: 'Lucro_Distribuível = Lucro_Líquido - Reserva_Incentivos_Fiscais',
+      },
+      rateChanges: [
+        { parameter: 'Exigência de Reserva de Lucros', oldRate: 'Opcional / Parcial', newRate: 'Obrigatória (100%)', variation: 'Conformidade IFRS' }
+      ],
+      affectedModules: ['Planejamento Tributário', 'Auditoria Digital', 'DRE & Balancete'],
+      systemActionTaken: 'Módulo de Demonstrações Contábeis e DRE adaptado para evidenciar subvenções conforme NBC TG 07.'
+    }
+  },
+  {
+    id: 'notice-sefaz-03',
+    title: 'CONFAZ / Sefaz Estaduais: Ajuste SINIEF Atualiza Regras de Emissão de NF-e e Validação de DIFAL Interestadual',
+    category: 'CONFAZ',
+    date: '19/09/2026',
+    summary: 'Conselho Nacional de Política Fazendária publica Ajuste SINIEF unificando as validações de DIFAL (Diferencial de Alíquota) para destinatários não contribuintes em operações interestaduais.',
+    impactLevel: 'Médio',
+    source: 'Sefaz / CONFAZ',
+    sourceUrl: 'https://www.confaz.fazenda.gov.br/',
+    officialDocNumber: 'Ajuste SINIEF nº 14/2026',
+    applicableModules: ['Auditoria Fiscal', 'Emissor Fiscal NFS-e', 'Agenda Fiscal'],
+    read: false,
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    autoAudited: true,
+    visualSummary: {
+      ruleCode: 'AJUSTE_SINIEF_DIFAL_2026',
+      whatChanged: 'Padronização nacional dos campos de partilha do DIFAL de ICMS entre Estado de origem e Estado de destino.',
+      impactOnCalculations: 'Garante o cálculo exato da alíquota interestadual e FCP (Fundo de Combate à Pobreza) nas notas emitidas.',
+      beforeVsAfter: {
+        beforeText: 'Divergências na alíquota interestadual e recolhimento manual de guias por estado.',
+        afterText: 'Validação eletrônica automática na autorização da NF-e com guia GNRE integrada.',
+        formulaBefore: 'DIFAL = Base * (Alíquota_Destino - Alíquota_Interestadual) + FCP',
+        formulaAfter: 'DIFAL_Validado = Base_Calculo_DIFAL * Alíquota_Efetiva_Unificada_SINIEF',
+      },
+      rateChanges: [
+        { parameter: 'FCP Médio Interestadual', oldRate: '1,00% a 2,00%', newRate: 'Padronizado por UF', variation: 'Conformidade Ajuste SINIEF' }
+      ],
+      affectedModules: ['Emissor Fiscal NFS-e', 'Auditoria Fiscal'],
+      systemActionTaken: 'Validador de notas fiscais atualizado com as regras do Ajuste SINIEF 14/2026.'
+    }
+  },
+  {
+    id: 'notice-dou-04',
     title: 'DOU Seção 1: Publicada Portaria Conjunta RFB/PGFN sobre Transação Tributária por Adesão',
     category: 'Legislacao',
-    date: new Date().toLocaleDateString('pt-BR'),
+    date: '18/09/2026',
     summary: 'Diário Oficial da União publica novos editais de transação fiscal com até 70% de desconto sobre juros e multas para micro e pequenas empresas com débitos em dívida ativa da União.',
     impactLevel: 'Crítico',
     source: 'Diário Oficial da União (DOU - Seção 1)',
     sourceUrl: 'https://www.in.gov.br/leiturajornal',
     officialDocNumber: 'Portaria Conjunta RFB/PGFN nº 18/2026',
     applicableModules: ['Planejamento Tributário', 'Auditoria Fiscal', 'Agenda'],
-    read: false,
-    createdAt: new Date().toISOString(),
+    read: true,
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
     autoAudited: true,
     visualSummary: {
       ruleCode: 'TRANSACAO_TRIBUTARIA_PGFN_2026',
@@ -234,18 +343,18 @@ export const INITIAL_CRAWLED_NOTICES: TaxNewsItem[] = [
     }
   },
   {
-    id: 'notice-simples-02',
+    id: 'notice-simples-05',
     title: 'CGSN: Esclarecimento Oficial sobre Segregação de Receitas Monofásicas na EFD-Contribuições',
     category: 'SimplesNacional',
-    date: new Date(Date.now() - 86400000).toLocaleDateString('pt-BR'),
+    date: '17/09/2026',
     summary: 'Comitê Gestor reforça que a comercialização de produtos com alíquota zero ou monofásico de PIS/COFINS por optantes do Simples Nacional não gera recolhimento duplicado se informada em campo segregado do PGDAS-D.',
     impactLevel: 'Crítico',
     source: 'Portal do Simples Nacional / CGSN',
     sourceUrl: 'https://www8.receita.fazenda.gov.br/SimplesNacional/Noticias/',
     officialDocNumber: 'Nota Técnica CGSN nº 42/2026',
     applicableModules: ['Fator R & Anexos', 'Classificação & Monofásico', 'Auditoria Digital'],
-    read: false,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    read: true,
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
     autoAudited: true,
     visualSummary: {
       ruleCode: 'SIMPLES_MONOFASICO_DEDUCTION',
@@ -263,134 +372,6 @@ export const INITIAL_CRAWLED_NOTICES: TaxNewsItem[] = [
       ],
       affectedModules: ['Classificação & Monofásico', 'Fator R & Auditoria', 'Auditoria Digital'],
       systemActionTaken: 'Motor de segregação CFOP e NCM recalibrado para aplicar dedução imediata no DAS.'
-    }
-  },
-  {
-    id: 'notice-reforma-03',
-    title: 'Secretaria da Reforma Tributária: Detalhamento do Split Payment no IVA Dual',
-    category: 'ReformaTributaria',
-    date: new Date(Date.now() - 172800000).toLocaleDateString('pt-BR'),
-    summary: 'Ministério da Fazenda apresenta modelo operacional de liquidação financeira instantânea (Split Payment) do IBS e CBS nos arranjos de pagamento PIX e cartões a partir de 2027.',
-    impactLevel: 'Médio',
-    source: 'Secretaria da Reforma Tributária (Min. Fazenda)',
-    sourceUrl: 'https://www.gov.br/fazenda/pt-br/assuntos/reforma-tributaria',
-    officialDocNumber: 'Relatório Técnico SRT/MF nº 08/2026',
-    applicableModules: ['Reforma Tributária', 'Emissor Fiscal NFS-e', 'Gestão Financeira'],
-    read: false,
-    createdAt: new Date(Date.now() - 172800000).toISOString(),
-    autoAudited: true,
-    visualSummary: {
-      ruleCode: 'IVA_DUAL_TEST_RATE',
-      whatChanged: 'Parametrização da alíquota de teste de 1,00% (CBS 0,90% Federal + IBS 0,10% Subnacional) compensável com PIS/COFINS.',
-      impactOnCalculations: 'Alimenta o simulador comparativo de regimes 4 em 1 do Vértice e o módulo de Emissão NFS-e.',
-      beforeVsAfter: {
-        beforeText: 'Tributação cumulativa/não-cumulativa de PIS (1,65%), COFINS (7,60%), ICMS (18-20%) e ISS (2-5%).',
-        afterText: 'Fase de transição com CBS 0,9% + IBS 0,1% com crédito financeiro irrestrito.',
-        formulaBefore: 'Tributos_Servicos = ISS (5%) + PIS (0,65%) + COFINS (3,00%) + IRPJ (4,80%) + CSLL (2,88%)',
-        formulaAfter: 'Tributos_Servicos_2026 = CBS (0,9%) + IBS (0,1%) + IRPJ + CSLL - Créditos_Insumos',
-      },
-      rateChanges: [
-        { parameter: 'CBS Federal (Teste)', oldRate: '0,00%', newRate: '0,90%', variation: '+0.90% compensável' },
-        { parameter: 'IBS Subnacional (Teste)', oldRate: '0,00%', newRate: '0,10%', variation: '+0.10% compensável' }
-      ],
-      affectedModules: ['Reforma Tributária (IVA Dual)', 'Planejamento Tributário', 'Emissor Fiscal NFS-e'],
-      systemActionTaken: 'Simulador 4 em 1 atualizado com cálculo simultâneo da fase de teste e regime pleno da Reforma.'
-    }
-  },
-  {
-    id: 'notice-cosit-04',
-    title: 'Solução de Consulta COSIT nº 89/2026: Incidência de ISS vs ICMS em Softwares SaaS e Licenciamento',
-    category: 'SegurancaJuridica',
-    date: new Date(Date.now() - 259200000).toLocaleDateString('pt-BR'),
-    summary: 'Receita Federal consolida jurisprudência vinculante do STF confirmando incidência exclusiva de ISS (subitem 1.05 da LC 116/03) sobre licenciamento ou cessão de direito de uso de programas de computador em nuvem.',
-    impactLevel: 'Médio',
-    source: 'Receita Federal do Brasil (Normas RFB)',
-    sourceUrl: 'https://normas.receita.fazenda.gov.br/',
-    officialDocNumber: 'Solução de Consulta COSIT nº 89/2026',
-    applicableModules: ['Consultoria & NCM', 'Emissor Fiscal NFS-e', 'Blindagem Societária'],
-    read: true,
-    createdAt: new Date(Date.now() - 259200000).toISOString(),
-    autoAudited: true,
-    visualSummary: {
-      ruleCode: 'COSIT_SAAS_ISS_TAXATION',
-      whatChanged: 'Fixação de competência municipal (ISS) sem exigência de ICMS para SaaS, assinaturas de softwares e hospedagem de aplicações.',
-      impactOnCalculations: 'Zera o ICMS e impede bitributação municipal/estadual nas notas de tecnologia.',
-      beforeVsAfter: {
-        beforeText: 'Discussão entre ICMS mercadoria digital (SEFAZ) vs ISS serviço municipal.',
-        afterText: 'Incidência exclusiva de ISS (2% a 5% conforme município do prestador). ICMS = 0%.',
-        formulaBefore: 'Carga = ICMS (18%) OU ISS (5%) + risco de autuação cruzada',
-        formulaAfter: 'Carga_SaaS = ISS_Municipal (2% a 5%) [ICMS = Isento por Decisão STF]',
-      },
-      rateChanges: [
-        { parameter: 'ICMS sobre Software SaaS', oldRate: '18,00% (Discutido)', newRate: '0,00%', variation: 'Afastamento total de ICMS' },
-        { parameter: 'ISS sobre Licenciamento', oldRate: 'Variável', newRate: '2,00% a 5,00%', variation: 'Conforme LC 116/03' }
-      ],
-      affectedModules: ['Emissor Fiscal NFS-e', 'Consultoria Fiscal', 'Blindagem Societária'],
-      systemActionTaken: 'Catálogo de Serviços e Motor de NFS-e configurados para código 1.05 com alíquota zero de ICMS.'
-    }
-  },
-  {
-    id: 'notice-nfse-05',
-    title: 'Portal Nacional NFS-e: Mais 180 Municípios Homologados no Padrão Nacional ADN',
-    category: 'NFSe',
-    date: new Date(Date.now() - 345600000).toLocaleDateString('pt-BR'),
-    summary: 'Adesão em massa de capitais e municípios do interior ao convênio nacional da NFS-e. O emissor Vértice já sincronizou os novos códigos de tributação e alíquotas municipais automaticamente.',
-    impactLevel: 'Baixo',
-    source: 'Portal Nacional da NFS-e (ADN)',
-    sourceUrl: 'https://www.gov.br/nfse/pt-br',
-    officialDocNumber: 'Boletim Técnico ADN nº 22/2026',
-    applicableModules: ['Emissor Fiscal NFS-e', 'Agenda Fiscal'],
-    read: true,
-    createdAt: new Date(Date.now() - 345600000).toISOString(),
-    autoAudited: true,
-    visualSummary: {
-      ruleCode: 'NFSE_ADN_STANDARD_RATES',
-      whatChanged: 'Integração direta com o Ambiente de Dados Nacional (ADN) da NFS-e para 180 novos municípios brasileiros.',
-      impactOnCalculations: 'Validação instantânea de NBS, alíquotas municipais vigentes e retenção na fonte de ISS.',
-      beforeVsAfter: {
-        beforeText: 'Preenchimento manual de código municipal de serviço por prefeitura.',
-        afterText: 'Autocompletar padronizado com tabela de tributação nacional e validação de alíquota.',
-        formulaBefore: 'ISS = Valor * Alíquota_Manual',
-        formulaAfter: 'ISS = Valor_Serviço * Alíquota_ADN_Oficial (2,0% a 5,0%)',
-      },
-      rateChanges: [
-        { parameter: 'Alíquota Mínima Constitucional', oldRate: '2,00%', newRate: '2,00%', variation: 'Mantida (Art. 88 ADCT)' },
-        { parameter: 'Alíquota Máxima Constitucional', oldRate: '5,00%', newRate: '5,00%', variation: 'Mantida (LC 116/03)' }
-      ],
-      affectedModules: ['Emissor Fiscal NFS-e', 'Agenda Fiscal'],
-      systemActionTaken: 'Tabela de municípios e rotinas de emissão NFS-e atualizadas para emissão padrão nacional.'
-    }
-  },
-  {
-    id: 'notice-stj-06',
-    title: 'STJ (Tema 1.125): Não Incidência de PIS/COFINS sobre o ICMS-ST Destacado',
-    category: 'STJ',
-    date: new Date(Date.now() - 432000000).toLocaleDateString('pt-BR'),
-    summary: 'Primeira Seção do STJ define que o ICMS recolhido em regime de substituição tributária (ICMS-ST) não compõe a base de cálculo da contribuição para o PIS e da COFINS do substituído.',
-    impactLevel: 'Crítico',
-    source: 'Superior Tribunal de Justiça (STJ)',
-    sourceUrl: 'https://www.stj.jus.br/',
-    officialDocNumber: 'Acórdão REsp 1.896.678/RS (Tema 1.125)',
-    applicableModules: ['Classificação & Monofásico', 'Planejamento Tributário', 'Auditoria Digital'],
-    read: true,
-    createdAt: new Date(Date.now() - 432000000).toISOString(),
-    autoAudited: true,
-    visualSummary: {
-      ruleCode: 'STJ_TEMA_1125_EXCLUSION',
-      whatChanged: 'Fixação de tese com eficácia vinculante determinando exclusão do ICMS-ST da base de PIS/COFINS das revendas comerciais.',
-      impactOnCalculations: 'Reduz a base de apuração de PIS (1,65% / 0,65%) e COFINS (7,60% / 3,00%) no Lucro Presumido e Lucro Real.',
-      beforeVsAfter: {
-        beforeText: 'PIS e COFINS incidiam sobre o valor total da nota fiscal incluindo o ICMS-ST retido.',
-        afterText: 'Dedução do valor do ICMS-ST destacado da base de cálculo das contribuições.',
-        formulaBefore: 'Base_PIS_COFINS = Valor_Total_Nota (com ICMS-ST embutido)',
-        formulaAfter: 'Base_PIS_COFINS = Valor_Total_Nota - ICMS_Proprio - ICMS_ST_Destacado',
-      },
-      rateChanges: [
-        { parameter: 'Base Efetiva PIS/COFINS no Lucro Presumido', oldRate: '3,65% s/ Total', newRate: '3,65% s/ Total Líquido de ICMS-ST', variation: 'Redução de 12% a 25% na base' },
-        { parameter: 'Base Efetiva PIS/COFINS no Lucro Real', oldRate: '9,25% s/ Total', newRate: '9,25% s/ Total Líquido de ICMS-ST', variation: 'Redução de 12% a 25% na base' }
-      ],
-      affectedModules: ['Planejamento Tributário', 'Consultoria & NCM', 'Auditoria Digital'],
-      systemActionTaken: 'Simulador 4 em 1 e comparador de regimes recalibrados com exclusão automática de ICMS-ST.'
     }
   }
 ];
@@ -430,7 +411,20 @@ export class TaxCrawlerEngine {
 
       const storedNews = localStorage.getItem(STORAGE_KEY_NEWS);
       if (storedNews) {
-        this.news = JSON.parse(storedNews);
+        const parsed = JSON.parse(storedNews);
+        const parsedMap = new Map(parsed.map((item: any) => [item.id, item]));
+        this.news = INITIAL_CRAWLED_NOTICES.map(init => {
+          const existing = parsedMap.get(init.id) as any;
+          if (existing) {
+            return { ...init, read: existing.read };
+          }
+          return init;
+        });
+        parsed.forEach((item: any) => {
+          if (!this.news.some(n => n.id === item.id)) {
+            this.news.push(item);
+          }
+        });
       } else {
         this.news = INITIAL_CRAWLED_NOTICES;
       }
