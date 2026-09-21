@@ -23,7 +23,9 @@ import {
   Zap,
   Info,
   Building2,
-  Users
+  Users,
+  History,
+  CalendarDays
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -61,8 +63,14 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
   // Estado de Período: Anual (12 Meses) vs Mensal
   const [timeHorizon, setTimeHorizon] = useState<'anual' | 'mensal'>('anual');
   
-  // Estado de Visualização: Cards 360°, Gráficos Recharts, Tabela Detalhada ou Ponto de Equilíbrio
-  const [viewMode, setViewMode] = useState<'cards' | 'grafico' | 'tabela' | 'ponto_equilibrio'>('cards');
+  // Estado de Visualização: Cards 360°, Gráficos Recharts, Tabela Detalhada, Ponto de Equilíbrio ou Desempenho 3 Anos
+  const [viewMode, setViewMode] = useState<'cards' | 'grafico' | 'tabela' | 'ponto_equilibrio' | 'desempenho_3anos'>('cards');
+
+  // Estado para Módulo de Desempenho Tributário de 3 Anos
+  const currentYear = new Date().getFullYear();
+  const [y1Rev, setY1Rev] = useState<number>(Math.round((company.rbt12 || 1200000) * 0.82));
+  const [y2Rev, setY2Rev] = useState<number>(Math.round((company.rbt12 || 1200000) * 0.91));
+  const [y3Rev, setY3Rev] = useState<number>(Math.round(company.rbt12 || 1200000));
 
   // Modo Simulador "What-If" Interativo
   const [isWhatIfOpen, setIsWhatIfOpen] = useState<boolean>(false);
@@ -136,6 +144,120 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
       isRecommended: r.isRecommended,
     }));
   }, [simulatedCalculation.regimesComparison, timeHorizon]);
+
+  // Dados do Módulo de Desempenho Tributário dos Últimos 3 Anos (Gráfico de Barras Empilhadas)
+  const historical3YData = useMemo(() => {
+    const simRegime = simulatedCalculation.regimesComparison.find(r => r.regime === 'simples_padrao' || r.regime === 'simples_hibrido');
+    const presRegime = simulatedCalculation.regimesComparison.find(r => r.regime === 'lucro_presumido');
+    const realRegime = simulatedCalculation.regimesComparison.find(r => r.regime === 'lucro_real');
+
+    const simRate = (simRegime?.effectiveRatePercent || 8.5) / 100;
+    const presRate = (presRegime?.effectiveRatePercent || 11.33) / 100;
+    const realRate = (realRegime?.effectiveRatePercent || 9.5) / 100;
+
+    const calcYear = (rev: number) => {
+      const simplesTotal = Math.round(rev * simRate);
+      const presumidoTotal = Math.round(rev * presRate);
+      const realTotal = Math.round(rev * realRate);
+
+      return {
+        simplesFederais: Math.round(simplesTotal * 0.65),
+        simplesIcmsIss: Math.round(simplesTotal * 0.25),
+        simplesCpp: Math.round(simplesTotal * 0.10),
+        simplesTotal,
+
+        presumidoPisCofins: Math.round(presumidoTotal * 0.32),
+        presumidoIrpjCsll: Math.round(presumidoTotal * 0.33),
+        presumidoIcmsIss: Math.round(presumidoTotal * 0.25),
+        presumidoCpp: Math.round(presumidoTotal * 0.10),
+        presumidoTotal,
+
+        realPisCofins: Math.round(realTotal * 0.28),
+        realIrpjCsll: Math.round(realTotal * 0.35),
+        realIcmsIss: Math.round(realTotal * 0.25),
+        realCpp: Math.round(realTotal * 0.12),
+        realTotal
+      };
+    };
+
+    const y1 = calcYear(y1Rev);
+    const y2 = calcYear(y2Rev);
+    const y3 = calcYear(y3Rev);
+
+    const totalSimples3Y = y1.simplesTotal + y2.simplesTotal + y3.simplesTotal;
+    const totalPresumido3Y = y1.presumidoTotal + y2.presumidoTotal + y3.presumidoTotal;
+    const totalReal3Y = y1.realTotal + y2.realTotal + y3.realTotal;
+
+    const best3YTotal = Math.min(totalSimples3Y, totalPresumido3Y, totalReal3Y);
+    const worst3YTotal = Math.max(totalSimples3Y, totalPresumido3Y, totalReal3Y);
+    const totalSavings3Y = worst3YTotal - best3YTotal;
+
+    return {
+      y1, y2, y3,
+      totalSimples3Y,
+      totalPresumido3Y,
+      totalReal3Y,
+      best3YTotal,
+      worst3YTotal,
+      totalSavings3Y,
+      chartRows: [
+        {
+          year: `${currentYear - 2}`,
+          faturamento: y1Rev,
+
+          'Simples - Federais': y1.simplesFederais,
+          'Simples - ICMS/ISS': y1.simplesIcmsIss,
+          'Simples - CPP': y1.simplesCpp,
+
+          'Presumido - PIS/COFINS': y1.presumidoPisCofins,
+          'Presumido - IRPJ/CSLL': y1.presumidoIrpjCsll,
+          'Presumido - ICMS/ISS': y1.presumidoIcmsIss,
+          'Presumido - CPP': y1.presumidoCpp,
+
+          'Real - PIS/COFINS': y1.realPisCofins,
+          'Real - IRPJ/CSLL': y1.realIrpjCsll,
+          'Real - ICMS/ISS': y1.realIcmsIss,
+          'Real - CPP': y1.realCpp,
+        },
+        {
+          year: `${currentYear - 1}`,
+          faturamento: y2Rev,
+
+          'Simples - Federais': y2.simplesFederais,
+          'Simples - ICMS/ISS': y2.simplesIcmsIss,
+          'Simples - CPP': y2.simplesCpp,
+
+          'Presumido - PIS/COFINS': y2.presumidoPisCofins,
+          'Presumido - IRPJ/CSLL': y2.presumidoIrpjCsll,
+          'Presumido - ICMS/ISS': y2.presumidoIcmsIss,
+          'Presumido - CPP': y2.presumidoCpp,
+
+          'Real - PIS/COFINS': y2.realPisCofins,
+          'Real - IRPJ/CSLL': y2.realIrpjCsll,
+          'Real - ICMS/ISS': y2.realIcmsIss,
+          'Real - CPP': y2.realCpp,
+        },
+        {
+          year: `${currentYear}`,
+          faturamento: y3Rev,
+
+          'Simples - Federais': y3.simplesFederais,
+          'Simples - ICMS/ISS': y3.simplesIcmsIss,
+          'Simples - CPP': y3.simplesCpp,
+
+          'Presumido - PIS/COFINS': y3.presumidoPisCofins,
+          'Presumido - IRPJ/CSLL': y3.presumidoIrpjCsll,
+          'Presumido - ICMS/ISS': y3.presumidoIcmsIss,
+          'Presumido - CPP': y3.presumidoCpp,
+
+          'Real - PIS/COFINS': y3.realPisCofins,
+          'Real - IRPJ/CSLL': y3.realIrpjCsll,
+          'Real - ICMS/ISS': y3.realIcmsIss,
+          'Real - CPP': y3.realCpp,
+        }
+      ]
+    };
+  }, [y1Rev, y2Rev, y3Rev, calculation, currentYear]);
 
   // Aplicar alterações do What-If ao cadastro da empresa
   const handleApplyWhatIfToCompany = () => {
@@ -614,6 +736,19 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
             <TrendingUp className="w-3.5 h-3.5" />
             <span>Ponto de Equilíbrio</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('desempenho_3anos')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer ${
+              viewMode === 'desempenho_3anos'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Desempenho 3 Anos</span>
+          </button>
         </div>
       </div>
 
@@ -889,6 +1024,188 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
 
           <div className="p-3 bg-amber-950/20 border border-amber-800/50 rounded-xl text-xs text-amber-300/90 leading-relaxed">
             💡 <strong>Análise Pericial de Ruptura:</strong> O Simples Nacional apresenta a menor carga fiscal até aproximadamente R$ 3.600.000,00/ano. A partir desse patamar (devido ao Sublimite do ICMS/ISS e progressão das alíquotas das faixas 5 e 6), a curva do Lucro Presumido ou Lucro Real torna-se mais eficiente.
+          </div>
+        </div>
+      )}
+
+      {/* MODO 5: DESEMPENHO TRIBUTÁRIO DOS ÚLTIMOS 3 ANOS (GRÁFICO DE BARRAS EMPILHADAS) */}
+      {viewMode === 'desempenho_3anos' && (
+        <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 space-y-6 shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-800 pb-4 gap-4">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center space-x-2">
+                <History className="w-5 h-5 text-purple-400" />
+                <span>Desempenho Tributário Comparativo (Últimos 3 Anos)</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Análise de eficiência fiscal acumulada (36 Meses) com gráfico de barras empilhadas contrastando a composição dos impostos no Simples, Presumido e Lucro Real.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 bg-purple-950/40 p-2.5 rounded-xl border border-purple-800/50">
+              <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+              <div className="text-xs">
+                <span className="text-purple-300 font-bold block">Economia Acumulada em 3 Anos:</span>
+                <span className="text-emerald-400 font-mono font-black text-sm">
+                  {formatCurrencyBRL(historical3YData.totalSavings3Y)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Cards Resumo 36 Meses */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800">
+              <div className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Total Simples Nacional (36M)</div>
+              <div className="text-lg font-black text-emerald-400 font-mono mt-1">
+                {formatCurrencyBRL(historical3YData.totalSimples3Y)}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Média: {formatCurrencyBRL(historical3YData.totalSimples3Y / 3)}/ano</div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800">
+              <div className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Total Lucro Presumido (36M)</div>
+              <div className="text-lg font-black text-blue-400 font-mono mt-1">
+                {formatCurrencyBRL(historical3YData.totalPresumido3Y)}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Média: {formatCurrencyBRL(historical3YData.totalPresumido3Y / 3)}/ano</div>
+            </div>
+
+            <div className="p-4 rounded-xl bg-[#0B0F19] border border-slate-800">
+              <div className="text-slate-400 text-[11px] font-bold uppercase tracking-wider">Total Lucro Real (36M)</div>
+              <div className="text-lg font-black text-purple-400 font-mono mt-1">
+                {formatCurrencyBRL(historical3YData.totalReal3Y)}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Média: {formatCurrencyBRL(historical3YData.totalReal3Y / 3)}/ano</div>
+            </div>
+          </div>
+
+          {/* Seletor/Ajustador de Faturamento dos 3 Anos */}
+          <div className="p-4 bg-[#0B0F19] rounded-xl border border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                Ajustar Faturamento Anual Bruto (Receita dos 3 Anos)
+              </span>
+              <button 
+                type="button"
+                onClick={() => {
+                  const base = company.rbt12 || 1200000;
+                  setY1Rev(Math.round(base * 0.82));
+                  setY2Rev(Math.round(base * 0.91));
+                  setY3Rev(Math.round(base));
+                }}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold underline cursor-pointer"
+              >
+                Resetar para padrão proporcional
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1 font-bold">Faturamento Ano {currentYear - 2}</label>
+                <input 
+                  type="number"
+                  value={y1Rev}
+                  onChange={(e) => setY1Rev(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-3 py-1.5 bg-[#0F172A] border border-slate-800 rounded-lg text-white font-mono text-xs focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1 font-bold">Faturamento Ano {currentYear - 1}</label>
+                <input 
+                  type="number"
+                  value={y2Rev}
+                  onChange={(e) => setY2Rev(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-3 py-1.5 bg-[#0F172A] border border-slate-800 rounded-lg text-white font-mono text-xs focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1 font-bold">Faturamento Ano {currentYear}</label>
+                <input 
+                  type="number"
+                  value={y3Rev}
+                  onChange={(e) => setY3Rev(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-3 py-1.5 bg-[#0F172A] border border-slate-800 rounded-lg text-white font-mono text-xs focus:border-purple-500 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* GRÁFICO DE BARRAS EMPILHADAS RECHARTS */}
+          <div className="h-96 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={historical3YData.chartRows} margin={{ top: 20, right: 30, left: 10, bottom: 10 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="year" stroke="#94a3b8" fontSize={12} fontWeight="bold" />
+                <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+                <RechartsTooltip 
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px' }}
+                  formatter={(val: any) => [formatCurrencyBRL(Number(val) || 0)]}
+                />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+
+                {/* Stack 1: Simples Nacional */}
+                <Bar dataKey="Simples - Federais" stackId="simples" fill="#059669" name="Simples (Federais)" />
+                <Bar dataKey="Simples - ICMS/ISS" stackId="simples" fill="#10b981" name="Simples (ICMS/ISS)" />
+                <Bar dataKey="Simples - CPP" stackId="simples" fill="#6ee7b7" name="Simples (CPP)" />
+
+                {/* Stack 2: Lucro Presumido */}
+                <Bar dataKey="Presumido - PIS/COFINS" stackId="presumido" fill="#1d4ed8" name="Presumido (PIS/COFINS)" />
+                <Bar dataKey="Presumido - IRPJ/CSLL" stackId="presumido" fill="#3b82f6" name="Presumido (IRPJ/CSLL)" />
+                <Bar dataKey="Presumido - ICMS/ISS" stackId="presumido" fill="#60a5fa" name="Presumido (ICMS/ISS)" />
+                <Bar dataKey="Presumido - CPP" stackId="presumido" fill="#93c5fd" name="Presumido (CPP)" />
+
+                {/* Stack 3: Lucro Real */}
+                <Bar dataKey="Real - PIS/COFINS" stackId="real" fill="#6b21a8" name="Real (PIS/COFINS)" />
+                <Bar dataKey="Real - IRPJ/CSLL" stackId="real" fill="#a855f7" name="Real (IRPJ/CSLL)" />
+                <Bar dataKey="Real - ICMS/ISS" stackId="real" fill="#c084fc" name="Real (ICMS/ISS)" />
+                <Bar dataKey="Real - CPP" stackId="real" fill="#e9d5ff" name="Real (CPP)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Tabela Trienal Analítica */}
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full text-left text-xs font-mono">
+              <thead>
+                <tr className="bg-[#0B0F19] text-slate-400 uppercase text-[10px] border-b border-slate-800">
+                  <th className="p-3">Período / Ano</th>
+                  <th className="p-3 text-right">Faturamento Bruto</th>
+                  <th className="p-3 text-right text-emerald-400">Imposto Simples</th>
+                  <th className="p-3 text-right text-blue-400">Imposto Presumido</th>
+                  <th className="p-3 text-right text-purple-400">Imposto Lucro Real</th>
+                  <th className="p-3 text-center">Regime Mais Eficiente</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800 bg-[#0F172A]">
+                {[
+                  { label: `Ano ${currentYear - 2}`, rev: y1Rev, data: historical3YData.y1 },
+                  { label: `Ano ${currentYear - 1}`, rev: y2Rev, data: historical3YData.y2 },
+                  { label: `Ano ${currentYear}`, rev: y3Rev, data: historical3YData.y3 },
+                ].map((row, idx) => {
+                  const minTax = Math.min(row.data.simplesTotal, row.data.presumidoTotal, row.data.realTotal);
+                  const winner = row.data.simplesTotal === minTax ? 'Simples Nacional' : row.data.presumidoTotal === minTax ? 'Lucro Presumido' : 'Lucro Real';
+
+                  return (
+                    <tr key={idx} className="hover:bg-slate-800/50">
+                      <td className="p-3 font-bold text-white">{row.label}</td>
+                      <td className="p-3 text-right text-slate-300">{formatCurrencyBRL(row.rev)}</td>
+                      <td className="p-3 text-right text-emerald-400 font-bold">{formatCurrencyBRL(row.data.simplesTotal)}</td>
+                      <td className="p-3 text-right text-blue-400 font-bold">{formatCurrencyBRL(row.data.presumidoTotal)}</td>
+                      <td className="p-3 text-right text-purple-400 font-bold">{formatCurrencyBRL(row.data.realTotal)}</td>
+                      <td className="p-3 text-center">
+                        <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-bold uppercase">
+                          ✓ {winner}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
