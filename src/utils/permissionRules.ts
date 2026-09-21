@@ -268,6 +268,18 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
     return { allowed: true };
   }
 
+  // 1.5 PERFIL CLIENTE EXCLUSIVO DO SIMPLES HÍBRIDO
+  if (role === 'cliente_simples_hibrido' || viewMode === 'cliente_simples_hibrido') {
+    const allowedHibridoTabs: AppActiveTab[] = ['simples_hibrido', 'parecer'];
+    if (allowedHibridoTabs.includes(tab)) {
+      return { allowed: true };
+    }
+    return {
+      allowed: false,
+      reason: 'Acesso restrito. Este usuário possui liberação exclusiva para o Módulo de Simulação e Parecer do Simples Híbrido (EC 132/23).'
+    };
+  }
+
   // 2. PERFIL AUDITOR: Focado em Auditoria Digital, Fator R, Sócios e Pareceres
   if (role === 'auditor' || viewMode === 'auditor' || role === 'auditor_fiscal') {
     const allowedAuditorTabs: AppActiveTab[] = [

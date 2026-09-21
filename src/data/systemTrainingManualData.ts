@@ -1098,5 +1098,124 @@ export const SYSTEM_TRAINING_MANUAL_DATA: ManualModule[] = [
         ]
       }
     ]
+  },
+  // =========================================================================
+  // MÓDULO 12: SIMPLES NACIONAL HÍBRIDO (EC 132/2023 & REFORMA TRIBUTÁRIA)
+  // =========================================================================
+  {
+    id: 'modulo_simples_hibrido',
+    number: '12',
+    moduleCode: 'MÓDULO 12',
+    title: 'Simples Nacional Híbrido (EC 132/2023 & PLP 68/2024)',
+    subtitle: 'Simulador Pericial de Opção de Não-Cumulatividade de IBS/CBS, Transferência de Crédito B2B, Expurgos do DAS e Laudo Oficial em PDF',
+    iconName: 'Scale',
+    targetTab: 'simples_hibrido',
+    buttonLabel: 'Acessar Módulo Simples Híbrido',
+    overview: 'Módulo de planejamento tributário pericial que modela a faculdade constitucional concedida às MEs e EPPs pela EC 132/2023 (Art. 146, § 1º, IV da CF/88) para recolher IBS/CBS fora do DAS no regime não-cumulativo pleno, apurando a redução da guia DAS, o volume de créditos nas entradas e o benefício comercial de transferir 26,50% de crédito para clientes corporativos (B2B).',
+    submodules: [
+      {
+        id: 'sub_hibrido_cockpit',
+        submoduleCode: 'SUB 12.1',
+        title: 'Cockpit de Premissas & Partilha do DAS Residual',
+        description: 'Configuração das variáveis fiscais da empresa, cálculo do Fator R, expurgo de ICMS/ISS da alíquota efetiva e apuração do débito/crédito de IBS e CBS.',
+        primaryWorkflow: 'O consultor seleciona a empresa, ajusta o percentual de compras/insumos e o percentual de vendas B2B. O motor apura o DAS Reduzido e o IBS/CBS líquido.',
+        fields: [
+          {
+            fieldName: 'Receita Bruta Acumulada (RBT12) e Mensal',
+            fieldCode: 'hibridoRevenueInput',
+            inputType: 'Moeda (R$)',
+            acceptedValues: 'R$ 0,00 a R$ 4.800.000,00',
+            technicalPurpose: 'Define o enquadramento na faixa do Simples Nacional para extração da alíquota efetiva do DAS.',
+            legalBase: 'Art. 18 da LC 123/2006.',
+            systemImpact: 'Calcula a alíquota padrão do Simples e aplica a partilha oficial para expurgar a fração de ICMS/ISS.',
+            reflectsIn: ['Alíquota Efetiva Padrão', 'DAS Reduzido Residual', 'Gráficos Comparativos']
+          },
+          {
+            fieldName: 'Percentual de Compras e Insumos (% s/ Receita)',
+            fieldCode: 'inputCostsPercent',
+            inputType: 'Percentual (%)',
+            acceptedValues: '0% a 90%',
+            technicalPurpose: 'Determina a base financeira de aquisições geradoras de crédito de IBS e CBS na sistemática não-cumulativa.',
+            legalBase: 'Princípio da Não-Cumulatividade Plena (EC 132/2023 e PLP 68/2024).',
+            systemImpact: 'Multiplica o custo mensal de insumos pela alíquota efetiva de crédito para reduzir o montante devido de IBS/CBS.',
+            reflectsIn: ['Crédito Mensal de Insumos', 'Carga Líquida IBS/CBS', 'Gráfico de Ponto de Equilíbrio']
+          },
+          {
+            fieldName: 'Percentual de Compras de Fornecedores do Simples Nacional',
+            fieldCode: 'simplesSupplierPercent',
+            inputType: 'Percentual (%)',
+            acceptedValues: '0% a 100%',
+            technicalPurpose: 'Ponderação da restrição de créditos nas entradas originárias de outras microempresas optantes do Simples.',
+            legalBase: 'Regulamentação de créditos na cadeia do Simples Nacional (PLP 68/2024).',
+            systemImpact: 'Aplica crédito pleno (26,50%) sobre compras do Regime Geral e crédito proporcional (~3,5% a 6,5%) sobre compras de fornecedores do Simples.',
+            reflectsIn: ['Crédito Ponderado de Entradas', 'Breakeven de Insumos']
+          },
+          {
+            fieldName: 'Percentual de Vendas para Clientes PJ (B2B)',
+            fieldCode: 'b2bSalesPercent',
+            inputType: 'Percentual (%)',
+            acceptedValues: '0% a 100%',
+            technicalPurpose: 'Quantificação do volume de faturamento destinado a empresas que aproveitam integralmente o crédito de IBS/CBS na cadeia.',
+            legalBase: 'Art. 146, § 1º, IV da CF/88.',
+            systemImpact: 'Calcula o montante em Reais de crédito transferido para clientes no Cenário B (Perspectiva Comercial).',
+            reflectsIn: ['Cenário B Comercial', 'Gráfico de Competitividade B2B', 'Laudo Técnico Pericial']
+          }
+        ]
+      },
+      {
+        id: 'sub_hibrido_travas_decisao',
+        submoduleCode: 'SUB 12.2',
+        title: 'Matriz de Travas de Viabilidade & Sensibilidade de Breakeven',
+        description: 'Processamento das 3 travas automáticas (Sublimite Estadual, Fator R e Cadeia de Insumos) e determinação do ponto de equilíbrio econômico.',
+        primaryWorkflow: 'O sistema analisa os parâmetros e emite parecer categórico indicando se a opção pelo Simples Híbrido é Altamente Recomendada, Neutra ou Desfavorável.',
+        fields: [
+          {
+            fieldName: 'Ponto de Equilíbrio de Insumos (Breakeven)',
+            fieldCode: 'breakevenInputPercent',
+            inputType: 'Percentual (%)',
+            technicalPurpose: 'Indica o percentual mínimo de compras que a empresa deve ter para que o IBS/CBS a pagar seja inferior ao ICMS/ISS expurgado do DAS.',
+            legalBase: 'Modelagem Econométrica Tributária.',
+            systemImpact: 'Plota o ponto de cruzamento no gráfico de sensibilidade interativo.',
+            reflectsIn: ['Gráfico de Sensibilidade', 'Parecer Técnico Executivo']
+          },
+          {
+            fieldName: 'Ponto de Equilíbrio de Vendas B2B',
+            fieldCode: 'breakevenB2BPercent',
+            inputType: 'Percentual (%)',
+            technicalPurpose: 'Indica a fatia de clientes corporativos necessária para justificar comercialmente a adoção do regime híbrido.',
+            legalBase: 'Estratégia de Precificação e Mercado B2B.',
+            systemImpact: 'Determina a vitória no Cenário B Comercial.',
+            reflectsIn: ['Cenário B Comercial', 'Matriz de Decisão']
+          }
+        ]
+      },
+      {
+        id: 'sub_hibrido_laudo_cliente',
+        submoduleCode: 'SUB 12.3',
+        title: 'Laudo Pericial em PDF & Portal Exclusivo do Cliente',
+        description: 'Geração de parecer técnico oficial formal homologado e liberação de link seguro e isolado para acesso do cliente.',
+        primaryWorkflow: 'O consultor imprime o laudo em PDF para protocolar perante a diretoria ou gera um link exclusivo protegido por PIN para o cliente simular com segurança.',
+        fields: [
+          {
+            fieldName: 'Emissão de Laudo Técnico Pericial em PDF',
+            fieldCode: 'btnOfficialPdfReport',
+            inputType: 'Arquivo / Certificado',
+            technicalPurpose: 'Geração de documento formal de auditoria tributária com timbre executivo, gráficos e fundamentação legal completa.',
+            legalBase: 'Normas Brasileiras de Contabilidade (NBC TP 01 - Perícia Contábil).',
+            systemImpact: 'Renderiza visualização com quebra de página A4 perfeita para impressão física ou arquivamento digital.',
+            reflectsIn: ['Laudo Oficial em PDF']
+          },
+          {
+            fieldName: 'Link Exclusivo do Cliente (1-Clique)',
+            fieldCode: 'clientExclusivePortalUrl',
+            inputType: 'Texto',
+            technicalPurpose: 'Acesso web direto ao simulador do Simples Híbrido com ocultação de todos os outros menus e dados de outras empresas.',
+            legalBase: 'Privacidade e Sigilo Fiscal (LGPD).',
+            systemImpact: 'Inicia a aplicação no modo "cliente_simples_hibrido" com opções de modo interativo, somente leitura e proteção por PIN.',
+            reflectsIn: ['SimplesHibridoClientPortal', 'Compartilhamento WhatsApp e E-mail']
+          }
+        ]
+      }
+    ]
   }
 ];

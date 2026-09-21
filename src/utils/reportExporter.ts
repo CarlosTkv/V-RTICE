@@ -44,20 +44,71 @@ export async function exportElementToPDF(
 
     onProgress?.('Preparando documento e renderizando em alta definição...');
 
-    // Salva estilos temporários de sombra para evitar artefatos no canvas
-    const originalShadow = element.style.boxShadow;
-    element.style.boxShadow = 'none';
     const hadPrintMode = element.classList.contains('print-mode');
     if (!hadPrintMode) {
       element.classList.add('print-mode');
     }
 
-    // Mapeia bounding rects dos elementos filhos ANTES de renderizar o canvas
-    const elementRect = element.getBoundingClientRect();
+    // Salva estilos temporários de sombra para evitar artefatos no canvas
+    const originalShadow = element.style.boxShadow;
+    element.style.boxShadow = 'none';
 
     // Aguarda um ciclo de renderização para garantir que fontes e SVGs estejam estáveis
     await new Promise(resolve => setTimeout(resolve, 150));
 
+    const a4WidthMm = 210;
+    const a4HeightMm = 297;
+
+    // 1. VERIFICA SE O RELATÓRIO POSSUI PÁGINAS EXPLÍCITAS (.report-page / [data-report-page])
+    const pageElements = Array.from(
+      element.querySelectorAll('.report-page, [data-report-page]')
+    ) as HTMLElement[];
+
+    if (pageElements.length > 0) {
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      for (let i = 0; i < pageElements.length; i++) {
+        const pageEl = pageElements[i];
+        onProgress?.(`Renderizando página oficial ${i + 1} de ${pageElements.length}...`);
+
+        const hadPagePrint = pageEl.classList.contains('print-mode');
+        if (!hadPagePrint) pageEl.classList.add('print-mode');
+
+        const pageCanvas = await html2canvas(pageEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: 1080,
+          scrollX: 0,
+          scrollY: 0,
+        });
+
+        if (!hadPagePrint) pageEl.classList.remove('print-mode');
+
+        const imgData = pageCanvas.toDataURL('image/jpeg', 0.98);
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, a4WidthMm, a4HeightMm, undefined, 'FAST');
+      }
+
+      element.style.boxShadow = originalShadow;
+      if (!hadPrintMode) element.classList.remove('print-mode');
+
+      onProgress?.('Finalizando e baixando PDF...');
+      const finalFilename = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+      pdf.save(finalFilename);
+      return { success: true };
+    }
+
+    // 2. FALLBACK PARA DOCUMENTOS CONTÍNUOS
     const totalWidth = Math.max(element.scrollWidth, 960);
     const totalHeight = element.scrollHeight;
 
@@ -88,16 +139,16 @@ export async function exportElementToPDF(
       compress: true,
     });
 
-    const a4WidthMm = 210;
-    const a4HeightMm = 297;
-    
     // Altura proporcional no canvas correspondente a 1 página A4
     const canvasPageHeight = Math.floor((canvas.width * a4HeightMm) / a4WidthMm);
     const scaleY = canvas.height / Math.max(1, totalHeight);
 
-    // Identifica todos os blocos relevantes que não devem ser fatiados ao meio
+    // Mapeia bounding rects dos elementos filhos ANTES de renderizar o canvas
+    const elementRect = element.getBoundingClientRect();
+
+    // Identifica apenas blocos estruturais de nível superior que não devem ser fatiados
     const breakableElements = Array.from(
-      element.querySelectorAll('.avoid-break, section, article, header, footer, table, tr, figure, .grid > div, div[class*="rounded"], h1, h2, h3, h4, p')
+      element.querySelectorAll('.avoid-break, section, article, header, footer, table, figure, .grid')
     ) as HTMLElement[];
 
     const elementBounds = breakableElements
@@ -107,7 +158,7 @@ export async function exportElementToPDF(
         const bottom = Math.ceil((rect.bottom - elementRect.top) * scaleY);
         return { top, bottom, height: bottom - top };
       })
-      .filter(r => r.height > 10 && r.height < canvasPageHeight * 0.92);
+      .filter(r => r.height > 20 && r.height < canvasPageHeight * 0.95);
 
     let renderedHeight = 0;
     let pageIndex = 0;
@@ -117,10 +168,10 @@ export async function exportElementToPDF(
       let actualCut = idealCut;
 
       if (idealCut < canvas.height) {
-        // Se a linha idealCut corta o meio de algum bloco, ajusta o corte para logo acima desse bloco
+        // Se a linha idealCut corta o meio de algum bloco estrutural, ajusta o corte para logo acima desse bloco
         for (const bound of elementBounds) {
-          if (bound.top < idealCut && bound.bottom > idealCut && bound.top > renderedHeight + 140) {
-            actualCut = Math.min(actualCut, bound.top - 8);
+          if (bound.top < idealCut && bound.bottom > idealCut && bound.top > renderedHeight + 150) {
+            actualCut = Math.min(actualCut, bound.top - 12);
           }
         }
       } else {
@@ -586,10 +637,24 @@ export function generateStandalonePrintHtml(title: string, bodyHtml: string): st
       break-inside: avoid-page !important;
     }
 
+    /* Report page structure for multi-page documents */
+    .report-page {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      padding: 32px;
+      border-radius: 14px;
+      margin-bottom: 24px;
+      position: relative;
+      border: 1px solid #cbd5e1;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
     @media print {
       @page {
         size: A4 portrait;
-        margin: 10mm;
+        margin: 8mm 10mm;
       }
       body {
         background: #ffffff !important;
@@ -600,6 +665,19 @@ export function generateStandalonePrintHtml(title: string, bodyHtml: string): st
         border-top: none !important;
         padding: 0 !important;
         max-width: 100% !important;
+        background: transparent !important;
+      }
+      .report-page {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+      .report-page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
       }
       .print-actions, .no-print {
         display: none !important;

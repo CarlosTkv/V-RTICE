@@ -69,12 +69,14 @@ import { ECAC_ACTIVITY_CATALOG, EcacActivityOption } from '../utils/ecacCatalog'
 
 import { ModuleTutorialModal } from './ModuleTutorialModal';
 import { BrandLogo } from './BrandLogo';
+import { TaxRegimeCockpit } from './taxPlanning/TaxRegimeCockpit';
+import { SimplesHibridoModule } from './taxPlanning/SimplesHibridoModule';
 
 interface TaxRegimeAnalyzerViewProps {
   company: CompanyData;
   onChangeCompany: (updated: CompanyData) => void;
   calculation: CalculationResult;
-  onNavigateToTab?: (tab: 'dashboard' | 'regimes' | 'projecao' | 'historico' | 'cfop' | 'socios' | 'fator_r' | 'reforma' | 'parecer') => void;
+  onNavigateToTab?: (tab: 'dashboard' | 'regimes' | 'projecao' | 'historico' | 'cfop' | 'socios' | 'fator_r' | 'reforma' | 'parecer' | 'simples_hibrido') => void;
 }
 
 export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
@@ -83,7 +85,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
   calculation,
   onNavigateToTab,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'comparativo' | 'anexos' | 'vantagens' | 'dre' | 'impactos' | 'sublimite' | 'beneficio_icms' | 'auditoria_cpp'>('comparativo');
+  const [activeSubTab, setActiveSubTab] = useState<'comparativo' | 'simples_hibrido' | 'anexos' | 'vantagens' | 'dre' | 'impactos' | 'sublimite' | 'beneficio_icms' | 'auditoria_cpp'>('comparativo');
   const [showAdvancedDeductions, setShowAdvancedDeductions] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
@@ -2059,8 +2061,8 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
         </div>
       )}
 
-      {/* Navegação de Abas Secundárias do Analista Tributário - Grid Horizontal 8 Colunas */}
-      <div id="subtabs-nav-header" className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 border-b border-slate-800 pb-3 text-xs font-semibold w-full">
+      {/* Navegação de Abas Secundárias do Analista Tributário - Grid Horizontal */}
+      <div id="subtabs-nav-header" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 xl:grid-cols-9 gap-2 border-b border-slate-800 pb-3 text-xs font-semibold w-full">
         <button
           onClick={() => setActiveSubTab('comparativo')}
           className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
@@ -2074,6 +2076,21 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
         </button>
 
         <button
+          onClick={() => setActiveSubTab('simples_hibrido')}
+          className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
+            activeSubTab === 'simples_hibrido'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-950/40 border border-indigo-400/40'
+              : 'bg-slate-900/80 text-indigo-400 hover:text-indigo-200 hover:bg-slate-800 border border-indigo-900/50'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+          <span className="truncate">2. Simples Híbrido (Reforma)</span>
+          <span className="px-1 py-0.2 rounded text-[8px] bg-indigo-950/80 text-indigo-300 border border-indigo-800 font-bold font-mono">
+            EC 132
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveSubTab('auditoria_cpp')}
           className={`px-3 py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer text-center ${
             activeSubTab === 'auditoria_cpp'
@@ -2082,7 +2099,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <Users className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">2. Auditoria CPP</span>
+          <span className="truncate">3. Auditoria CPP</span>
           <span className="px-1 py-0.2 rounded text-[8px] bg-indigo-950/80 text-indigo-300 border border-indigo-800 font-bold font-mono">
             {calculation.payrollCppAudit?.hasEmployees ? '28,8%' : '20%'}
           </span>
@@ -2097,7 +2114,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <Layers className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">3. Anexos ({activeAnexosCount})</span>
+          <span className="truncate">4. Anexos ({activeAnexosCount})</span>
         </button>
 
         <button
@@ -2111,7 +2128,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">4. Sublimite ICMS/ISS</span>
+          <span className="truncate">5. Sublimite ICMS/ISS</span>
           {calculation.exceedsSublimit && (
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
           )}
@@ -2126,7 +2143,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">5. Matriz Vantagens</span>
+          <span className="truncate">6. Matriz Vantagens</span>
         </button>
 
         <button
@@ -2138,7 +2155,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">6. DRE Fiscal</span>
+          <span className="truncate">7. DRE Fiscal</span>
         </button>
 
         <button
@@ -2150,7 +2167,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <TrendingUp className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">7. Impactos & B2B</span>
+          <span className="truncate">8. Impactos & B2B</span>
         </button>
 
         <button
@@ -2164,7 +2181,7 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
           }`}
         >
           <Building2 className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">8. ICMS Estadual</span>
+          <span className="truncate">9. ICMS Estadual</span>
           {calculation.stateSimplesIcmsBenefit?.hasBenefit && (
             <span className="px-1 py-0.2 rounded text-[8px] bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-bold font-mono">
               {calculation.stateSimplesIcmsBenefit.reductionPercent}%
@@ -2175,174 +2192,27 @@ export const TaxRegimeAnalyzerView: React.FC<TaxRegimeAnalyzerViewProps> = ({
 
       {/* SUB-ABA 1: COMPARATIVO DOS 4 REGIMES */}
       {activeSubTab === 'comparativo' && (
-        <div className="space-y-6">
-          
-          {/* Tabela Comparativa dos 4 Regimes */}
-          <div className="bg-[#0F172A] rounded-xl border border-slate-800 overflow-hidden shadow-xs">
-            <div className="p-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center space-x-2">
-                <Scale className="w-5 h-5 text-blue-400" />
-                <span>Quadro Comparativo de Carga Tributária Anual & Alíquotas Efetivas</span>
-              </h3>
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={() => {
-                    setReportModalType('regimes');
-                    setIsReportModalOpen(true);
-                  }}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-xs transition cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Gerar Relatório dos Regimes</span>
-                </button>
-                <span className="text-xs text-slate-400 font-mono hidden md:inline">
-                  RIR/2018 e LC 123/2006
-                </span>
-              </div>
-            </div>
+        <TaxRegimeCockpit
+          company={company}
+          calculation={calculation}
+          onChangeCompany={onChangeCompany}
+          onOpenReportModal={() => {
+            setReportModalType('regimes');
+            setIsReportModalOpen(true);
+          }}
+          onOpenDecisionModal={() => setIsDecisionExplanationModalOpen(true)}
+          onNavigateSubTab={(subTab) => setActiveSubTab(subTab)}
+        />
+      )}
 
-            <div className="">
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="bg-[#0B0F19] border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider">
-                    <th className="py-3 px-4">Regime Tributário</th>
-                    <th className="py-3 px-3 text-right">Imposto Mensal</th>
-                    <th className="py-3 px-3 text-right">Imposto Anual</th>
-                    <th className="py-3 px-3 text-right">Alíquota Efetiva</th>
-                    <th className="py-3 px-3 text-center">Crédito B2B</th>
-                    <th className="py-3 px-3 text-center">Complexidade</th>
-                    <th className="py-3 px-4 text-center">Recomendação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {calculation.regimesComparison.map((item) => (
-                    <tr 
-                      key={item.regime}
-                      className={`transition ${
-                        item.isRecommended 
-                          ? 'bg-blue-950/40 hover:bg-blue-950/60' 
-                          : 'hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center space-x-2">
-                          {item.isRecommended && (
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                          )}
-                          <div>
-                            <span className="font-bold text-slate-100 font-sans text-xs block">
-                              {item.name}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-sans line-clamp-1">
-                              {item.description}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-bold text-slate-200">
-                        {formatCurrencyBRL(item.monthlyTaxTotal)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-extrabold text-slate-100 text-sm">
-                        {formatCurrencyBRL(item.annualTaxTotal)}
-                      </td>
-                      <td className="py-3.5 px-3 text-right font-bold text-blue-400">
-                        {formatPercentBR(item.effectiveRatePercent)}
-                      </td>
-                      <td className="py-3.5 px-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.b2bCreditRatePercent >= 20 
-                            ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' 
-                            : 'bg-amber-950/80 text-amber-300 border border-amber-800'
-                        }`}>
-                          {formatPercentBR(item.b2bCreditRatePercent)}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-3 text-center capitalize text-slate-300">
-                        {item.complianceComplexity.replace('_', ' ')}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {item.isRecommended ? (
-                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-bold text-[11px]">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Vencedor</span>
-                          </span>
-                        ) : (
-                          <span className="text-slate-500 text-[11px] font-mono">
-                            Score: {item.recommendationScore}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Cards Detalhados dos Tributos por Regime */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {calculation.regimesComparison.map((item) => (
-              <div 
-                key={item.regime}
-                className={`p-4 rounded-xl border flex flex-col justify-between ${
-                  item.isRecommended 
-                    ? 'bg-[#0F172A] border-emerald-500/80 ring-1 ring-emerald-500/30 shadow-xs' 
-                    : 'bg-[#0F172A] border-slate-800 shadow-xs'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold font-sans text-slate-100">
-                      {item.shortName}
-                    </span>
-                    {item.isRecommended && (
-                      <span className="text-[10px] font-mono uppercase bg-emerald-950/80 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-bold">
-                        Mais Vantajoso
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5 py-2 border-y border-slate-800 text-[11px] font-mono text-slate-300">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">IRPJ:</span>
-                      <span>{formatCurrencyBRL(item.taxes.irpj)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">CSLL:</span>
-                      <span>{formatCurrencyBRL(item.taxes.csll)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">PIS / COFINS:</span>
-                      <span>{formatCurrencyBRL(item.taxes.pis + item.taxes.cofins)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">CPP / Encargos Folha:</span>
-                      <span>{formatCurrencyBRL(item.taxes.cppEncargos)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">ICMS / ISS:</span>
-                      <span>{formatCurrencyBRL(item.taxes.icms + item.taxes.iss)}</span>
-                    </div>
-                    {item.taxes.ibsCbs !== undefined && item.taxes.ibsCbs > 0 && (
-                      <div className="flex justify-between text-blue-400 font-bold">
-                        <span>IBS + CBS (Reforma):</span>
-                        <span>{formatCurrencyBRL(item.taxes.ibsCbs)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-3 mt-2 flex items-baseline justify-between border-t border-slate-800">
-                  <span className="text-[10px] uppercase font-mono text-slate-400">Total Mensal</span>
-                  <span className="text-sm font-mono font-bold text-slate-100">
-                    {formatCurrencyBRL(item.monthlyTaxTotal)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-        </div>
+      {/* SUB-ABA 2: SIMPLES TRADICIONAL X SIMPLES HÍBRIDO */}
+      {activeSubTab === 'simples_hibrido' && (
+        <SimplesHibridoModule
+          company={company}
+          onChangeCompany={onChangeCompany}
+          calculation={calculation}
+          onNavigateToTab={onNavigateToTab}
+        />
       )}
 
       {/* SUB-ABA: MEMÓRIA DOS ANEXOS E ATIVIDADES DE TRANSPORTE */}

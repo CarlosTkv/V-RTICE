@@ -33,6 +33,7 @@ export const PublishShareModal: React.FC<PublishShareModalProps> = ({
   const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://verticefiscal.app';
   const customDomainExample = 'https://verticefiscal.com.br/planejador-tributario';
   const clientPortalUrl = `${currentUrl}?view=cliente_leitor`;
+  const simplesHibridoClientUrl = `${currentUrl.split('?')[0]}?module=simples_hibrido&view=cliente_simples_hibrido`;
   const embedCode = `<iframe src="${currentUrl}" width="100%" height="700px" frameborder="0" style="border-radius:12px; border:1px solid #1e293b;"></iframe>`;
 
   const copyToClipboard = (text: string, label: string) => {
@@ -126,7 +127,7 @@ export const PublishShareModal: React.FC<PublishShareModalProps> = ({
               <div className="flex items-center space-x-2">
                 <Building2 className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">
-                  Link de Acesso do Cliente Decisor (Modo Leitor)
+                  Link de Acesso do Cliente Decisor (Modo Leitor Geral)
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 font-mono">Para Apresentações B2B</span>
@@ -156,6 +157,50 @@ export const PublishShareModal: React.FC<PublishShareModalProps> = ({
                   <>
                     <Copy className="w-3.5 h-3.5" />
                     <span>Copiar Link Cliente</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Card 3: Link Exclusivo para o Cliente - Simples Híbrido */}
+          <div className="p-4 rounded-xl bg-[#0B0F19] border border-indigo-900/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Link Exclusivo: Módulo Simples Híbrido (EC 132/23)
+                </span>
+              </div>
+              <span className="text-[10px] text-indigo-400 bg-indigo-950/60 border border-indigo-800/60 px-2 py-0.5 rounded font-mono">
+                Módulo Isolado para o Cliente
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Abre <strong className="text-white">somente</strong> o Simulador e Parecer do Simples Tradicional vs. Híbrido com gráficos, sensibilidade de insumos e laudo em PDF, ocultando todos os demais módulos e menus do escritório:
+            </p>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                readOnly
+                value={simplesHibridoClientUrl}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs font-mono text-indigo-300 outline-none select-all"
+              />
+              <button
+                onClick={() => copyToClipboard(simplesHibridoClientUrl, 'Link Simples Híbrido')}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shrink-0 shadow-sm"
+              >
+                {copiedLink === 'Link Simples Híbrido' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar Link Híbrido</span>
                   </>
                 )}
               </button>

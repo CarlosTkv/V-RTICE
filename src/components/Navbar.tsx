@@ -119,7 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Identifica o módulo ativo com base na aba
   const activeModule: NavModuleId = React.useMemo(() => {
     if (['dashboard', 'auditoria_digital', 'fator_r', 'socios'].includes(activeTab)) return 'auditoria_digital';
-    if (['planejamento_tributario', 'regimes', 'reforma', 'projecao', 'parecer', 'historico'].includes(activeTab)) return 'planejamento_tributario';
+    if (['planejamento_tributario', 'regimes', 'reforma', 'projecao', 'parecer', 'historico', 'simples_hibrido'].includes(activeTab)) return 'planejamento_tributario';
     if (['financeiro_gerencial', 'financeiro', 'balancete_dre', 'bpo', 'bpo_financeiro'].includes(activeTab)) return 'financeiro_gerencial';
     if (['consultoria_fiscal', 'ncm_consulta', 'servicos_consulta', 'cfop'].includes(activeTab)) return 'consultoria_fiscal';
     if (['legal_societario', 'societario', 'direito'].includes(activeTab)) return 'legal_societario';
@@ -557,6 +557,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 label="Simulador de Regimes" 
                 icon={Calculator} 
                 color="blue" 
+              />
+              <SubTabButton 
+                active={activeTab === 'simples_hibrido'} 
+                onClick={() => setActiveTab('simples_hibrido')} 
+                label="Simples Híbrido (EC 132/23)" 
+                icon={Scale} 
+                color="indigo" 
               />
               <SubTabButton 
                 active={activeTab === 'reforma'} 

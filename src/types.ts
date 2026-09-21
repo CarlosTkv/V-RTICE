@@ -282,6 +282,7 @@ export interface CompanyData {
   terceirosRatePercent?: number; // Alíquota de Outras Entidades / Terceiros (Sistema S - padrão 5.8%)
   cppEncargos?: number; // CPP (INSS Patronal) sobre folha ou embutida no DAS
   inputCostsPercent?: number; // % de Compras de Insumos / Mercadorias / CPV sobre a receita mensal
+  simplesSupplierPercent?: number; // % de compras originárias de fornecedores optantes do Simples Nacional
   fixedCostsMonthly?: number; // Despesas fixas mensais (aluguel, sistemas, contabilidade)
   financialExpensesMonthly?: number; // Despesas financeiras / bancárias mensais
   inputCostsMonthly?: number; // Custo de insumos / CPV em valor absoluto mensal
@@ -628,7 +629,8 @@ export type AppViewMode =
   | 'analista' 
   | 'empresa' 
   | 'parceiro' 
-  | 'cliente_relatorio';
+  | 'cliente_relatorio'
+  | 'cliente_simples_hibrido';
 
 export type AuthSecurityMode = 'password_only' | 'password_and_email_otp' | 'digital_certificate';
 
@@ -697,6 +699,7 @@ export type UserRole =
   | 'contador_senior' 
   | 'socio_empresa' 
   | 'cliente_relatorio' 
+  | 'cliente_simples_hibrido'
   | 'assistente_fiscal' 
   | 'cliente_leitor' 
   | 'parceiro_negocios' 
@@ -1098,6 +1101,7 @@ export type AppActiveTab =
   | 'dashboard' 
   | 'auditoria_digital'
   | 'planejamento_tributario'
+  | 'simples_hibrido'
   | 'financeiro_gerencial'
   | 'consultoria_fiscal'
   | 'legal_societario'
@@ -1135,6 +1139,7 @@ export interface PlanAllowedModules {
   dashboard?: boolean;
   auditoria_digital?: boolean;
   planejamento_tributario?: boolean;
+  simples_hibrido?: boolean;
   financeiro_gerencial?: boolean;
   consultoria_fiscal?: boolean;
   legal_societario?: boolean;
