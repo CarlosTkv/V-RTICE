@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 import { 
   FileText, 
   Upload, 
@@ -123,7 +126,7 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          text += content.items.map((item: any) => item.str).join(' ');
+          text += content.items.map((item: any) => item.str).join(' ') + '\n';
         }
       } else {
         text = await new Promise<string>((resolve) => {
@@ -133,20 +136,22 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
         });
       }
 
+      console.log('Extracted Text (length:', text.length, ') - Preview:', text.substring(0, 500));
+
       let extracted: Partial<EconetReportData> = { companyName: file.name };
       if (text) {
         const lowerText = text.toLowerCase();
         
-        // Extract Company Name
-        const companyMatch = lowerText.match(/(?:empresa|cliente|simulação)[:\s]+([^\n\r]+)/i);
+        // Extract Company Name - More tolerant regex
+        const companyMatch = lowerText.match(/(?:empresa|cliente|simulação|nome da empresa)[:\s]*([^\n\r,]+)/i);
         if (companyMatch && companyMatch[1]) extracted.companyName = companyMatch[1].trim();
 
-        // Extract RBT12
-        const rbtMatch = lowerText.match(/(?:rbt\s*12|rbt12)[:\s]+([R$0-9.,\s]+)/i);
+        // Extract RBT12 - More tolerant regex to capture various formats
+        const rbtMatch = lowerText.match(/(?:rbt\s*12|rbt12|receita bruta total\s*12)[:\s]*([R$0-9\s.,]+)/i);
         if (rbtMatch && rbtMatch[1]) extracted.rbt12 = rbtMatch[1].trim();
 
-        // Extract Expected Revenue
-        const revMatch = lowerText.match(/(?:receita esperada|faturamento)[:\s]+([R$0-9.,\s]+)/i);
+        // Extract Expected Revenue - More tolerant regex to capture various formats
+        const revMatch = lowerText.match(/(?:receita esperada|faturamento mensal|faturamento)[:\s]*([R$0-9\s.,]+)/i);
         if (revMatch && revMatch[1]) extracted.expectedRevenue = revMatch[1].trim();
       }
       return {
@@ -181,6 +186,37 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    const input = document.getElementById('econet-report-container');
+    if (!input) return;
+
+    setImportStatus('Gerando PDF otimizado...');
+
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 1, 
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.7);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`relatorio_${reportData.companyName}.pdf`);
+      setImportStatus('PDF gerado com sucesso!');
+    } catch (err) {
+      console.error(err);
+      setImportStatus('Erro ao gerar PDF.');
+    } finally {
+      setTimeout(() => setImportStatus(''), 3000);
+    }
   };
 
   const automatedOpinionText = `Análise e Recomendação do Regime Tributário ${reportData.year} – ${reportData.companyName}
@@ -309,11 +345,20 @@ Permanecemos à disposição para eventuais esclarecimentos.`;
 
           <button
             type="button"
+            onClick={handleDownloadPdf}
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition shadow-md"
+          >
+            <Download className="w-4 h-4" />
+            <span>Baixar PDF</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handlePrint}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 transition shadow-md"
           >
             <Printer className="w-4 h-4" />
-            <span>Imprimir / Salvar PDF</span>
+            <span>Imprimir</span>
           </button>
         </div>
       </div>

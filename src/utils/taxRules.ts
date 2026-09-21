@@ -1437,6 +1437,8 @@ export function calculateTaxAudit(company: CompanyData): CalculationResult {
   const standaloneRbt12 = company.rbt12 || (company.monthlyRevenue ? company.monthlyRevenue * 12 : 0);
   const monthlyRevenueTotal = company.monthlyRevenue || (standaloneRbt12 > 0 ? standaloneRbt12 / 12 : 0);
 
+  console.log('[calculateTaxAudit] Entradas:', { companyName: company.name, standaloneRbt12, monthlyRevenueTotal, payroll12m: company.payroll12m });
+
   // Determinação precisa e desacoplada de Folha de Funcionários (CLT) e Pró-labore dos Sócios
   const hasEmployees = company.hasEmployeesPayroll !== undefined
     ? company.hasEmployeesPayroll
