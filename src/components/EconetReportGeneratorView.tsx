@@ -283,11 +283,6 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
       const parsed = buildAnalysisFromText(fullText, file.name, pdf.numPages);
       
-      // Ajustar Razão Social se coincidir com a atual do cockpit para sincronização amigável
-      if (currentCompany && currentCompany.name) {
-        parsed.company = currentCompany.name;
-      }
-      
       setAnalysis(parsed);
       setEditedCompany(parsed.company);
       setEditedPeriod(parsed.period);
@@ -321,9 +316,6 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
   const handleLoadSample = () => {
     const sampleCopy = { ...SAMPLE_ANALYSIS };
-    if (currentCompany && currentCompany.name) {
-      sampleCopy.company = currentCompany.name;
-    }
     setAnalysis(sampleCopy);
     setEditedCompany(sampleCopy.company);
     setEditedPeriod(sampleCopy.period);
