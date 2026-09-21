@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import * as pdfjsLib from 'pdfjs-dist';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
 import { 
   FileText, 
   Upload, 
@@ -113,30 +116,38 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
     setImportStatus(`Lendo ${files.length} arquivo(s)...`);
 
     const newReports: EconetReportData[] = await Promise.all(files.map(async (file) => {
-      const text = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (event) => resolve(event.target?.result as string || '');
-        reader.readAsText(file);
-      });
+      let text = '';
+      if (file.type === 'application/pdf') {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item: any) => item.str).join(' ');
+        }
+      } else {
+        text = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target?.result as string || '');
+          reader.readAsText(file);
+        });
+      }
 
       let extracted: Partial<EconetReportData> = { companyName: file.name };
       if (text) {
-        const lines = text.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if ((line.toLowerCase().includes('nome da simulação') || line.toLowerCase().includes('empresa') || line.toLowerCase().includes('cliente')) && lines[i+1]) {
-            const comp = lines[i+1].trim();
-            if (comp.length > 2) extracted.companyName = comp;
-          }
-          if (line.toLowerCase().includes('rbt 12') || line.toLowerCase().includes('rbt12')) {
-            const parts = line.split(':');
-            if (parts[1]) extracted.rbt12 = parts[1].trim();
-          }
-          if (line.toLowerCase().includes('receita esperada') || line.toLowerCase().includes('faturamento')) {
-            const parts = line.split(':');
-            if (parts[1]) extracted.expectedRevenue = parts[1].trim();
-          }
-        }
+        const lowerText = text.toLowerCase();
+        
+        // Extract Company Name
+        const companyMatch = lowerText.match(/(?:empresa|cliente|simulação)[:\s]+([^\n\r]+)/i);
+        if (companyMatch && companyMatch[1]) extracted.companyName = companyMatch[1].trim();
+
+        // Extract RBT12
+        const rbtMatch = lowerText.match(/(?:rbt\s*12|rbt12)[:\s]+([R$0-9.,\s]+)/i);
+        if (rbtMatch && rbtMatch[1]) extracted.rbt12 = rbtMatch[1].trim();
+
+        // Extract Expected Revenue
+        const revMatch = lowerText.match(/(?:receita esperada|faturamento)[:\s]+([R$0-9.,\s]+)/i);
+        if (revMatch && revMatch[1]) extracted.expectedRevenue = revMatch[1].trim();
       }
       return {
         companyName: extracted.companyName || file.name,
@@ -204,8 +215,8 @@ Permanecemos à disposição para eventuais esclarecimentos.`;
       <style>{`
         @media print {
           @page {
-            size: auto;
-            margin: 10mm;
+            size: A4;
+            margin: 15mm;
           }
           body > *:not(#econet-report-container) {
             display: none !important;
@@ -217,10 +228,12 @@ Permanecemos à disposição para eventuais esclarecimentos.`;
             box-shadow: none !important;
             border: none !important;
             overflow: visible !important;
+            color: #000 !important;
+            background: #fff !important;
           }
           .print\\:page-break {
-            page-break-before: always;
-            break-before: page;
+            page-break-before: always !important;
+            break-before: page !important;
           }
           .print\\:hidden {
             display: none !important;
