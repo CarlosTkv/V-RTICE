@@ -1,18 +1,5 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { SimplesAnexo, CompanyAddress } from '../types';
 import { findEcacOptionByText } from './ecacCatalog';
-
-// Configure worker using local Vite asset or CDN fallback safely
-if (typeof window !== 'undefined') {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url
-    ).toString();
-  } catch (err) {
-    console.warn('Falha ao definir workerSrc do PDF.js:', err);
-  }
-}
 
 export interface ExtractedActivity {
   description: string;
@@ -840,6 +827,20 @@ export async function extractPGDASFromPDF(file: File): Promise<ExtractedPGDASDat
   let fullText = '';
 
   try {
+    const pdfjsLib = await import('pdfjs-dist');
+    
+    // Configure worker using local Vite asset safely
+    if (typeof window !== 'undefined') {
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          'pdfjs-dist/build/pdf.worker.min.mjs',
+          import.meta.url
+        ).toString();
+      } catch (err) {
+        console.warn('Falha ao definir workerSrc do PDF.js:', err);
+      }
+    }
+
     const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(arrayBuffer),
       useWorkerFetch: false,

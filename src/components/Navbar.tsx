@@ -593,6 +593,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 icon={Archive} 
                 color="blue" 
               />
+              <SubTabButton 
+                active={activeTab === 'econet_report'} 
+                onClick={() => setActiveTab('econet_report')} 
+                label="Leitor Econet / Ecosim" 
+                icon={FileText} 
+                color="emerald" 
+              />
             </>
           )}
 

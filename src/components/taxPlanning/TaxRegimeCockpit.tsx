@@ -1260,6 +1260,19 @@ Os documentos externos fornecidos pela Econet/Consultoria encontram-se aptos e c
       {/* MODO 6: PARECER DE DOCUMENTOS EXTERNOS (ECONET / RELATÓRIO CONSULTIVO) */}
       {viewMode === 'documentos_externos' && (
         <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 space-y-6 shadow-xl">
+          {/* Banner recomendando o novo leitor de PDF Econet */}
+          <div className="bg-gradient-to-r from-emerald-950/40 to-teal-950/40 border border-emerald-500/20 p-4 rounded-xl flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400 font-bold text-xs shrink-0 font-mono">NOVO</span>
+              <div>
+                <p className="text-xs font-bold text-emerald-300">Módulo Pericial Avançado de Relatórios Econet (Ecosim)</p>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  Lançamos o novo leitor completo de PDFs com OCR espacial, planilha comparativa de 12 meses do Simples Híbrido e emissor de parecer técnico exportável para PDF! Acesse-o na barra de navegação no topo da página.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-800 pb-4 gap-4">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center space-x-2">

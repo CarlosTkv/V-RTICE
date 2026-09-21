@@ -46,7 +46,7 @@ import { SimplesHibridoClientPortal } from './components/taxPlanning/SimplesHibr
 import { EconetReportGeneratorView } from './components/EconetReportGeneratorView';
 // Remove import
 import { PRESET_COMPANIES } from './data/presets';
-import { CompanyData, AuthUser, AppViewMode, AppActiveTab, EconetReportData } from './types';
+import { CompanyData, AuthUser, AppViewMode, AppActiveTab } from './types';
 import { calculateTaxAudit } from './utils/taxRules';
 import { AuthService, DEFAULT_PRESET_ACCOUNTS } from './utils/authService';
 import { taxCrawlerEngine } from './utils/taxCrawlerEngine';
@@ -122,38 +122,6 @@ export default function App() {
 
   const [activeCompanyIndex, setActiveCompanyIndex] = useState<number>(0);
   const currentCompany = companies[activeCompanyIndex] || PRESET_COMPANIES[0];
-
-  // Econet Reports module state
-  const [econetReports, setEconetReports] = useState<EconetReportData[]>(() => {
-    const saved = localStorage.getItem('sna_econet_reports');
-    return saved ? JSON.parse(saved) : [{
-      companyName: 'Nova Empresa Ltda',
-      year: '2027',
-      period: '1° Semestre',
-      anexoSegmento: 'I - Comércio',
-      uf: 'SP',
-      municipio: 'São Paulo',
-      faixa: 'Faixa 1',
-      rbt12: 'R$ 0,00',
-      clientProfile: 'Misto',
-      pjsales: '50%',
-      inputsPurchase: '30%',
-      expectedRevenue: 'R$ 0,00',
-      ncms: ['00000000'],
-      regimeRegularIbsCbs: 'R$ 0,00',
-      regimeRegularCredit: 'R$ 0,00',
-      regimeRegularAccumulatedCredit: 'R$ 0,00',
-      regimeRegularNetCost: 'R$ 0,00',
-      pgdasIbsCbs: 'R$ 0,00',
-      pgdasNetCost: 'R$ 0,00',
-      monthlyData: Array(6).fill({ month: '-', regimeRegular: 'R$ 0,00', pgdas: 'R$ 0,00', economy: 'R$ 0,00' })
-    }];
-  });
-  const [econetActiveIndex, setEconetActiveIndex] = useState(0);
-
-  useEffect(() => {
-    localStorage.setItem('sna_econet_reports', JSON.stringify(econetReports));
-  }, [econetReports]);
 
   // 4 Distinct System Views: 'master' | 'escritorio' | 'cliente_relatorio' | 'empresa'
   const [viewMode, setViewMode] = useState<AppViewMode>(() => {
@@ -693,16 +661,6 @@ export default function App() {
           />
         );
 
-      case 'econet_report':
-        return (
-          <EconetReportGeneratorView
-            reports={econetReports}
-            setReports={setEconetReports}
-            activeIndex={econetActiveIndex}
-            setActiveIndex={setEconetActiveIndex}
-          />
-        );
-
       case 'projecao':
         return (
           <ProjectedSimulationView
@@ -846,6 +804,14 @@ export default function App() {
           <NCMServiceLookupView
             currentCompany={safeCurrentCompany}
             calculation={calculation}
+          />
+        );
+
+      case 'econet_report':
+        return (
+          <EconetReportGeneratorView
+            currentCompany={safeCurrentCompany}
+            onUpdateCompany={handleUpdateCurrentCompany}
           />
         );
 

@@ -18,11 +18,27 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 8000,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-charts': ['recharts'],
-            'vendor-icons': ['lucide-react'],
-            'vendor-pdf': ['jspdf', 'html2canvas', 'html2canvas-pro'],
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('react') || id.includes('scheduler')) {
+                return 'vendor-react';
+              }
+              if (id.includes('recharts') || id.includes('d3')) {
+                return 'vendor-charts';
+              }
+              if (id.includes('lucide')) {
+                return 'vendor-icons';
+              }
+              if (id.includes('jspdf') || id.includes('html2canvas')) {
+                return 'vendor-pdf';
+              }
+              if (id.includes('pdfjs-dist')) {
+                return 'vendor-pdfjs';
+              }
+              if (id.includes('pptxgenjs')) {
+                return 'vendor-pptx';
+              }
+            }
           },
         },
       },
