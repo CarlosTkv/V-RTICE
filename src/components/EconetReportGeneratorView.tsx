@@ -25,7 +25,8 @@ import {
   Shield,
   Coins,
   Lock,
-  Scale
+  Scale,
+  Layers
 } from 'lucide-react';
 import { CompanyData, EconetReportData } from '../types';
 import { jsPDF } from 'jspdf';
@@ -126,12 +127,43 @@ function buildAnalysisFromText(text: string, fileName: string, pagesCount: numbe
   // Outros metadados
   const companyMatch = normalized.match(/(?:Nome da simula[cç][aã]o)\s+(.*?)\s+(?:Ano|Per[ií]odo)/i) ||
                        normalized.match(/^(.*?)\s+202\d\s+1[º°]/im);
-  const company = companyMatch ? companyMatch[1].trim() : "Empresa Analisada";
+  let company = companyMatch ? companyMatch[1].trim() : "Empresa Analisada";
 
   const periodMatch = normalized.match(/(?:Per[ií]odo)\s+(.*?)\s+(?:Anexo)/i) ||
                       normalized.match(/(?:1[º°o]\s*Semestre\s+de\s+20\d{2})/i) ||
                       normalized.match(/(?:1[º°o]\s*Semestre)/i);
-  const period = periodMatch ? periodMatch[1].trim() || periodMatch[0] : "1º Semestre de 2027";
+  let period = periodMatch ? periodMatch[1].trim() || periodMatch[0] : "1º Semestre de 2027";
+
+  // CORREÇÃO INTELIGENTE DE CAMPOS DESALINHADOS / JUNTOS:
+  // Se o período contiver o nome da empresa junto (Ex: "Aços Campo Largo 2027 1º Semestre")
+  const splitPeriodMatch = period.match(/^(.*?)\s*(1[º°o]\s*Semestre|2[º°o]\s*Semestre|1[º°o]\s*Trimestre|2[º°o]\s*Trimestre|3[º°o]\s*Trimestre|4[º°o]\s*Trimestre|Semestre|Trimestre)/i);
+  if (splitPeriodMatch && splitPeriodMatch[1].trim().length > 2) {
+    const extractedCompany = splitPeriodMatch[1].trim();
+    const extractedPeriod = splitPeriodMatch[2].trim();
+    
+    // Se a empresa atual for genérica ou se detectarmos que o período tem uma razão social válida
+    if (company.toLowerCase().includes("empresa modelo") || 
+        company.toLowerCase().includes("empresa analisada") || 
+        company === "AL Empório LTDA" || 
+        extractedCompany.toLowerCase().includes("aço") || 
+        extractedCompany.toLowerCase().includes("empório") ||
+        extractedCompany.length > company.length) {
+      company = extractedCompany;
+      period = extractedPeriod;
+    }
+  }
+
+  // Se o nome da empresa ainda for genérico ou padrão, tenta extrair um nome bonito a partir do arquivo
+  if ((company.toLowerCase().includes("empresa modelo") || company.toLowerCase().includes("empresa analisada")) && fileName) {
+    let cleanName = fileName.replace(/\.[^/.]+$/, ""); // remover .pdf
+    cleanName = cleanName.replace(/[-_]/g, " "); // substituir hifens por espaços
+    cleanName = cleanName.replace(/\b\d{2}\s\d{2}\s\d{4}\b/g, ""); // remover datas DD MM AAAA
+    cleanName = cleanName.replace(/\b\d{4}\b/g, ""); // remover anos isolados
+    cleanName = cleanName.trim();
+    if (cleanName.length > 3) {
+      company = cleanName;
+    }
+  }
 
   const ufMatch = normalized.match(/(?:UF)\s+([A-Z]{2})/i);
   const uf = ufMatch ? ufMatch[1] : "PR";
@@ -570,19 +602,14 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
             <div className="bg-gradient-to-br from-[#0F172A] to-slate-900 border border-slate-800 rounded-2xl p-6 flex items-center gap-4">
               <div className="p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20 text-indigo-400">
-                <Activity className="w-6 h-6 animate-pulse" />
+                <Layers className="w-6 h-6 animate-pulse" />
               </div>
               <div>
-                <h4 className="text-white font-semibold text-sm">Empresa Ativa</h4>
-                <p className="text-xs text-slate-400 mt-0.5">{currentCompany.name}</p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[10px] font-mono bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded">
-                    RBT12: R$ {currentCompany.rbt12 ? currentCompany.rbt12.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
-                  </span>
-                  <span className="text-[10px] font-mono bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded font-bold">
-                    {currentCompany.uf}
-                  </span>
-                </div>
+                <h4 className="text-white font-semibold text-sm">Módulo Sandbox Isolado</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Este simulador opera em modo independente.</p>
+                <p className="text-[10px] text-slate-500 mt-1 max-w-xs leading-relaxed">
+                  Os relatórios importados são tratados como entidades externas e autônomas, sem interferência no cadastro ou cockpit de empresas do sistema.
+                </p>
               </div>
             </div>
           </div>
@@ -591,21 +618,18 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
         /* Results View */
         <div className="space-y-6">
           
-          {/* Validation Alert Bar */}
-          <div className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden ${
-            isMatchValid ? 'bg-emerald-950/20 border-emerald-500/20 text-emerald-300' : 'bg-amber-950/20 border-amber-500/20 text-amber-300'
-          }`}>
-            <div className="flex items-start gap-3">
-              <AlertCircle className={`w-5 h-5 shrink-0 ${isMatchValid ? 'text-emerald-400' : 'text-amber-400'}`} />
+          {/* Barra de Controle de Dados do Relatório */}
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-lg">
+                <FileText className="w-5 h-5" />
+              </div>
               <div>
-                <p className="text-sm font-semibold">
-                  {isMatchValid ? 'Validação Cadastral Concluída com Sucesso' : 'Alerta: Divergência Cadastral Identificada'}
+                <p className="text-sm font-semibold text-white">
+                  Relatório da Empresa: <span className="text-indigo-400 font-bold">{analysis.company}</span>
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {isMatchValid 
-                    ? `O faturamento e regime informados na Econet foram reconciliados com a empresa ativa no Cockpit: ${currentCompany.name}.`
-                    : `O arquivo PDF de simulação é da empresa (${analysis.company}), mas o cockpit ativo está em: (${currentCompany.name}).`
-                  }
+                  Análise pericial gerada com base nos dados externos importados. Use o botão ao lado se desejar refinar as variáveis lidas.
                 </p>
               </div>
             </div>
