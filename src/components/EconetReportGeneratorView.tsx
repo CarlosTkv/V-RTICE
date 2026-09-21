@@ -140,41 +140,145 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
 
       let extracted: Partial<EconetReportData> = { companyName: file.name };
       if (text) {
-        const lowerText = text.toLowerCase();
-        
-        // Extract Company Name - More tolerant regex
-        const companyMatch = lowerText.match(/(?:empresa|cliente|simulação|nome da empresa)[:\s]*([^\n\r,]+)/i);
-        if (companyMatch && companyMatch[1]) extracted.companyName = companyMatch[1].trim();
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        let currentSection: 'regular' | 'pgdas' | null = null;
+        let regularMonthly: string[] = [];
+        let pgdasMonthly: string[] = [];
+        let economyMonthly: string[] = [];
 
-        // Extract RBT12 - More tolerant regex to capture various formats
-        const rbtMatch = lowerText.match(/(?:rbt\s*12|rbt12|receita bruta total\s*12)[:\s]*([R$0-9\s.,]+)/i);
-        if (rbtMatch && rbtMatch[1]) extracted.rbt12 = rbtMatch[1].trim();
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const lowerLine = line.toLowerCase();
 
-        // Extract Expected Revenue - More tolerant regex to capture various formats
-        const revMatch = lowerText.match(/(?:receita esperada|faturamento mensal|faturamento)[:\s]*([R$0-9\s.,]+)/i);
-        if (revMatch && revMatch[1]) extracted.expectedRevenue = revMatch[1].trim();
+          // Nome da simulação Ano Período
+          if (lowerLine.includes('nome da simulação') && lowerLine.includes('ano') && lowerLine.includes('período') && lines[i + 1]) {
+            const nextLine = lines[i + 1];
+            const match = nextLine.match(/^(.*?)\s+(\d{4})\s+(.*)$/);
+            if (match) {
+              extracted.companyName = match[1].trim();
+              extracted.year = match[2].trim();
+              extracted.period = match[3].trim();
+            } else {
+              extracted.companyName = nextLine.trim();
+            }
+          }
+
+          // Anexo - Segmento
+          if (lowerLine === 'anexo - segmento' && lines[i + 1]) {
+            extracted.anexoSegmento = lines[i + 1].trim();
+          }
+
+          // UF
+          if (lowerLine === 'uf' && lines[i + 1]) {
+            extracted.uf = lines[i + 1].trim();
+          }
+
+          // Município
+          if (lowerLine === 'município' && lines[i + 1]) {
+            extracted.municipio = lines[i + 1].trim();
+          }
+
+          // Enquadramento
+          if (lowerLine === 'enquadramento' && lines[i + 1]) {
+            extracted.faixa = lines[i + 1].trim();
+          }
+
+          // RBT 12
+          if (lowerLine === 'rbt 12' && lines[i + 1]) {
+            extracted.rbt12 = lines[i + 1].trim();
+          }
+
+          // Perfil de negócio
+          if (lowerLine.includes('perfil do cliente') && lowerLine.includes('vendas para empresa') && lines[i + 1]) {
+            const nextLine = lines[i + 1];
+            const match = nextLine.match(/^(.*?)\s+(\d+%\s*)\s+(\d+%\s*)\s+(.*)$/);
+            if (match) {
+              extracted.clientProfile = match[1].trim();
+              extracted.pjsales = match[2].trim();
+              extracted.inputsPurchase = match[3].trim();
+            }
+          }
+
+          // Receita esperada/planejada
+          if (lowerLine === 'receita esperada/planejada' && lines[i + 1]) {
+            extracted.expectedRevenue = lines[i + 1].trim();
+          }
+
+          // NCM cadastradas
+          if (lowerLine === 'ncm cadastradas' && lines[i + 1]) {
+            extracted.ncms = lines[i + 1].split(/\s+/).filter(Boolean);
+          }
+
+          // Sections
+          if (lowerLine.includes('regime regular')) {
+            currentSection = 'regular';
+          } else if (lowerLine.includes('pgdas')) {
+            currentSection = 'pgdas';
+          }
+
+          if (currentSection === 'regular') {
+            if (lowerLine.startsWith('ibs/cbs')) {
+              const val = line.replace(/ibs\/cbs/i, '').trim();
+              if (val) extracted.regimeRegularIbsCbs = val;
+            } else if (lowerLine.startsWith('crédito')) {
+              const val = line.replace(/crédito/i, '').trim();
+              if (val) extracted.regimeRegularCredit = val;
+            } else if (lowerLine.startsWith('créditos acumulados')) {
+              const val = line.replace(/créditos acumulados/i, '').trim();
+              if (val) extracted.regimeRegularAccumulatedCredit = val;
+            } else if (lowerLine === 'custo líquido' && lines[i + 1]) {
+              extracted.regimeRegularNetCost = lines[i + 1].trim();
+            }
+          } else if (currentSection === 'pgdas') {
+            if (lowerLine.startsWith('ibs/cbs')) {
+              const val = line.replace(/ibs\/cbs/i, '').trim();
+              if (val) extracted.pgdasIbsCbs = val;
+            } else if (lowerLine === 'custo líquido' && lines[i + 1]) {
+              extracted.pgdasNetCost = lines[i + 1].trim();
+            }
+          }
+
+          // Evolução da carga tributária table extraction
+          if (lowerLine.startsWith('regime regular') && (lowerLine.includes('r$') || lowerLine.includes('$'))) {
+            regularMonthly = line.match(/R\$\s*[0-9.,]+/gi) || [];
+          } else if ((lowerLine.startsWith('pgdas') || lowerLine.startsWith('pgdas melhor')) && (lowerLine.includes('r$') || lowerLine.includes('$'))) {
+            pgdasMonthly = line.match(/R\$\s*[0-9.,]+/gi) || [];
+          } else if ((lowerLine.startsWith('economia com') || lowerLine.startsWith('economia com pgdas')) && (lowerLine.includes('r$') || lowerLine.includes('$'))) {
+            economyMonthly = line.match(/R\$\s*[0-9.,]+/gi) || [];
+          }
+        }
+
+        if (regularMonthly.length >= 6) {
+          const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho'];
+          extracted.monthlyData = months.map((m, idx) => ({
+            month: m,
+            regimeRegular: regularMonthly[idx] || 'R$ 0,00',
+            pgdas: pgdasMonthly[idx] || 'R$ 0,00',
+            economy: economyMonthly[idx] || 'R$ 0,00'
+          }));
+        }
       }
       return {
         companyName: extracted.companyName || file.name,
-        year: '2027',
-        period: '1° Semestre',
-        anexoSegmento: 'I - Comércio',
-        uf: 'SP',
-        municipio: 'São Paulo',
-        faixa: 'Faixa 1',
-        rbt12: extracted.rbt12 || 'R$ 0,00',
-        clientProfile: 'Misto',
-        pjsales: '50%',
-        inputsPurchase: '30%',
-        expectedRevenue: extracted.expectedRevenue || 'R$ 0,00',
-        ncms: ['00000000'],
-        regimeRegularIbsCbs: 'R$ 0,00',
-        regimeRegularCredit: 'R$ 0,00',
-        regimeRegularAccumulatedCredit: 'R$ 0,00',
-        regimeRegularNetCost: 'R$ 0,00',
-        pgdasIbsCbs: 'R$ 0,00',
-        pgdasNetCost: 'R$ 0,00',
-        monthlyData: Array(6).fill({ month: '-', regimeRegular: 'R$ 0,00', pgdas: 'R$ 0,00', economy: 'R$ 0,00' })
+        year: extracted.year || '2027',
+        period: extracted.period || '1° Semestre',
+        anexoSegmento: extracted.anexoSegmento || 'I - Comércio',
+        uf: extracted.uf || 'PR',
+        municipio: extracted.municipio || 'Curitiba',
+        faixa: extracted.faixa || 'Faixa 1',
+        rbt12: extracted.rbt12 || 'R$ 180.000,00',
+        clientProfile: extracted.clientProfile || 'Misto',
+        pjsales: extracted.pjsales || '70%',
+        inputsPurchase: extracted.inputsPurchase || '40%',
+        expectedRevenue: extracted.expectedRevenue || 'R$ 75.000,00',
+        ncms: extracted.ncms || ['00000000'],
+        regimeRegularIbsCbs: extracted.regimeRegularIbsCbs || 'R$ 0,00',
+        regimeRegularCredit: extracted.regimeRegularCredit || 'R$ 0,00',
+        regimeRegularAccumulatedCredit: extracted.regimeRegularAccumulatedCredit || 'R$ 0,00',
+        regimeRegularNetCost: extracted.regimeRegularNetCost || 'R$ 0,00',
+        pgdasIbsCbs: extracted.pgdasIbsCbs || 'R$ 0,00',
+        pgdasNetCost: extracted.pgdasNetCost || 'R$ 0,00',
+        monthlyData: extracted.monthlyData || Array(6).fill({ month: '-', regimeRegular: 'R$ 0,00', pgdas: 'R$ 0,00', economy: 'R$ 0,00' })
       };
     }));
 
