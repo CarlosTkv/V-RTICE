@@ -587,13 +587,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 color="slate" 
               />
               <SubTabButton 
-                active={activeTab === 'econet_report'} 
-                onClick={() => setActiveTab('econet_report')} 
-                label="Relatório Econet Ecosim" 
-                icon={FileText} 
-                color="blue" 
-              />
-              <SubTabButton 
                 active={activeTab === 'historico'} 
                 onClick={() => setActiveTab('historico')} 
                 label="Histórico" 
