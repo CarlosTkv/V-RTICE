@@ -126,7 +126,32 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          text += content.items.map((item: any) => item.str).join(' ') + '\n';
+          
+          const items = content.items as any[];
+          const linesMap: { [key: number]: any[] } = {};
+          
+          items.forEach((item: any) => {
+            if (!item.str) return;
+            const y = Math.round(item.transform[5]);
+            // Group items within a threshold of 5 units (approximately on the same horizontal line)
+            let foundY = Object.keys(linesMap).map(Number).find(existingY => Math.abs(existingY - y) < 5);
+            if (foundY !== undefined) {
+              linesMap[foundY].push(item);
+            } else {
+              linesMap[y] = [item];
+            }
+          });
+          
+          // Sort lines from top to bottom
+          const sortedY = Object.keys(linesMap).map(Number).sort((a, b) => b - a);
+          
+          const pageText = sortedY.map(y => {
+            // Sort items in the same line from left to right
+            const lineItems = linesMap[y].sort((a, b) => a.transform[4] - b.transform[4]);
+            return lineItems.map(item => item.str).join(' ');
+          }).join('\n');
+          
+          text += pageText + '\n';
         }
       } else {
         text = await new Promise<string>((resolve) => {
@@ -151,41 +176,65 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
           const lowerLine = line.toLowerCase();
 
           // Nome da simulação Ano Período
-          if (lowerLine.includes('nome da simulação') && lowerLine.includes('ano') && lowerLine.includes('período') && lines[i + 1]) {
-            const nextLine = lines[i + 1];
-            const match = nextLine.match(/^(.*?)\s+(\d{4})\s+(.*)$/);
-            if (match) {
-              extracted.companyName = match[1].trim();
-              extracted.year = match[2].trim();
-              extracted.period = match[3].trim();
-            } else {
-              extracted.companyName = nextLine.trim();
+          if (lowerLine.includes('nome da simulação') || lowerLine.includes('nome da simulacao')) {
+            if (lines[i + 1]) {
+              const nextLine = lines[i + 1];
+              const match = nextLine.match(/^(.*?)\s+(\d{4})\s+(.*)$/);
+              if (match) {
+                extracted.companyName = match[1].trim();
+                extracted.year = match[2].trim();
+                extracted.period = match[3].trim();
+              } else {
+                extracted.companyName = nextLine.trim();
+              }
             }
           }
 
           // Anexo - Segmento
-          if (lowerLine === 'anexo - segmento' && lines[i + 1]) {
-            extracted.anexoSegmento = lines[i + 1].trim();
+          if (lowerLine.includes('anexo - segmento')) {
+            const val = line.replace(/anexo\s*-\s*segmento[:\s]*/i, '').trim();
+            if (val) {
+              extracted.anexoSegmento = val;
+            } else if (lines[i + 1]) {
+              extracted.anexoSegmento = lines[i + 1].trim();
+            }
           }
 
           // UF
-          if (lowerLine === 'uf' && lines[i + 1]) {
-            extracted.uf = lines[i + 1].trim();
+          if (lowerLine === 'uf' || lowerLine === 'uf:') {
+            if (lines[i + 1]) extracted.uf = lines[i + 1].trim();
+          } else if (lowerLine.startsWith('uf ')) {
+            extracted.uf = line.replace(/uf[:\s]*/i, '').trim();
           }
 
           // Município
-          if (lowerLine === 'município' && lines[i + 1]) {
-            extracted.municipio = lines[i + 1].trim();
+          if (lowerLine.includes('município') || lowerLine.includes('municipio')) {
+            const val = line.replace(/munic[íi]pio[:\s]*/i, '').trim();
+            if (val) {
+              extracted.municipio = val;
+            } else if (lines[i + 1]) {
+              extracted.municipio = lines[i + 1].trim();
+            }
           }
 
           // Enquadramento
-          if (lowerLine === 'enquadramento' && lines[i + 1]) {
-            extracted.faixa = lines[i + 1].trim();
+          if (lowerLine.includes('enquadramento')) {
+            const val = line.replace(/enquadramento[:\s]*/i, '').trim();
+            if (val) {
+              extracted.faixa = val;
+            } else if (lines[i + 1]) {
+              extracted.faixa = lines[i + 1].trim();
+            }
           }
 
           // RBT 12
-          if (lowerLine === 'rbt 12' && lines[i + 1]) {
-            extracted.rbt12 = lines[i + 1].trim();
+          if (lowerLine.includes('rbt 12') || lowerLine.includes('rbt12')) {
+            const val = line.replace(/rbt\s*12[:\s]*/i, '').trim();
+            if (val) {
+              extracted.rbt12 = val;
+            } else if (lines[i + 1]) {
+              extracted.rbt12 = lines[i + 1].trim();
+            }
           }
 
           // Perfil de negócio
@@ -200,13 +249,20 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
           }
 
           // Receita esperada/planejada
-          if (lowerLine === 'receita esperada/planejada' && lines[i + 1]) {
-            extracted.expectedRevenue = lines[i + 1].trim();
+          if (lowerLine.includes('receita esperada/planejada') || lowerLine.includes('receita esperada')) {
+            const val = line.replace(/(?:receita esperada\/planejada|receita esperada)[:\s]*/i, '').trim();
+            if (val) {
+              extracted.expectedRevenue = val;
+            } else if (lines[i + 1]) {
+              extracted.expectedRevenue = lines[i + 1].trim();
+            }
           }
 
           // NCM cadastradas
-          if (lowerLine === 'ncm cadastradas' && lines[i + 1]) {
-            extracted.ncms = lines[i + 1].split(/\s+/).filter(Boolean);
+          if (lowerLine.includes('ncm cadastradas')) {
+            if (lines[i + 1]) {
+              extracted.ncms = lines[i + 1].split(/\s+/).filter(Boolean);
+            }
           }
 
           // Sections
@@ -217,24 +273,36 @@ export const EconetReportGeneratorView: React.FC<EconetReportGeneratorViewProps>
           }
 
           if (currentSection === 'regular') {
-            if (lowerLine.startsWith('ibs/cbs')) {
-              const val = line.replace(/ibs\/cbs/i, '').trim();
-              if (val) extracted.regimeRegularIbsCbs = val;
-            } else if (lowerLine.startsWith('crédito')) {
-              const val = line.replace(/crédito/i, '').trim();
-              if (val) extracted.regimeRegularCredit = val;
-            } else if (lowerLine.startsWith('créditos acumulados')) {
-              const val = line.replace(/créditos acumulados/i, '').trim();
-              if (val) extracted.regimeRegularAccumulatedCredit = val;
-            } else if (lowerLine === 'custo líquido' && lines[i + 1]) {
-              extracted.regimeRegularNetCost = lines[i + 1].trim();
+            if (lowerLine.startsWith('ibs/cbs') || lowerLine.startsWith('ibs / cbs')) {
+              const val = line.match(/R\$\s*[0-9.,]+/i);
+              if (val) extracted.regimeRegularIbsCbs = val[0];
+            } else if (lowerLine.startsWith('crédito') || lowerLine.startsWith('credito')) {
+              const val = line.match(/R\$\s*[0-9.,]+/i);
+              if (val) extracted.regimeRegularCredit = val[0];
+            } else if (lowerLine.startsWith('créditos acumulados') || lowerLine.startsWith('creditos acumulados')) {
+              const val = line.match(/R\$\s*[0-9.,]+/i);
+              if (val) extracted.regimeRegularAccumulatedCredit = val[0];
+            } else if (lowerLine.includes('custo líquido') || lowerLine.includes('custo liquido')) {
+              const val = line.match(/R\$\s*[0-9.,]+/i);
+              if (val) {
+                extracted.regimeRegularNetCost = val[0];
+              } else if (lines[i + 1]) {
+                const nextVal = lines[i + 1].match(/R\$\s*[0-9.,]+/i);
+                if (nextVal) extracted.regimeRegularNetCost = nextVal[0];
+              }
             }
           } else if (currentSection === 'pgdas') {
-            if (lowerLine.startsWith('ibs/cbs')) {
-              const val = line.replace(/ibs\/cbs/i, '').trim();
-              if (val) extracted.pgdasIbsCbs = val;
-            } else if (lowerLine === 'custo líquido' && lines[i + 1]) {
-              extracted.pgdasNetCost = lines[i + 1].trim();
+            if (lowerLine.startsWith('ibs/cbs') || lowerLine.startsWith('ibs / cbs')) {
+              const val = line.match(/R\$\s*[0-9.,]+/i);
+              if (val) extracted.pgdasIbsCbs = val[0];
+            } else if (lowerLine.includes('custo líquido') || lowerLine.includes('custo liquido')) {
+              const val = line.match(/R\$\s*[0-9.,]+/i);
+              if (val) {
+                extracted.pgdasNetCost = val[0];
+              } else if (lines[i + 1]) {
+                const nextVal = lines[i + 1].match(/R\$\s*[0-9.,]+/i);
+                if (nextVal) extracted.pgdasNetCost = nextVal[0];
+              }
             }
           }
 
