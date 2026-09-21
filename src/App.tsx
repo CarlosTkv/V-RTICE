@@ -43,9 +43,10 @@ import { FinancialStatementsView } from './components/FinancialStatementsView';
 import { NCMServiceLookupView } from './components/NCMServiceLookupView';
 import { SimplesHibridoModule } from './components/taxPlanning/SimplesHibridoModule';
 import { SimplesHibridoClientPortal } from './components/taxPlanning/SimplesHibridoClientPortal';
+import { EconetReportGeneratorView } from './components/EconetReportGeneratorView';
 // Remove import
 import { PRESET_COMPANIES } from './data/presets';
-import { CompanyData, AuthUser, AppViewMode, AppActiveTab } from './types';
+import { CompanyData, AuthUser, AppViewMode, AppActiveTab, EconetReportData } from './types';
 import { calculateTaxAudit } from './utils/taxRules';
 import { AuthService, DEFAULT_PRESET_ACCOUNTS } from './utils/authService';
 import { taxCrawlerEngine } from './utils/taxCrawlerEngine';
@@ -120,9 +121,39 @@ export default function App() {
   });
 
   const [activeCompanyIndex, setActiveCompanyIndex] = useState<number>(0);
+  const currentCompany = companies[activeCompanyIndex] || PRESET_COMPANIES[0];
 
-  // Active Company safe reference
-  const currentCompany = companies[activeCompanyIndex] || companies[0] || PRESET_COMPANIES[0];
+  // Econet Reports module state
+  const [econetReports, setEconetReports] = useState<EconetReportData[]>(() => {
+    const saved = localStorage.getItem('sna_econet_reports');
+    return saved ? JSON.parse(saved) : [{
+      companyName: 'Nova Empresa Ltda',
+      year: '2027',
+      period: '1° Semestre',
+      anexoSegmento: 'I - Comércio',
+      uf: 'SP',
+      municipio: 'São Paulo',
+      faixa: 'Faixa 1',
+      rbt12: 'R$ 0,00',
+      clientProfile: 'Misto',
+      pjsales: '50%',
+      inputsPurchase: '30%',
+      expectedRevenue: 'R$ 0,00',
+      ncms: ['00000000'],
+      regimeRegularIbsCbs: 'R$ 0,00',
+      regimeRegularCredit: 'R$ 0,00',
+      regimeRegularAccumulatedCredit: 'R$ 0,00',
+      regimeRegularNetCost: 'R$ 0,00',
+      pgdasIbsCbs: 'R$ 0,00',
+      pgdasNetCost: 'R$ 0,00',
+      monthlyData: Array(6).fill({ month: '-', regimeRegular: 'R$ 0,00', pgdas: 'R$ 0,00', economy: 'R$ 0,00' })
+    }];
+  });
+  const [econetActiveIndex, setEconetActiveIndex] = useState(0);
+
+  useEffect(() => {
+    localStorage.setItem('sna_econet_reports', JSON.stringify(econetReports));
+  }, [econetReports]);
 
   // 4 Distinct System Views: 'master' | 'escritorio' | 'cliente_relatorio' | 'empresa'
   const [viewMode, setViewMode] = useState<AppViewMode>(() => {
@@ -197,6 +228,36 @@ export default function App() {
   const [govUpdatePopup, setGovUpdatePopup] = useState<{ open: boolean; count: number; message: string } | null>(null);
 
   // Verificação automática diária 2 vezes (08:00 e 14:00) de novas publicações governamentais e envio de e-mail se offline/online
+  const handleClearCompanyData = () => {
+    const freshDefaultCompany: CompanyData = {
+      id: 'comp_' + Date.now(),
+      name: 'Nova Empresa (Sem Cadastro)',
+      cnpj: '',
+      cnae: '',
+      cnaeDescription: '',
+      uf: 'SP',
+      regimeTributario: 'simples_nacional',
+      atividadeEmpresa: 'comercio',
+      anexo: 'I',
+      rbt12: 0,
+      rba: 0,
+      monthlyRevenue: 0,
+      payroll12m: 0,
+      monthlyPayroll: 0,
+      b2bSalesPercent: 0,
+      projectionGrowthPercent: 15,
+      estimatedNetProfitMargin: 20,
+      targetIvaRate: 26.5,
+      partners: [],
+      cfopItems: [],
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...companies];
+    updated[activeCompanyIndex] = freshDefaultCompany;
+    setCompanies(updated);
+    localStorage.setItem('sna_companies_base', JSON.stringify(updated));
+    showToast('Dados da empresa limpos com sucesso! Pronto para nova importação do zero.');
+  };
   useEffect(() => {
     const checkScheduledGovSync = () => {
       const now = new Date();
@@ -553,6 +614,7 @@ export default function App() {
             isMaster={authUser?.role === 'master' || authUser?.isMaster || authUser?.email === 'contato@verticeanalises.com.br' || authUser?.email === 'carlosmiguelvieira1@gmail.com'}
             viewMode={viewMode}
             showToast={showToast}
+            onClearCompanyData={handleClearCompanyData}
           />
         );
 
@@ -628,6 +690,16 @@ export default function App() {
               setActiveTab('simples_hibrido');
               showToast('Visualização do Cliente ativada!', 'info');
             }}
+          />
+        );
+
+      case 'econet_report':
+        return (
+          <EconetReportGeneratorView
+            reports={econetReports}
+            setReports={setEconetReports}
+            activeIndex={econetActiveIndex}
+            setActiveIndex={setEconetActiveIndex}
           />
         );
 
@@ -789,6 +861,7 @@ export default function App() {
             isMaster={authUser?.role === 'master' || authUser?.isMaster}
             viewMode={viewMode}
             showToast={showToast}
+            onClearCompanyData={handleClearCompanyData}
           />
         );
     }
@@ -1023,6 +1096,7 @@ export default function App() {
             setIsCompanyManagerOpen(false);
             setIsPDFUploadOpen(true);
           }}
+          onClearCompanyData={handleClearCompanyData}
         />
 
         <PrivacyLGPDModal

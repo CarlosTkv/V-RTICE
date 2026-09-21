@@ -35,7 +35,8 @@ import {
   Zap,
   CheckCircle,
   Eye,
-  Activity
+  Activity,
+  Trash2
 } from 'lucide-react';
 import { CompanyData, CalculationResult, AppViewMode, DashboardWidgetConfig, DashboardWidgetId, ObrigacaoFiscal } from '../types';
 import { OBRIGACOES_DATABASE } from './AgendaFiscalView';
@@ -80,6 +81,7 @@ interface DashboardViewProps {
   isMaster?: boolean;
   viewMode?: AppViewMode;
   showToast?: (msg: string) => void;
+  onClearCompanyData?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -92,6 +94,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   isMaster = false,
   viewMode = 'master',
   showToast,
+  onClearCompanyData,
 }) => {
   const currentRbt12 = Math.max(1, company.rbt12);
   const consolidated = calculation.consolidatedRevenue;
@@ -1838,6 +1841,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 >
                   <Upload className="w-4 h-4 text-blue-400" />
                   <span>Importar PGDAS-D</span>
+                </button>
+              )}
+
+              {onClearCompanyData && !isClienteRelatorio && (
+                <button
+                  onClick={onClearCompanyData}
+                  className="px-3.5 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900/70 text-rose-300 border border-rose-800/70 text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                  title="Zerar e limpar os dados da empresa atual para iniciar nova importação do zero"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" />
+                  <span>Limpar Dados da Empresa</span>
                 </button>
               )}
 

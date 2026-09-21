@@ -24,6 +24,7 @@ interface CompanyManagerModalProps {
   onCreateCompany: (company: CompanyData) => void;
   onDeleteCompany: (index: number) => void;
   onOpenPDFUpload?: () => void;
+  onClearCompanyData?: () => void;
 }
 
 export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
@@ -35,6 +36,7 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
   onCreateCompany,
   onDeleteCompany,
   onOpenPDFUpload,
+  onClearCompanyData,
 }) => {
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -233,6 +235,21 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
                 >
                   <Upload className="w-3.5 h-3.5 text-blue-400" />
                   <span>Importar via PGDAS-D</span>
+                </button>
+              )}
+
+              {onClearCompanyData && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearCompanyData();
+                    onClose();
+                  }}
+                  className="px-3.5 py-2 text-xs font-bold text-rose-300 hover:text-white bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/70 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                  title="Zerar e limpar os dados da empresa atual para iniciar nova importação do zero"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Limpar Dados da Empresa</span>
                 </button>
               )}
             </div>

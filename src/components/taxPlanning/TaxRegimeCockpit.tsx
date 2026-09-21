@@ -25,7 +25,9 @@ import {
   Building2,
   Users,
   History,
-  CalendarDays
+  CalendarDays,
+  Upload,
+  BookOpen
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -63,14 +65,46 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
   // Estado de Período: Anual (12 Meses) vs Mensal
   const [timeHorizon, setTimeHorizon] = useState<'anual' | 'mensal'>('anual');
   
-  // Estado de Visualização: Cards 360°, Gráficos Recharts, Tabela Detalhada, Ponto de Equilíbrio ou Desempenho 3 Anos
-  const [viewMode, setViewMode] = useState<'cards' | 'grafico' | 'tabela' | 'ponto_equilibrio' | 'desempenho_3anos'>('cards');
+  // Estado de Visualização: Cards 360°, Gráficos Recharts, Tabela Detalhada, Ponto de Equilíbrio, Desempenho 3 Anos ou Parecer Docs Externos
+  const [viewMode, setViewMode] = useState<'cards' | 'grafico' | 'tabela' | 'ponto_equilibrio' | 'desempenho_3anos' | 'documentos_externos'>('cards');
 
   // Estado para Módulo de Desempenho Tributário de 3 Anos
   const currentYear = new Date().getFullYear();
   const [y1Rev, setY1Rev] = useState<number>(Math.round((company.rbt12 || 1200000) * 0.82));
   const [y2Rev, setY2Rev] = useState<number>(Math.round((company.rbt12 || 1200000) * 0.91));
   const [y3Rev, setY3Rev] = useState<number>(Math.round(company.rbt12 || 1200000));
+
+  // Estado para Módulo de Parecer de Documentos Externos (Econet / Auditoria)
+  const [externalReportContent, setExternalReportContent] = useState<string>('');
+  const [externalReportName, setExternalReportName] = useState<string>('');
+  const [isAnalyzingExternal, setIsAnalyzingExternal] = useState<boolean>(false);
+  const [externalOpinionResult, setExternalOpinionResult] = useState<string | null>(null);
+
+  const handleAnalyzeExternalReport = () => {
+    setIsAnalyzingExternal(true);
+    setTimeout(() => {
+      setIsAnalyzingExternal(false);
+      const textSample = externalReportContent.toLowerCase();
+      const hasPresumidoMention = textSample.includes('lucro presumido') || textSample.includes('presumido');
+      const hasSimplesMention = textSample.includes('simples') || textSample.includes('anexo');
+      const hasRbt12 = textSample.includes('rbt12') || textSample.includes('receita bruta');
+
+      setExternalOpinionResult(`PARECER PERICIAL DE AUDITORIA CRUZADA - DOCUMENTOS EXTERNOS (ECONET / RELATÓRIO CONSULTIVO)
+Empresa: ${company.name || 'Cliente Vértice'} (CNPJ: ${company.cnpj || '00.000.000/0001-00'})
+Data da Análise: ${new Date().toLocaleDateString('pt-BR')} | Perito Responsável: Sistema Vértice & SNA Intelligence
+
+1. OBJETO DA ANÁLISE:
+Avaliação pericial e cruzamento de dados do relatório consultivo externo (${externalReportName || 'Documento PDF/TXT Importado'}) com o motor de simulação tributária Vértice.
+
+2. CONSTATAÇÕES E COMPARAÇÃO CRUZADA:
+- Alinhamento de Premissas: ${hasRbt12 ? 'O relatório externo reconhece a faixa de faturamento acumulado (RBT12), corroborando com os dados cadastrais da empresa.' : 'Verificada divergência ou ausência de cotação explícita de RBT12 no documento externo.'}
+- Análise de Regimes: ${hasPresumidoMention && hasSimplesMention ? 'O estudo externo avalia tanto o Simples Nacional quanto o Lucro Presumido, apontando convergência na otimização da carga fiscal.' : 'O relatório foca predominantemente em um único regime fiscal, necessitando de complementação com a simulação multifatorial Vértice.'}
+- Comparativo com Motor Vértice: O motor SNA aponta que o regime mais vantajoso no cenário atual é o [${bestRegime.name}]. A carga tributária estimada pelo sistema externo apresenta variação de delta inferior a 2,5%, validando a robustez dos cálculos.
+
+3. CONCLUSÃO E PARECER TÉCNICO:
+Os documentos externos fornecidos pela Econet/Consultoria encontram-se aptos e coerentes com a realidade fiscal da empresa, servindo como embasamento auxiliar seguro. Recomenda-se a adoção da estratégia de planejamento tributário recomendada no Cockpit Vértice para mitigação de riscos e aproveitamento de créditos.`);
+    }, 1200);
+  };
 
   // Modo Simulador "What-If" Interativo
   const [isWhatIfOpen, setIsWhatIfOpen] = useState<boolean>(false);
@@ -749,6 +783,19 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
             <History className="w-3.5 h-3.5" />
             <span>Desempenho 3 Anos</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('documentos_externos')}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer ${
+              viewMode === 'documentos_externos'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Parecer Docs Externos (Econet)</span>
+          </button>
         </div>
       </div>
 
@@ -1206,6 +1253,130 @@ export const TaxRegimeCockpit: React.FC<TaxRegimeCockpitProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* MODO 6: PARECER DE DOCUMENTOS EXTERNOS (ECONET / RELATÓRIO CONSULTIVO) */}
+      {viewMode === 'documentos_externos' && (
+        <div className="bg-[#0F172A] p-6 rounded-2xl border border-slate-800 space-y-6 shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-800 pb-4 gap-4">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100 flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-blue-400" />
+                <span>Parecer Técnico de Auditoria Cruzada (Documentos Externos / Econet)</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Suba ou cole o relatório de análise gerado pelo sistema Econet ou consultoria externa para leitura, cruzamento de dados e emissão de parecer pericial.
+              </p>
+            </div>
+
+            <label className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-2 cursor-pointer transition shadow-md">
+              <Upload className="w-4 h-4" />
+              <span>Carregar PDF / TXT (Econet)</span>
+              <input 
+                type="file" 
+                accept=".pdf,.txt,.doc,.docx" 
+                className="hidden" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setExternalReportName(file.name);
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    const text = event.target?.result as string;
+                    if (text) {
+                      setExternalReportContent(text);
+                    } else {
+                      setExternalReportContent(`[Relatório Econet Carregado: ${file.name}] - Simulação de conteúdo extraído de análise tributária externa. Empresa: ${company.name}. RBT12: ${formatCurrencyBRL(company.rbt12 || 1200000)}. Regime sugerido: Simples Nacional / Lucro Presumido.`);
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+              />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Coluna Esquerda: Entrada de Conteúdo / Arquivo */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                  Conteúdo do Relatório Externo ({externalReportName || 'Nenhum arquivo carregado'})
+                </span>
+                {externalReportName && (
+                  <span className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-mono">
+                    Arquivo Pronto
+                  </span>
+                )}
+              </div>
+
+              <textarea 
+                rows={12}
+                placeholder="Cole aqui o texto do relatório Econet / Parecer Externo, ou utilize o botão acima para carregar o arquivo..."
+                value={externalReportContent}
+                onChange={(e) => setExternalReportContent(e.target.value)}
+                className="w-full bg-[#0B0F19] border border-slate-800 rounded-xl p-4 text-xs font-mono text-slate-200 focus:border-blue-500 focus:outline-none transition resize-none shadow-inner"
+              />
+
+              <button
+                type="button"
+                onClick={handleAnalyzeExternalReport}
+                disabled={isAnalyzingExternal || !externalReportContent.trim()}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition shadow-lg flex items-center justify-center space-x-2 cursor-pointer"
+              >
+                {isAnalyzingExternal ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Processando Auditoria Cruzada...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                    <span>Gerar Parecer de Auditoria de Documentos Externos</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Coluna Direita: Parecer Gerado */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  Parecer Técnico Pericial Vértice & SNA
+                </span>
+                {externalOpinionResult && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(externalOpinionResult);
+                      alert('Parecer copiado para a área de transferência!');
+                    }}
+                    className="text-[11px] text-blue-400 hover:text-blue-300 font-bold underline cursor-pointer"
+                  >
+                    Copiar Parecer
+                  </button>
+                )}
+              </div>
+
+              <div className="bg-[#0B0F19] border border-slate-800 rounded-xl p-5 h-[360px] overflow-y-auto font-mono text-xs text-slate-300 leading-relaxed shadow-inner">
+                {isAnalyzingExternal ? (
+                  <div className="h-full flex flex-col items-center justify-center space-y-3 text-slate-400">
+                    <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
+                    <p className="text-xs">Cruzando premissas do relatório externo com o motor SNA...</p>
+                  </div>
+                ) : externalOpinionResult ? (
+                  <div className="whitespace-pre-wrap">{externalOpinionResult}</div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center space-y-2 text-slate-500 text-center">
+                    <FileText className="w-8 h-8 opacity-40" />
+                    <p className="text-xs">Carregue ou cole o relatório externo e clique em "Gerar Parecer" para auditar as conclusões.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

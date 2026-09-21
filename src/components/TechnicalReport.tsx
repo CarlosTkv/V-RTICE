@@ -9,7 +9,8 @@ import {
   Check,
   Eye,
   ArrowLeft,
-  ShieldCheck
+  ShieldCheck,
+  Layers
 } from 'lucide-react';
 import { CompanyData, CalculationResult } from '../types';
 import { TechnicalReportContent } from './TechnicalReportContent';
@@ -42,6 +43,7 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [isValidatorOpen, setIsValidatorOpen] = useState(false);
+  const [forcePageBreaks, setForcePageBreaks] = useState(true);
 
   const currentDate = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -193,6 +195,21 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({
               <span>Validar Laudo</span>
             </button>
 
+            {/* Botão Configurar Impressão (Quebras de Página) */}
+            <button
+              type="button"
+              onClick={() => setForcePageBreaks(!forcePageBreaks)}
+              className={`flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer shadow-xs ${
+                forcePageBreaks
+                  ? 'bg-blue-600 text-white border-blue-500'
+                  : 'bg-slate-800 text-slate-300 border-slate-700'
+              }`}
+              title="Alterna a aplicação de classes CSS para forçar quebras de página ideais (page-break-after: always) entre seções no PDF."
+            >
+              <Layers className="w-4 h-4" />
+              <span>Configurar Impressão ({forcePageBreaks ? 'Com Quebras' : 'Contínuo'})</span>
+            </button>
+
             {/* Botão Imprimir Nativo */}
             <button
               type="button"
@@ -235,8 +252,17 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({
         )}
       </div>
 
+      <style>{`
+        .print-force-page-breaks .section-page-break,
+        .print-force-page-breaks section,
+        .print-force-page-breaks .executive-section {
+          page-break-after: always;
+          break-after: page;
+        }
+      `}</style>
+
       {/* The Standardized Document Viewer */}
-      <div id="technical-report-page">
+      <div id="technical-report-page" className={forcePageBreaks ? 'print-force-page-breaks' : ''}>
         <ExecutiveDocumentViewer
           documentTitle="PARECER TÉCNICO & AUDITORIA TRIBUTÁRIA 360°"
           documentCategory="RELATÓRIO TRIBUTÁRIO 360°"

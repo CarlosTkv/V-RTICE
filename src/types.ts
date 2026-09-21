@@ -25,6 +25,34 @@ export type PisCofinsTreatment =
   | 'monofasico_segregado' 
   | 'aliquota_zero';
 
+export interface EconetReportData {
+  companyName: string;
+  year: string;
+  period: string;
+  anexoSegmento: string;
+  uf: string;
+  municipio: string;
+  faixa: string;
+  rbt12: string;
+  clientProfile: string;
+  pjsales: string;
+  inputsPurchase: string;
+  expectedRevenue: string;
+  ncms: string[];
+  regimeRegularIbsCbs: string;
+  regimeRegularCredit: string;
+  regimeRegularAccumulatedCredit: string;
+  regimeRegularNetCost: string;
+  pgdasIbsCbs: string;
+  pgdasNetCost: string;
+  monthlyData: {
+    month: string;
+    regimeRegular: string;
+    pgdas: string;
+    economy: string;
+  }[];
+}
+
 export interface CFOPItem {
   id: string;
   code: string; // Ex: '5.102', '5.405', '5.101', '5.933'
@@ -1119,6 +1147,7 @@ export type AppActiveTab =
   | 'parceiros'
   | 'portal_parceiro'
   | 'webmail_umbler'
+  | 'econet_report'
   // Sub-abas (usadas para navegação interna ou permissões específicas)
   | 'regimes' 
   | 'financeiro' 
@@ -1167,6 +1196,7 @@ export interface PlanAllowedModules {
   socios?: boolean;
   fator_r?: boolean;
   reforma?: boolean;
+  econet_report?: boolean;
   ncm_consulta?: boolean;
   servicos_consulta?: boolean;
   societario?: boolean;
