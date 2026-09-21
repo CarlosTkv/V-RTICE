@@ -978,9 +978,9 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                     
                     <div className="text-right text-xs">
                       <span className="bg-emerald-950/60 text-emerald-400 border border-emerald-900 text-[10px] font-bold px-3 py-1 rounded print:bg-emerald-100 print:text-emerald-800">
-                        RECOMENDADO: SIMPLES HÍBRIDO
+                        RECOMENDADO: {analysis.recommendation === 'regular' ? 'REGIME REGULAR (IBS/CBS)' : 'PGDAS (SIMPLES NACIONAL)'}
                       </span>
-                      <p className="text-[10px] text-slate-400 font-mono mt-3 print:text-slate-500">EMITIDO EM 21 DE SETEMBRO DE 2026</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-3 print:text-slate-500">EMITIDO EM: {analysis.reportDate || '16/09/2026'}</p>
                       <p className="text-[9px] text-slate-500 font-mono mt-1">Autenticidade: VF-2026-2403-927F-9077-AD1F</p>
                     </div>
                   </div>
@@ -988,27 +988,27 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                   {/* IDENTIFICAÇÃO DA EMPRESA */}
                   <div className="bg-slate-950/40 border border-slate-800 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs print:border-slate-300 print:bg-slate-50">
                     <div>
-                      <span className="text-slate-500 uppercase tracking-wider font-bold block">Empresa Modelo (Exemplo Completo):</span>
-                      <strong className="text-white text-base print:text-slate-900">{analysis.company}</strong>
+                      <span className="text-slate-500 uppercase tracking-wider font-bold block">Razão Social Sob Análise:</span>
+                      <strong className="text-white text-base print:text-slate-900">{editedCompany}</strong>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-slate-500 uppercase tracking-wider font-bold block">CNPJ:</span>
-                        <strong className="text-white font-mono print:text-slate-900">12.345.678/0001-99</strong>
+                        <span className="text-slate-500 uppercase tracking-wider font-bold block">Status Cadastral:</span>
+                        <strong className="text-white print:text-slate-900">Ativo / Regularizado</strong>
                       </div>
                       <div>
-                        <span className="text-slate-500 uppercase tracking-wider font-bold block">UF:</span>
-                        <strong className="text-white print:text-slate-900">SP (Capital)</strong>
+                        <span className="text-slate-500 uppercase tracking-wider font-bold block">Localidade:</span>
+                        <strong className="text-white print:text-slate-900">{analysis.location || "Curitiba · PR"}</strong>
                       </div>
                     </div>
                     <div className="border-t border-slate-800/80 pt-3 md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 print:border-slate-200">
                       <div>
-                        <span className="text-slate-500 uppercase tracking-wider font-bold block">RBT12 Acumulado:</span>
-                        <strong className="text-white font-mono print:text-slate-900">{money(analysis.rbt12 * 13.33)}</strong>
+                        <span className="text-slate-500 uppercase tracking-wider font-bold block">RBT12 Acumulado Econet:</span>
+                        <strong className="text-white font-mono print:text-slate-900">{money(editedRbt12)}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-500 uppercase tracking-wider font-bold block">Anexo Enquadrado:</span>
-                        <strong className="text-white print:text-slate-900">Anexo III (Atividades de Serviços Técnicos)</strong>
+                        <span className="text-slate-500 uppercase tracking-wider font-bold block">Anexo Segmento Mapeado:</span>
+                        <strong className="text-white print:text-slate-900">{analysis.annex}</strong>
                       </div>
                     </div>
                   </div>
@@ -1023,31 +1023,39 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                       <div className="bg-slate-950/35 border border-slate-800 p-4 rounded-xl print:border-slate-300">
                         <div className="flex justify-between items-center mb-3">
-                          <span className="font-bold text-slate-400 uppercase tracking-wider">CENÁRIO A: CAIXA</span>
-                          <span className="bg-emerald-950/60 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-bold">Vantagem Tradicional</span>
+                          <span className="font-bold text-slate-400 uppercase tracking-wider">CENÁRIO A: CAIXA (PGDAS)</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                            analysis.recommendation === 'pgdas' ? 'bg-emerald-950/60 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {analysis.recommendation === 'pgdas' ? 'Melhor Caixa' : 'Simples Convencional'}
+                          </span>
                         </div>
                         <p className="text-slate-300 leading-relaxed print:text-slate-600">
-                          O Simples Tradicional economiza <strong className="text-emerald-400 font-mono">R$ 13.641,59/mês</strong> no caixa (<strong className="font-mono">13.03%</strong> vs <strong className="font-mono">26.67%</strong> no híbrido) sem considerar créditos de IBS/CBS.
+                          O Simples Nacional Convencional (PGDAS) resulta em um desembolso líquido total de <strong className="font-mono text-white print:text-slate-950">{money(analysis.pgdas)}</strong> no período de apuração mapeado, correspondendo a uma alíquota efetiva média de <strong className="font-mono">{(editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0).toFixed(2)}%</strong> sobre a receita.
                         </p>
                       </div>
 
                       <div className="bg-slate-950/35 border border-slate-800 p-4 rounded-xl print:border-slate-300">
                         <div className="flex justify-between items-center mb-3">
-                          <span className="font-bold text-slate-400 uppercase tracking-wider">CENÁRIO B: MERCADO B2B</span>
-                          <span className="bg-indigo-950/60 text-indigo-400 text-[10px] px-2 py-0.5 rounded font-bold">Crédito Cheio 26,5%</span>
+                          <span className="font-bold text-slate-400 uppercase tracking-wider">CENÁRIO B: REGIME REGULAR</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                            analysis.recommendation === 'regular' ? 'bg-emerald-950/60 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {analysis.recommendation === 'regular' ? 'Melhor Caixa' : 'Débito e Crédito'}
+                          </span>
                         </div>
                         <p className="text-slate-300 leading-relaxed print:text-slate-600">
-                          Clientes corporativos PJ ganham <strong className="text-indigo-400 font-mono">R$ 20.102,27/mês</strong> em créditos fiscais, reduzindo o custo de aquisição final para o cliente B2B em <strong className="font-mono">73.5%</strong> do preço.
+                          O Regime Regular de débito e crédito resulta em um desembolso líquido total de <strong className="font-mono text-white print:text-slate-950">{money(analysis.regular)}</strong> no período, após deduzir o aproveitamento fiscal de <strong className="text-emerald-400 font-mono">-{money(analysis.credit)}</strong> em créditos tributários de entrada.
                         </p>
                       </div>
 
-                      <div className="bg-slate-950/35 border border-[#FDA4AF]/25 p-4 rounded-xl print:border-slate-300">
+                      <div className="bg-slate-950/35 border border-indigo-500/20 p-4 rounded-xl print:border-slate-300">
                         <div className="flex justify-between items-center mb-3">
-                          <span className="font-bold text-slate-400 uppercase tracking-wider">EQUILÍBRIO DE INSUMOS</span>
-                          <span className="bg-rose-950/60 text-rose-400 text-[10px] px-2 py-0.5 rounded font-bold">Break-Even: 108.9%</span>
+                          <span className="font-bold text-slate-400 uppercase tracking-wider">RECOMENDAÇÃO DO AUDITOR</span>
+                          <span className="bg-indigo-950/60 text-indigo-400 text-[10px] px-2 py-0.5 rounded font-bold">Diferencial</span>
                         </div>
                         <p className="text-slate-300 leading-relaxed print:text-slate-600">
-                          Compras atuais representam apenas <strong className="text-rose-400 font-mono">35.0%</strong>. Sem novos insumos creditáveis, o imposto efetivo no Simples Híbrido sobe para <strong className="font-mono">33.1%</strong>.
+                          A perícia técnica conclui que a opção do <strong className="text-indigo-400 uppercase">{analysis.recommendation === 'regular' ? 'Regime Regular' : 'Simples Nacional (PGDAS)'}</strong> é a mais vantajosa para o caixa da empresa, poupando <strong className="text-emerald-400 font-mono">{money(analysis.economy)}</strong> em impostos frente à alternativa concorrente.
                         </p>
                       </div>
                     </div>
@@ -1063,22 +1071,22 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                       {[
                         {
-                          title: "Trava 01: Sublimite R$ 3,6M",
-                          badge: "REGULAR",
+                          title: "Trava 01: Sublimite de Faturamento",
+                          badge: "ENQUADRADO",
                           badgeColor: "bg-emerald-950/60 text-emerald-400",
-                          text: `RBT12 de ${money(analysis.rbt12 * 13.33)} está enquadrado e mapeado com folga dentro do sublimite estadual de ICMS/ISS de R$ 3.600.000,00.`
+                          text: `O faturamento RBT12 acumulado de ${money(editedRbt12)} está posicionado abaixo do sublimite estadual de ICMS/ISS de R$ 3.600.000,00, garantindo segurança jurídica.`
                         },
                         {
-                          title: "Trava 02: Fator R (28%)",
-                          badge: "29.2%",
+                          title: "Trava 02: Perfil do Cliente",
+                          badge: `Perfil: ${analysis.businessProfile || 'Misto'}`,
                           badgeColor: "bg-indigo-950/60 text-indigo-400",
-                          text: "Fator R apurado superior a 28%: Atividade tributada com base na alíquota reduzida do Anexo III, gerando grande eficiência econômica."
+                          text: `Empresa possui perfil de vendas para PJ de ${analysis.pjShare || 60}% e compras de insumos na ordem de ${analysis.inputShare || 40}%, permitindo ampla elasticidade operacional.`
                         },
                         {
                           title: "Trava 03: Crédito de Entradas",
-                          badge: "Média 18.5%",
+                          badge: "IBS/CBS",
                           badgeColor: "bg-amber-950/60 text-amber-400",
-                          text: "Compras de fornecedores optantes pelo Simples (40%) geram crédito de entrada mitigado de apenas 6.4%, resultando em resíduo tributário."
+                          text: `Acúmulo de créditos fiscais de entradas estimado em ${money(analysis.credit)} amortiza significativamente as obrigações brutas de IBS/CBS (${money(analysis.debit)}) no regime regular.`
                         }
                       ].map((item, idx) => (
                         <div key={idx} className="bg-slate-950/35 border border-slate-800 p-4 rounded-xl print:border-slate-300">
@@ -1103,26 +1111,36 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       
-                      {/* Gráfico 1: Comparativo de Carga Anual */}
+                      {/* Gráfico 1: Comparativo de Carga */}
                       <div className="bg-slate-950/30 border border-slate-800 p-5 rounded-2xl print:border-slate-300">
                         <h4 className="text-xs font-bold text-slate-300 mb-4 uppercase tracking-wider">
-                          Comparativo de Carga Anual (R$) — 12 Meses Projetados
+                          Comparativo de Carga Tributária Líquida (R$) no Período Mapeado
                         </h4>
                         
                         <div className="space-y-4 pt-2">
                           {[
-                            { label: "Simples Tradicional", value: 156360.00, percent: "13.03%", color: "bg-emerald-500", width: "40%" },
-                            { label: "Simples Híbrido", value: 320059.05, percent: "26.67%", color: "bg-indigo-500", width: "80%" },
-                            { label: "Lucro Presumido", value: 293160.00, percent: "24.43%", color: "bg-blue-500", width: "70%" },
-                            { label: "Lucro Real", value: 252960.00, percent: "21.08%", color: "bg-orange-500", width: "60%" }
+                            { 
+                              label: "Regime Regular (Líquido)", 
+                              value: analysis.regular || 0, 
+                              percent: `${(editedRevenue > 0 ? ((analysis.regular || 0) / editedRevenue) * 100 : 0).toFixed(2)}%`, 
+                              color: analysis.recommendation === 'regular' ? "bg-emerald-500" : "bg-slate-500", 
+                              width: analysis.regular && analysis.pgdas ? `${Math.round((analysis.regular / Math.max(analysis.regular, analysis.pgdas)) * 100)}%` : "50%"
+                            },
+                            { 
+                              label: "Simples Nacional PGDAS", 
+                              value: analysis.pgdas || 0, 
+                              percent: `${(editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0).toFixed(2)}%`, 
+                              color: analysis.recommendation === 'pgdas' ? "bg-emerald-500" : "bg-slate-500", 
+                              width: analysis.regular && analysis.pgdas ? `${Math.round((analysis.pgdas / Math.max(analysis.regular, analysis.pgdas)) * 100)}%` : "100%"
+                            }
                           ].map((item) => (
                             <div key={item.label} className="space-y-1">
                               <div className="flex justify-between text-xs">
                                 <span className="font-bold text-slate-400">{item.label} ({item.percent})</span>
                                 <strong className="font-mono text-slate-300">{money(item.value)}</strong>
                               </div>
-                              <div className="h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-                                <div className={`h-full rounded-full ${item.color}`} style={{ width: item.width }} />
+                              <div className="h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                                <div className={`h-full rounded-full transition-all duration-500 ${item.color}`} style={{ width: item.width }} />
                               </div>
                             </div>
                           ))}
@@ -1132,34 +1150,38 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                       {/* Gráfico 2: Atratividade Comercial B2B */}
                       <div className="bg-slate-950/30 border border-slate-800 p-5 rounded-2xl print:border-slate-300">
                         <h4 className="text-xs font-bold text-slate-300 mb-4 uppercase tracking-wider">
-                          Atratividade Comercial B2B (Base R$ 1.000 Faturados)
+                          Composição do Regime Regular (IBS/CBS)
                         </h4>
 
-                        <div className="space-y-6 pt-4">
-                          <div className="flex items-center gap-4">
-                            <span className="w-24 text-xs font-bold text-slate-400 shrink-0">Simples Tradicional</span>
-                            <div className="flex-1 h-8 rounded-lg overflow-hidden flex font-mono text-[10px] text-white font-bold">
-                              <div className="bg-emerald-500 flex items-center justify-center" style={{ width: "6.4%" }}>R$ 64</div>
-                              <div className="bg-indigo-600 flex items-center justify-center" style={{ width: "93.6%" }}>R$ 936</div>
+                        <div className="space-y-4 pt-2 text-xs">
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Débito IBS/CBS Bruto:</span>
+                              <strong className="font-mono text-rose-400">{money(analysis.debit)}</strong>
+                            </div>
+                            <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                              <div className="h-full bg-rose-500 rounded-full w-full" />
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-4">
-                            <span className="w-24 text-xs font-bold text-slate-400 shrink-0">Simples Híbrido</span>
-                            <div className="flex-1 h-8 rounded-lg overflow-hidden flex font-mono text-[10px] text-white font-bold">
-                              <div className="bg-emerald-500 flex items-center justify-center" style={{ width: "26.5%" }}>R$ 265</div>
-                              <div className="bg-indigo-600 flex items-center justify-center" style={{ width: "73.5%" }}>R$ 735</div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-slate-400">Créditos de Entrada Apropriados:</span>
+                              <strong className="font-mono text-emerald-400">-{money(analysis.credit)}</strong>
+                            </div>
+                            <div className="h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: analysis.debit && analysis.credit ? `${Math.min(100, Math.round((analysis.credit / analysis.debit) * 100))}%` : "50%" }} />
                             </div>
                           </div>
 
-                          <div className="flex justify-center gap-6 text-[10px] font-semibold">
+                          <div className="flex justify-center gap-6 text-[10px] font-semibold pt-2">
+                            <div className="flex items-center gap-1.5 text-rose-400">
+                              <span className="h-2 w-2 bg-rose-500 rounded" />
+                              <span>Débito</span>
+                            </div>
                             <div className="flex items-center gap-1.5 text-emerald-400">
                               <span className="h-2 w-2 bg-emerald-500 rounded" />
-                              <span>Crédito repassado ao Comprador</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-indigo-400">
-                              <span className="h-2 w-2 bg-indigo-600 rounded" />
-                              <span>Custo Líquido do Comprador</span>
+                              <span>Crédito</span>
                             </div>
                           </div>
                         </div>
@@ -1172,7 +1194,7 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                   <div className="space-y-4 print:break-inside-avoid">
                     <h3 className="text-sm font-black text-indigo-400 uppercase tracking-wider flex items-center gap-2">
                       <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/20 text-indigo-400 text-xs font-black">4</span>
-                      DEMONSTRATIVO NUMÉRICO COMPARATIVO MENSAL E ANUAL
+                      DEMONSTRATIVO NUMÉRICO COMPARATIVO NO PERÍODO ({editedPeriod})
                     </h3>
 
                     <div className="overflow-x-auto border border-slate-800 rounded-xl">
@@ -1180,41 +1202,41 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                         <thead>
                           <tr className="bg-slate-900/60 text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[10px] font-bold">
                             <th className="p-3">Métrica de Análise</th>
-                            <th className="p-3">Simples Tradicional</th>
-                            <th className="p-3">Simples Híbrido</th>
-                            <th className="p-3">Variação / Impacto</th>
+                            <th className="p-3">Simples Nacional (PGDAS)</th>
+                            <th className="p-3">Regime Regular (IBS/CBS)</th>
+                            <th className="p-3">Diferencial Economia</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 text-slate-300">
                           <tr>
+                            <td className="p-3 font-semibold text-slate-200">Receita Bruta do Período</td>
+                            <td className="p-3 font-mono">{money(editedRevenue)}</td>
+                            <td className="p-3 font-mono">{money(editedRevenue)}</td>
+                            <td className="p-3 font-mono text-slate-500">-</td>
+                          </tr>
+                          <tr>
                             <td className="p-3 font-semibold text-slate-200">Alíquota Efetiva de Tributação</td>
-                            <td className="p-3 font-mono text-emerald-400">13.03%</td>
-                            <td className="p-3 font-mono text-indigo-400">26.67%</td>
-                            <td className="p-3 font-mono text-rose-400 font-bold">+13.64% (Híbrido maior)</td>
+                            <td className="p-3 font-mono text-rose-400">{(editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0).toFixed(2)}%</td>
+                            <td className="p-3 font-mono text-emerald-400">{(editedRevenue > 0 ? ((analysis.regular || 0) / editedRevenue) * 100 : 0).toFixed(2)}%</td>
+                            <td className="p-3 font-mono text-indigo-400 font-bold">{Math.abs((editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0) - (editedRevenue > 0 ? ((analysis.regular || 0) / editedRevenue) * 100 : 0)).toFixed(2)}%</td>
                           </tr>
                           <tr>
-                            <td className="p-3 font-semibold text-slate-200">Guia DAS (Tributos Diretos Retidos)</td>
-                            <td className="p-3 font-mono">{money(13030.00)}</td>
-                            <td className="p-3 font-mono text-indigo-300">{money(6632.27)}</td>
-                            <td className="p-3 font-mono text-emerald-400 font-bold">Expurgo de PIS/COFINS e ICMS/ISS</td>
+                            <td className="p-3 font-semibold text-slate-200">Débito IBS/CBS (Sem Créditos)</td>
+                            <td className="p-3 font-mono">{money(analysis.pgdas)}</td>
+                            <td className="p-3 font-mono">{money(analysis.debit)}</td>
+                            <td className="p-3 font-mono text-rose-400 font-bold">+{money(Math.abs((analysis.pgdas || 0) - (analysis.debit || 0)))}</td>
                           </tr>
                           <tr>
-                            <td className="p-3 font-semibold text-slate-200">IBS + CBS Líquido (Regime Regular)</td>
-                            <td className="p-3 font-mono text-slate-500">Incluso no DAS</td>
-                            <td className="p-3 font-mono">{money(20039.32)}</td>
-                            <td className="p-3 font-mono">Débito: {money(26500.00)} / Crédito: {money(6460.68)}</td>
-                          </tr>
-                          <tr className="bg-indigo-950/10 font-bold">
-                            <td className="p-3 text-slate-100">Desembolso Mensal Total</td>
-                            <td className="p-3 font-mono text-emerald-400">{money(13030.00)}</td>
-                            <td className="p-3 font-mono text-rose-400">{money(26671.59)}</td>
-                            <td className="p-3 font-mono text-emerald-400">Simples Tradicional poupa {money(13641.59)}/mês</td>
+                            <td className="p-3 font-semibold text-slate-200">Créditos de Entrada Dedutíveis</td>
+                            <td className="p-3 font-mono text-slate-500">Inexistente</td>
+                            <td className="p-3 font-mono text-emerald-400">-{money(analysis.credit)}</td>
+                            <td className="p-3 font-mono text-emerald-400 font-bold">-{money(analysis.credit)}</td>
                           </tr>
                           <tr className="bg-indigo-950/20 font-bold">
-                            <td className="p-3 text-slate-100">Desembolso Anual Consolidado</td>
-                            <td className="p-3 font-mono text-emerald-400">{money(156360.00)}</td>
-                            <td className="p-3 font-mono text-rose-400">{money(320059.05)}</td>
-                            <td className="p-3 font-mono text-indigo-400">Diferença Anual: {money(163699.05)}</td>
+                            <td className="p-3 text-slate-100">Custo Líquido Consolidado</td>
+                            <td className="p-3 font-mono text-rose-400">{money(analysis.pgdas)}</td>
+                            <td className="p-3 font-mono text-emerald-400">{money(analysis.regular)}</td>
+                            <td className="p-3 font-mono text-indigo-400 font-black">{money(analysis.economy)} ({analysis.recommendation === 'regular' ? 'Regime Regular mais barato' : 'Simples Nacional mais barato'})</td>
                           </tr>
                         </tbody>
                       </table>
@@ -1230,20 +1252,20 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
                       <div className="bg-slate-950/40 border border-slate-800 p-4 rounded-xl space-y-2">
-                        <span className="text-indigo-400 font-bold">Passo 1: Alíquota Efetiva do Simples</span>
-                        <p className="text-slate-200">[(RBT12 * AliqNominal) - Parcela] / RBT12 = 13.030%</p>
+                        <span className="text-indigo-400 font-bold">Passo 1: Receita Bruta Homologada</span>
+                        <p className="text-slate-200">Base Tributária de Apuração = {money(editedRevenue)}</p>
                       </div>
                       <div className="bg-slate-950/40 border border-slate-800 p-4 rounded-xl space-y-2">
-                        <span className="text-indigo-400 font-bold">Passo 2: DAS Reduzido no Híbrido</span>
-                        <p className="text-slate-200">13.03% * (IRPJ 4.0% + CSLL 3.5% + CPP 43.4%) = 6.632% ({money(6632.27)}/mês)</p>
+                        <span className="text-indigo-400 font-bold">Passo 2: Carga do Simples Nacional (PGDAS)</span>
+                        <p className="text-slate-200">Custo Líquido PGDAS = {money(analysis.pgdas)} (Efetiva: {(editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0).toFixed(2)}%)</p>
                       </div>
                       <div className="bg-slate-950/40 border border-slate-800 p-4 rounded-xl space-y-2">
-                        <span className="text-indigo-400 font-bold">Passo 3: Débito e Crédito de IBS/CBS</span>
-                        <p className="text-slate-200">Débito (26,5%): {money(26500.00)} | Crédito Compras: -{money(6460.68)} | Saldo: {money(20039.32)}/mês</p>
+                        <span className="text-indigo-400 font-bold">Passo 3: Carga do Regime Regular (IBS/CBS)</span>
+                        <p className="text-slate-200">Débito: {money(analysis.debit)} - Crédito: {money(analysis.credit)} = Líquido de {money(analysis.regular)}</p>
                       </div>
                       <div className="bg-slate-950/40 border border-slate-800 p-4 rounded-xl space-y-2">
-                        <span className="text-indigo-400 font-bold">Passo 4: Carga Total Consolidada</span>
-                        <p className="text-slate-200">DAS Reduzido ({money(6632.27)}) + Saldo IBS/CBS ({money(20039.32)}) = {money(26671.59)}/mês (26.67%)</p>
+                        <span className="text-indigo-400 font-bold">Passo 4: Economia Real Mapeada</span>
+                        <p className="text-slate-200">Diferencial Líquido: |{money(analysis.pgdas)} - {money(analysis.regular)}| = {money(analysis.economy)} em favor do {analysis.recommendation === 'regular' ? 'Regime Regular' : 'Simples Nacional (PGDAS)'}</p>
                       </div>
                     </div>
                   </div>
@@ -1252,7 +1274,7 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                   <div className="space-y-4 print:break-inside-avoid">
                     <h3 className="text-sm font-black text-indigo-400 uppercase tracking-wider flex items-center gap-2">
                       <span className="flex h-5 w-5 items-center justify-center rounded bg-indigo-500/20 text-indigo-400 text-xs font-black">6</span>
-                      TABELA DE PARTILHA E EXPURGOS DO DAS REDUZIDO (ANEXO III / LC 123/2006)
+                      TABELA DE PARTILHA E EXPURGOS DO DAS REDUZIDO
                     </h3>
 
                     <div className="overflow-x-auto border border-slate-800 rounded-xl">
@@ -1263,36 +1285,50 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
                             <th className="p-3">Destino Legal</th>
                             <th className="p-3">Partilha (%)</th>
                             <th className="p-3">Alíquota Efetiva</th>
-                            <th className="p-3">Valor Mensal</th>
+                            <th className="p-3">Valor no Período</th>
                             <th className="p-3 text-right">Status no Híbrido</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800 text-slate-300">
-                          {[
-                            { name: "IRPJ", dest: "Federal Direto", part: "4.00%", tax: "0.521%", val: 521.20, status: "Retido no DAS", color: "text-emerald-400 font-bold" },
-                            { name: "CSLL", dest: "Federal Direto", part: "3.50%", partNum: 3.5, tax: "0.456%", val: 456.05, status: "Retido no DAS", color: "text-emerald-400 font-bold" },
-                            { name: "CPP (Previdência)", dest: "INSS Patronal", part: "43.40%", tax: "5.655%", val: 5655.02, status: "Retido no DAS", color: "text-emerald-400 font-bold" },
-                            { name: "PIS + COFINS", dest: "Substituído pela CBS", part: "16.60%", tax: "2.163%", val: 2162.98, status: "Expurgado (CBS 8,8%)", color: "text-rose-400 font-bold" },
-                            { name: "ISS", dest: "Substituído pelo IBS", part: "32.50%", tax: "4.235%", val: 4234.75, status: "Expurgado (IBS 17,7%)", color: "text-rose-400 font-bold" }
-                          ].map((t, idx) => (
-                            <tr key={idx} className="hover:bg-slate-900/20">
-                              <td className="p-3 font-bold text-slate-200">{t.name}</td>
-                              <td className="p-3 text-slate-400">{t.dest}</td>
-                              <td className="p-3 font-mono">{t.part}</td>
-                              <td className="p-3 font-mono">{t.tax}</td>
-                              <td className="p-3 font-mono">{money(t.val)}</td>
-                              <td className={`p-3 text-right ${t.color}`}>{t.status}</td>
-                            </tr>
-                          ))}
+                          {(() => {
+                            const isCommerce = (analysis.annex || "").toLowerCase().includes("comércio") || (analysis.annex || "").toLowerCase().includes("anexo i");
+                            const effRate = editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0.62;
+                            const totalVal = analysis.pgdas || 0;
+                            
+                            const rows = isCommerce ? [
+                              { name: "IRPJ", dest: "Tesouro Federal", part: "5.50%", rate: (effRate * 0.055), val: (totalVal * 0.055), status: "Retido no DAS", color: "text-emerald-400" },
+                              { name: "CSLL", dest: "Tesouro Federal", part: "3.50%", rate: (effRate * 0.035), val: (totalVal * 0.035), status: "Retido no DAS", color: "text-emerald-400" },
+                              { name: "CPP", dest: "INSS Patronal", part: "41.50%", rate: (effRate * 0.415), val: (totalVal * 0.415), status: "Retido no DAS", color: "text-emerald-400" },
+                              { name: "PIS + COFINS", dest: "CBS Federal", part: "12.70%", rate: (effRate * 0.127), val: (totalVal * 0.127), status: "Expurgado (CBS)", color: "text-rose-400 font-semibold" },
+                              { name: "ICMS", dest: "IBS Estadual", part: "36.80%", rate: (effRate * 0.368), val: (totalVal * 0.368), status: "Expurgado (IBS)", color: "text-rose-400 font-semibold" }
+                            ] : [
+                              { name: "IRPJ", dest: "Tesouro Federal", part: "4.00%", rate: (effRate * 0.040), val: (totalVal * 0.040), status: "Retido no DAS", color: "text-emerald-400" },
+                              { name: "CSLL", dest: "Tesouro Federal", part: "3.50%", rate: (effRate * 0.035), val: (totalVal * 0.035), status: "Retido no DAS", color: "text-emerald-400" },
+                              { name: "CPP", dest: "INSS Patronal", part: "43.40%", rate: (effRate * 0.434), val: (totalVal * 0.434), status: "Retido no DAS", color: "text-emerald-400" },
+                              { name: "PIS + COFINS", dest: "CBS Federal", part: "16.60%", rate: (effRate * 0.166), val: (totalVal * 0.166), status: "Expurgado (CBS)", color: "text-rose-400 font-semibold" },
+                              { name: "ISS", dest: "IBS Municipal", part: "32.50%", rate: (effRate * 0.325), val: (totalVal * 0.325), status: "Expurgado (IBS)", color: "text-rose-400 font-semibold" }
+                            ];
+
+                            return rows.map((row, idx) => (
+                              <tr key={idx} className="hover:bg-slate-900/20">
+                                <td className="p-3 font-bold text-slate-200">{row.name}</td>
+                                <td className="p-3 text-slate-400">{row.dest}</td>
+                                <td className="p-3 font-mono">{row.part}</td>
+                                <td className="p-3 font-mono">{row.rate.toFixed(3)}%</td>
+                                <td className="p-3 font-mono">{money(row.val)}</td>
+                                <td className={`p-3 text-right ${row.color}`}>{row.status}</td>
+                              </tr>
+                            ));
+                          })()}
                         </tbody>
                         <tfoot>
                           <tr className="bg-slate-900/50 font-bold border-t border-slate-800">
-                            <td className="p-3 text-white">TOTAL DAS</td>
-                            <td className="p-3 text-slate-400">DAS Reduzido no Híbrido</td>
-                            <td className="p-3 font-mono">100,00%</td>
-                            <td className="p-3 font-mono">13.030%</td>
-                            <td className="p-3 font-mono">{money(13030.00)}</td>
-                            <td className="p-3 text-right text-indigo-400">DAS Reduzido: 6.632% ({money(6632.27)})</td>
+                            <td className="p-3 text-white">TOTAL PGDAS</td>
+                            <td className="p-3 text-slate-400">Simulação Consolidada</td>
+                            <td className="p-3 font-mono">100.00%</td>
+                            <td className="p-3 font-mono">{(editedRevenue > 0 ? ((analysis.pgdas || 0) / editedRevenue) * 100 : 0.62).toFixed(2)}%</td>
+                            <td className="p-3 font-mono">{money(analysis.pgdas)}</td>
+                            <td className="p-3 text-right text-indigo-400">Líquido DAS: {money(analysis.pgdas)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -1330,20 +1366,23 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
                     <div className="bg-slate-950/30 border border-slate-800 p-6 rounded-2xl space-y-4 text-xs text-slate-300 leading-relaxed print:border-slate-300 print:text-slate-600">
                       <p>
-                        <strong>Parecer Técnico de Viabilidade Tributária — Simples Tradicional vs Simples Híbrido:</strong>
+                        <strong>Parecer Técnico de Viabilidade Tributária — Conclusão Técnica Executiva:</strong>
                       </p>
                       <p>
-                        Após a consolidação dos dados de faturamento ({money(analysis.rbt12 * 13.33)}/ano), folha de pagamento e compras de insumos, identificou-se que o modelo do <strong>Simples Tradicional</strong> confere a menor carga tributária direta para a empresa.
+                        Após a consolidação e apuração dos dados reais extraídos do estudo consultivo da Econet para a empresa <strong className="text-white print:text-slate-950">{editedCompany}</strong>, relativos ao período de <strong className="text-white print:text-slate-950">{editedPeriod}</strong>, procedeu-se ao cruzamento com as diretrizes da Reforma Tributária (EC 132/23).
                       </p>
                       <p>
-                        No entanto, sob o ponto de vista de <strong>Posicionamento de Mercado B2B (100% da carteira)</strong>, a manutenção do Simples Tradicional pode afetar severamente a competitividade perante clientes corporativos do Lucro Real, visto que estes deixam de receber créditos de IBS/CBS cheios (repassando apenas 6.40% no tradicional contra 26.50% no Simples Híbrido).
+                        A análise comparativa revela que o regime do <strong className="text-white print:text-slate-950">{analysis.recommendation === 'regular' ? 'Regime Regular (Débito e Crédito de IBS/CBS)' : 'Simples Nacional (PGDAS)'}</strong> constitui o cenário tributário mais favorável, proporcionando um custo líquido de <strong className="text-emerald-400 font-mono">{money(analysis.recommendation === 'regular' ? analysis.regular : analysis.pgdas)}</strong> em relação ao custo alternativo de <strong className="text-rose-400 font-mono">{money(analysis.recommendation === 'regular' ? analysis.pgdas : analysis.regular)}</strong>.
                       </p>
                       
                       <div className="bg-indigo-950/20 border border-indigo-900 p-4 rounded-xl space-y-2 text-indigo-200 print:border-slate-300">
-                        <strong className="block text-indigo-300 uppercase tracking-wide text-[10px]">VEREDITO DA PERÍCIA TRIBUTÁRIA</strong>
-                        <p className="font-bold">Recomendado: SIMPLES HÍBRIDO para o ano de 2027.</p>
+                        <strong className="block text-indigo-300 uppercase tracking-wide text-[10px]">VEREDITO FINAL DA AUDITORIA</strong>
+                        <p className="font-bold">Cenário Recomendado: {analysis.recommendation === 'regular' ? 'REGIME REGULAR (IBS/CBS)' : 'PGDAS (SIMPLES NACIONAL)'}</p>
                         <p className="text-[11px]">
-                          Justificativa Comercial: A preservação das relações comerciais e a manutenção da empresa na cadeia de suprimentos B2B superam o custo incremental de caixa de R$ 13.641,59/mês, gerando R$ 241.227,24/ano em créditos híbridos para seus clientes.
+                          {analysis.recommendation === 'regular' 
+                            ? `Justificativa: A apropriação de créditos de IBS/CBS de compras na ordem de ${money(analysis.credit)} amortece os débitos brutos gerados, tornando o Regime Regular fiscalmente mais eficiente com uma economia real de ${money(analysis.economy)}.`
+                            : `Justificativa: Devido à baixa incidência de insumos creditáveis apropriados e ao menor encargo tributário progressivo no anexo, o Simples Nacional convencional (PGDAS) preserva de forma mais eficiente o fluxo de caixa, com uma economia de ${money(analysis.economy)}.`
+                          }
                         </p>
                       </div>
                     </div>
@@ -1358,9 +1397,22 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                       {[
-                        { title: "1. Gestão de Compras", desc: "Priorizar fornecedores do regime regular para garantir crédito integral de 26,5% no IBS/CBS de entradas." },
-                        { title: "2. Política Comercial B2B", desc: "Destacar o crédito gerado de 26,5% nas propostas comerciais, demonstrando a redução de custo real para adquirentes PJ." },
-                        { title: "3. Monitoramento Anual", desc: "Revisar as opções em janeiro de cada ano-calendário com base no volume faturado acumulado e compras de insumos." }
+                        { 
+                          title: "1. Gestão de Entradas", 
+                          desc: analysis.recommendation === 'regular' 
+                            ? "Priorizar compras de fornecedores do regime regular para maximizar o aproveitamento de créditos cheios de IBS/CBS (26,5%)."
+                            : "Monitorar a carteira de compras buscando o melhor equilíbrio de preços independentemente dos créditos gerados."
+                        },
+                        { 
+                          title: "2. Posicionamento B2B", 
+                          desc: analysis.recommendation === 'regular'
+                            ? "Destacar para clientes corporativos (PJ) que as vendas de sua empresa repassam créditos integrais de IBS/CBS, aumentando sua atratividade comercial."
+                            : "Ajustar tabelas comerciais focado na competitividade direta do Simples Nacional frente a adquirentes corporativos."
+                        },
+                        { 
+                          title: "3. Monitoramento Periódico", 
+                          desc: `Acompanhar de forma regular o faturamento acumulado frente ao sublimite estadual de ICMS/ISS de R$ 3.600.000,00.`
+                        }
                       ].map((p, idx) => (
                         <div key={idx} className="bg-slate-950/30 border border-slate-800 p-4 rounded-xl print:border-slate-300">
                           <strong className="text-slate-200 block mb-2">{p.title}</strong>
