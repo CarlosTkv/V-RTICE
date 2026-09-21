@@ -31,6 +31,13 @@ export const MODULAR_PRICING_CATALOG: ModularItemPricing[] = [
     monthlyPrice: 60.00,
   },
   {
+    id: 'simples_hibrido',
+    label: 'Simples Híbrido (EC 132/23)',
+    description: 'Simulador do Simples Nacional Híbrido com recolhimento de IBS/CBS fora do DAS (Opção do Art. 146-A)',
+    category: 'tributario',
+    monthlyPrice: 60.00,
+  },
+  {
     id: 'financeiro',
     label: 'Painel Financeiro & DRE Gerencial',
     description: 'DRE fiscal analítica, margens de lucro líquido, custos operacionais e fluxo de caixa contábil',

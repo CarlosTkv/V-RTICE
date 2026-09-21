@@ -156,6 +156,36 @@ export const PLATFORM_PLANS: PlanDefinition[] = [
 
 export const INITIAL_SOLD_SUBSCRIPTIONS: SoldSubscription[] = [
   {
+    id: 'sub_decision_making_00',
+    customerName: 'Alessandra Handza',
+    customerEmail: 'adm@decisionmaking.com.br',
+    customerDocument: '38.920.145/0001-92',
+    customerPhone: '(11) 97788-9900',
+    companyName: 'Decision Making Consultoria • Escritório Parceiro Homologado',
+    planId: 'parceiro_isento',
+    planName: 'Parceiro Isento • 100% Gratuito (Homologado Vértice)',
+    periodicity: 'anual',
+    pricePaid: 0.00,
+    originalPrice: 0.00,
+    discountAppliedPercent: 100,
+    billingMethod: 'isento',
+    status: 'ativa',
+    startDate: '2025-01-01',
+    contractEndDate: '2099-12-31',
+    nextBillingDate: '2099-12-31',
+    loyaltyMonths: 0,
+    terminationFinePercent: 0,
+    usersCount: 999,
+    maxUsersAllowed: 9999,
+    maxCompaniesAllowed: 9999,
+    contractAccepted: true,
+    contractSignedAt: '2025-01-01 00:00:00',
+    contractIp: '187.0.0.1',
+    contractNumber: 'CTR-ISENTO-DECISION-MAKING',
+    notes: 'Parceiro Homologado Vértice. Plano 100% Gratuito Vitalício - Isenção permanente de mensalidades, faturas e anuidade.',
+    allowedModules: DEFAULT_PLAN_MODULES.parceiro_isento,
+  },
+  {
     id: 'sub_mendes_01',
     customerName: 'Dr. Roberto Mendes',
     customerEmail: 'contato@escritoriocontabil.com.br',
@@ -218,6 +248,35 @@ export const INITIAL_SOLD_SUBSCRIPTIONS: SoldSubscription[] = [
 ];
 
 export const INITIAL_SYSTEM_USERS: SystemUser[] = [
+  {
+    id: 'usr-alessandra-handza-decision-making',
+    name: 'Alessandra Handza',
+    email: 'adm@decisionmaking.com.br',
+    role: 'escritorio',
+    status: 'ativo',
+    companyName: 'Decision Making Consultoria • Escritório Parceiro Homologado',
+    department: 'Diretoria & Consultoria Fiscal',
+    createdAt: '2025-01-01',
+    lastAccess: 'Hoje',
+    subscriptionId: 'sub_decision_making_00',
+    permissions: {
+      canSimulateRegimes: true,
+      canExportReports: true,
+      canAccessAIAuditor: true,
+      canEditCompanyData: true,
+      canManageUsers: true,
+      canViewFinancials: true,
+      canAccessTaxReform: true,
+      canAccessCFOP: true,
+      canAccessSocios: true,
+      canAccessProjections: true,
+      canAccessFatorR: true,
+      canAccessPGDASImport: true,
+      canAccessBPO: true,
+      canAccessPlatformBilling: false,
+      canVerifyClients: false
+    }
+  },
   {
     id: 'usr-carlos-miguel-master',
     name: 'Carlos Miguel Vieira',

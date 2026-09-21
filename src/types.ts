@@ -788,7 +788,7 @@ export interface SoldSubscription {
   pricePaid: number;
   originalPrice?: number;
   discountAppliedPercent?: number;
-  billingMethod: 'boleto' | 'pix' | 'cartao';
+  billingMethod: 'boleto' | 'pix' | 'cartao' | 'isento';
   status: 'ativa' | 'pendente_pagamento' | 'atrasada' | 'cancelada';
   startDate: string; // Data de Início de Validade
   contractEndDate?: string; // Data de Término da Vigência / Fidelidade
@@ -907,9 +907,9 @@ export interface BillingInvoice {
   discountReason?: string;
   dueDate: string;
   issueDate: string;
-  paymentMethod: 'boleto' | 'pix' | 'cartao';
+  paymentMethod: 'boleto' | 'pix' | 'cartao' | 'isento';
   periodicity?: PlanPeriodicity;
-  status: 'pago' | 'pendente' | 'vencido' | 'cancelado';
+  status: 'pago' | 'pendente' | 'vencido' | 'cancelado' | 'isento';
   paidAt?: string;
   linhaDigitavel: string;
   nossoNumero: string;

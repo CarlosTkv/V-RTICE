@@ -31,6 +31,7 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     dashboard: true,
     auditoria_digital: true,
     planejamento_tributario: true,
+    simples_hibrido: true,
     financeiro_gerencial: false,
     consultoria_fiscal: true,
     legal_societario: false,
@@ -57,6 +58,7 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     dashboard: true,
     auditoria_digital: true,
     planejamento_tributario: true,
+    simples_hibrido: true,
     financeiro_gerencial: true,
     consultoria_fiscal: true,
     legal_societario: true,
@@ -83,6 +85,7 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     dashboard: true,
     auditoria_digital: true,
     planejamento_tributario: true,
+    simples_hibrido: true,
     financeiro_gerencial: true,
     consultoria_fiscal: true,
     legal_societario: true,
@@ -110,6 +113,7 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     dashboard: true,
     auditoria_digital: true,
     planejamento_tributario: true,
+    simples_hibrido: true,
     financeiro_gerencial: true,
     consultoria_fiscal: true,
     legal_societario: true,
@@ -137,6 +141,7 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     dashboard: true,
     auditoria_digital: true,
     planejamento_tributario: true,
+    simples_hibrido: true,
     financeiro_gerencial: true,
     consultoria_fiscal: true,
     legal_societario: true,
@@ -288,6 +293,7 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
       'fator_r',
       'socios',
       'parecer',
+      'simples_hibrido',
       'consultoria_fiscal',
       'cfop',
       'ncm_consulta',
@@ -313,6 +319,7 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
       'dashboard',
       'planejamento_tributario',
       'regimes',
+      'simples_hibrido',
       'reforma',
       'projecao',
       'parecer',
@@ -395,10 +402,11 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
     
     case 'planejamento_tributario':
     case 'regimes':
+    case 'simples_hibrido':
     case 'reforma':
     case 'projecao':
     case 'parecer':
-      return { allowed: allowedMods.planejamento_tributario, reason: 'O Planejamento Tributário Avançado requer o plano Pro ou superior.' };
+      return { allowed: Boolean(allowedMods.planejamento_tributario || allowedMods.simples_hibrido), reason: 'O Planejamento Tributário Avançado e Simples Híbrido requer o plano Pro ou superior.' };
     
     case 'financeiro_gerencial':
     case 'financeiro':

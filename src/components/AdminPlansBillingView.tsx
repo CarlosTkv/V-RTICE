@@ -138,12 +138,13 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
   // ESTADOS DE DADOS COM PERSISTÊNCIA EM LOCALSTORAGE E HIGIENIZAÇÃO RIGOROSA
   const [subscriptions, setSubscriptions] = useState<SoldSubscription[]>(() => {
     const saved = localStorage.getItem('sna_admin_subscriptions');
+    let subs: SoldSubscription[] = [];
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           // Filtrar qualquer resíduo de dados simulados/falsos antigos
-          const cleaned = parsed.filter((sub: SoldSubscription) => {
+          subs = parsed.filter((sub: SoldSubscription) => {
             if (!sub || !sub.id) return false;
             const id = (sub.id || '').toLowerCase();
             const email = (sub.customerEmail || '').toLowerCase();
@@ -167,23 +168,51 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
               company.includes('delta');
             return !isLegacyMock;
           });
-          return cleaned;
         }
       } catch (e) {}
+    } else {
+      subs = INITIAL_SOLD_SUBSCRIPTIONS;
     }
-    return INITIAL_SOLD_SUBSCRIPTIONS;
+
+    // Garantir que a assinatura da Alessandra Handza (Decision Making) esteja presente e 100% gratuita (R$ 0,00)
+    const hasDecisionMaking = subs.some(s => s.customerEmail?.toLowerCase() === 'adm@decisionmaking.com.br');
+    if (!hasDecisionMaking) {
+      subs = [INITIAL_SOLD_SUBSCRIPTIONS[0], ...subs];
+    } else {
+      subs = subs.map(s => {
+        if (s.customerEmail?.toLowerCase() === 'adm@decisionmaking.com.br') {
+          return {
+            ...s,
+            planId: 'parceiro_isento',
+            planName: 'Parceiro Isento • 100% Gratuito (Homologado Vértice)',
+            pricePaid: 0.00,
+            originalPrice: 0.00,
+            discountAppliedPercent: 100,
+            billingMethod: 'isento',
+            status: 'ativa',
+            notes: 'Parceiro Homologado Vértice. Plano 100% Gratuito Vitalício - Isenção permanente de mensalidades e faturas.',
+            allowedModules: DEFAULT_PLAN_MODULES.parceiro_isento,
+          };
+        }
+        return s;
+      });
+    }
+
+    localStorage.setItem('sna_admin_subscriptions', JSON.stringify(subs));
+    return subs;
   });
 
   const [systemUsers, setSystemUsers] = useState<SystemUser[]>(() => {
     const saved = localStorage.getItem('sna_admin_users');
+    let usersList: SystemUser[] = [];
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((u: SystemUser) => {
+          usersList = parsed.filter((u: SystemUser) => {
             if (!u || !u.id) return false;
             const email = (u.email || '').toLowerCase();
-            if (email === 'contato@verticeanalises.com.br' || email === 'carlosmiguelvieira1@gmail.com') return true;
+            if (email === 'contato@verticeanalises.com.br' || email === 'carlosmiguelvieira1@gmail.com' || email === 'adm@decisionmaking.com.br') return true;
             const isLegacyMock = 
               u.id.startsWith('usr-00') ||
               email.includes('vasconcelos') ||
@@ -192,28 +221,19 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
               email.includes('deltaauditores');
             return !isLegacyMock;
           });
-
-          const updatedUsers = cleaned.map((u: SystemUser) => {
-            if (u.id === 'usr-carlos-miguel-master' || u.name === 'Carlos Miguel Vieira' || (u.email || '').toLowerCase() === 'carlosmiguelvieira1@gmail.com') {
-              return {
-                ...u,
-                email: 'contato@verticeanalises.com.br',
-                partnerPixKey: u.partnerPixKey === 'carlosmiguelvieira1@gmail.com' ? 'contato@verticeanalises.com.br' : u.partnerPixKey
-              };
-            }
-            return u;
-          });
-
-          const hasMaster = updatedUsers.some(u => u.email === 'contato@verticeanalises.com.br');
-          if (!hasMaster) {
-            return [...INITIAL_SYSTEM_USERS, ...updatedUsers];
-          }
-          localStorage.setItem('sna_admin_users', JSON.stringify(updatedUsers));
-          return updatedUsers;
         }
       } catch (e) {}
+    } else {
+      usersList = INITIAL_SYSTEM_USERS;
     }
-    return INITIAL_SYSTEM_USERS;
+
+    const hasAlessandra = usersList.some(u => u.email?.toLowerCase() === 'adm@decisionmaking.com.br');
+    if (!hasAlessandra) {
+      usersList = [INITIAL_SYSTEM_USERS[0], ...usersList];
+    }
+
+    localStorage.setItem('sna_admin_users', JSON.stringify(usersList));
+    return usersList;
   });
 
   const [invoices, setInvoices] = useState<BillingInvoice[]>(() => {
@@ -4140,6 +4160,16 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
                       className="rounded border-slate-700 text-indigo-600 focus:ring-0 bg-slate-900"
                     />
                     <span>⚖️ Módulo Planejamento Tributário (Reforma & Regimes)</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2 cursor-pointer text-slate-300 hover:text-slate-100">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(planFormAllowedModules.simples_hibrido)}
+                      onChange={(e) => setPlanFormAllowedModules({ ...planFormAllowedModules, simples_hibrido: e.target.checked })}
+                      className="rounded border-slate-700 text-indigo-600 focus:ring-0 bg-slate-900"
+                    />
+                    <span>⚖️ Módulo Simples Híbrido (EC 132/23)</span>
                   </label>
 
                   <label className="flex items-center space-x-2 cursor-pointer text-slate-300 hover:text-slate-100">

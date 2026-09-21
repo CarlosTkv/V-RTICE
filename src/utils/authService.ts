@@ -200,11 +200,54 @@ export const DEFAULT_PRESET_ACCOUNTS: UserAccount[] = [
     partnerBankName: 'Banco do Brasil S.A.',
     partnerActivatedByMaster: true,
     partnerActivatedAt: '2025-01-01T00:00:00Z',
-    permissions: ['all', 'unlimited_queries', 'ai_auditor_master', 'export_reports', 'tax_reform_projections'],
-    allowedModules: DEFAULT_PLAN_MODULES.master,
+    permissions: ['all', 'unlimited_queries', 'ai_auditor_master', 'export_reports', 'tax_reform_projections', 'simples_hibrido'],
+    allowedModules: {
+      ...DEFAULT_PLAN_MODULES.master,
+      simples_hibrido: true,
+    },
     authSecurityMode: 'password_only',
     twoFactorEnabled: false,
     digitalCertificate: DEFAULT_AVAILABLE_CERTIFICATES[0],
+    createdAt: '2025-01-01T00:00:00Z',
+  },
+  {
+    id: 'usr_alessandra_handza_decision_making',
+    name: 'Alessandra Handza',
+    email: 'adm@decisionmaking.com.br',
+    password: hashCredential('DecisionMaking2026!'),
+    companyName: 'Decision Making Consultoria • Escritório Parceiro Homologado',
+    role: 'escritorio',
+    plan: 'parceiro_isento',
+    planStatus: 'active',
+    expiresAt: '2099-12-31T23:59:59Z',
+    queriesUsedThisMonth: 0,
+    maxQueriesPerMonth: 999999,
+    maxCompaniesAllowed: 9999,
+    maxUsersAllowed: 9999,
+    isMaster: false,
+    isDeveloper: false,
+    isPartnerActive: true,
+    partnerStatus: 'ativo',
+    partnerCommissionRate: 35,
+    partnerReferralCode: 'DECISION-MAKING',
+    partnerDiscountPercent: 10,
+    partnerPixKey: 'adm@decisionmaking.com.br',
+    partnerPixKeyType: 'email',
+    partnerBankName: 'Banco Itaú Unibanco S.A.',
+    partnerActivatedByMaster: true,
+    partnerActivatedAt: '2025-01-01T00:00:00Z',
+    viewMode: 'escritorio',
+    permissions: ['all', 'unlimited_queries', 'export_reports', 'tax_reform_projections', 'simples_hibrido'],
+    allowedModules: {
+      ...DEFAULT_PLAN_MODULES.parceiro_isento,
+      simples_hibrido: true,
+      planejamento_tributario: true,
+      reforma_tributaria: true,
+      auditoria_digital: true,
+      partner_portal: true,
+    },
+    authSecurityMode: 'password_only',
+    twoFactorEnabled: false,
     createdAt: '2025-01-01T00:00:00Z',
   }
 ];
@@ -231,50 +274,56 @@ export class AuthService {
             acc.email.toLowerCase() === 'carlosmiguelvieira1@gmail.com'
           );
           if (carlosIndex === -1) {
-            const merged = [DEFAULT_PRESET_ACCOUNTS[0], ...parsed];
-            this.saveAccounts(merged);
-            return merged;
+            parsed.unshift(DEFAULT_PRESET_ACCOUNTS[0]);
           } else {
             // Sincroniza credenciais master oficiais e desabilita 2FA imediatamente
-            let changed = false;
-            if (parsed[carlosIndex].email !== 'contato@verticeanalises.com.br') {
-              parsed[carlosIndex].email = 'contato@verticeanalises.com.br';
-              changed = true;
-            }
-            if (parsed[carlosIndex].password !== MASTER_AUTHORIZED_HASHES[0]) {
-              parsed[carlosIndex].password = MASTER_AUTHORIZED_HASHES[0];
-              changed = true;
-            }
-            if (parsed[carlosIndex].role !== 'desenvolvedor') {
-              parsed[carlosIndex].role = 'desenvolvedor';
-              changed = true;
-            }
-            if (!parsed[carlosIndex].isDeveloper || !parsed[carlosIndex].isMaster) {
-              parsed[carlosIndex].isDeveloper = true;
-              parsed[carlosIndex].isMaster = true;
-              parsed[carlosIndex].canAccessPlatformBilling = true;
-              parsed[carlosIndex].canVerifyClients = true;
-              changed = true;
-            }
-            if (parsed[carlosIndex].twoFactorEnabled !== false || parsed[carlosIndex].authSecurityMode !== 'password_only') {
-              parsed[carlosIndex].twoFactorEnabled = false;
-              parsed[carlosIndex].authSecurityMode = 'password_only';
-              changed = true;
-            }
-            try {
-              const challenges = this.getPending2FAChallenges();
-              const cleanChallenges = challenges.filter(c => 
-                c.email.toLowerCase() !== 'contato@verticeanalises.com.br' &&
-                c.email.toLowerCase() !== 'carlosmiguelvieira1@gmail.com'
-              );
-              if (cleanChallenges.length !== challenges.length) {
-                this.savePending2FAChallenges(cleanChallenges);
-              }
-            } catch {}
-            if (changed) {
-              this.saveAccounts(parsed);
-            }
+            if (parsed[carlosIndex].email !== 'contato@verticeanalises.com.br') parsed[carlosIndex].email = 'contato@verticeanalises.com.br';
+            if (parsed[carlosIndex].password !== MASTER_AUTHORIZED_HASHES[0]) parsed[carlosIndex].password = MASTER_AUTHORIZED_HASHES[0];
+            if (parsed[carlosIndex].role !== 'desenvolvedor') parsed[carlosIndex].role = 'desenvolvedor';
+            parsed[carlosIndex].isDeveloper = true;
+            parsed[carlosIndex].isMaster = true;
+            parsed[carlosIndex].canAccessPlatformBilling = true;
+            parsed[carlosIndex].canVerifyClients = true;
+            parsed[carlosIndex].twoFactorEnabled = false;
+            parsed[carlosIndex].authSecurityMode = 'password_only';
+            if (!parsed[carlosIndex].allowedModules) parsed[carlosIndex].allowedModules = { ...DEFAULT_PLAN_MODULES.master };
+            parsed[carlosIndex].allowedModules!.simples_hibrido = true;
           }
+
+          // Garantir que a conta da Alessandra Handza (Decision Making) esteja presente e ativa
+          const alessandraIndex = parsed.findIndex(acc => acc.email.toLowerCase() === 'adm@decisionmaking.com.br');
+          if (alessandraIndex === -1) {
+            parsed.push(DEFAULT_PRESET_ACCOUNTS[1]);
+          } else {
+            parsed[alessandraIndex].isPartnerActive = true;
+            parsed[alessandraIndex].partnerStatus = 'ativo';
+            parsed[alessandraIndex].plan = 'parceiro_isento';
+            parsed[alessandraIndex].planStatus = 'active';
+            if (!parsed[alessandraIndex].allowedModules) {
+              parsed[alessandraIndex].allowedModules = { ...DEFAULT_PLAN_MODULES.parceiro_isento };
+            }
+            parsed[alessandraIndex].allowedModules!.simples_hibrido = true;
+            parsed[alessandraIndex].allowedModules!.planejamento_tributario = true;
+            parsed[alessandraIndex].allowedModules!.partner_portal = true;
+          }
+
+          // Habilitar simples_hibrido para todos os escritórios parceiros e planos pro/enterprise/parceiro
+          parsed = parsed.map(acc => {
+            const isPartner = acc.isPartnerActive || acc.role === 'escritorio' || acc.role === 'parceiro_negocios' || acc.plan === 'parceiro_isento' || acc.plan === 'enterprise' || acc.plan === 'pro';
+            if (isPartner && acc.allowedModules) {
+              return {
+                ...acc,
+                allowedModules: {
+                  ...acc.allowedModules,
+                  simples_hibrido: true,
+                  planejamento_tributario: true,
+                }
+              };
+            }
+            return acc;
+          });
+
+          this.saveAccounts(parsed);
           return parsed;
         }
       }
