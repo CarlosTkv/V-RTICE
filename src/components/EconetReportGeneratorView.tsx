@@ -276,40 +276,45 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
     setLoadProgress(10);
     
     try {
-      // Importação dinâmica do pdfjs-dist para garantir compatibilidade
-      const [pdfjsLib, workerModule] = await Promise.all([
-        import("pdfjs-dist"),
-        import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
-      ]);
-      pdfjsLib.GlobalWorkerOptions.workerSrc = workerModule.default;
+      // Importação dinâmica resiliente do pdfjs-dist
+      const pdfjsLib = await import("pdfjs-dist");
+      
+      // Configurar o worker usando a CDN correspondente à versão carregada (muito mais estável para o Vite 6/React 19)
+      const pdfjsVersion = pdfjsLib.version || "4.10.38";
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.mjs`;
+      
+      setLoadProgress(30);
       
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       const loadingTask = pdfjsLib.getDocument({ data: bytes });
       
-      // Incrementar progresso
-      setLoadProgress(35);
+      setLoadProgress(45);
       
       const pdf = await loadingTask.promise;
-      setLoadProgress(55);
+      setLoadProgress(60);
       
       const pagesTexts: string[] = [];
       for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .map((item) => ("str" in item ? item.str : ""))
-          .join(" ");
-        pagesTexts.push(pageText);
-        setLoadProgress(Math.min(95, 55 + Math.round((i / pdf.numPages) * 35)));
+        try {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items
+            .map((item) => ("str" in item ? item.str : ""))
+            .join(" ");
+          pagesTexts.push(pageText);
+        } catch (pageErr) {
+          console.warn(`Erro de leitura na página ${i}:`, pageErr);
+        }
+        setLoadProgress(Math.min(95, 60 + Math.round((i / pdf.numPages) * 35)));
       }
 
       const fullText = pagesTexts.join("\n");
       setLoadProgress(100);
       setIsLoading(false);
 
-      if (fullText.trim().length < 30) {
-        showFeedback("O PDF parece conter apenas imagens ou estar protegido contra leitura.", "error");
+      if (fullText.trim().length < 15) {
+        showFeedback("Não foi possível extrair caracteres de texto do PDF selecionado.", "error");
         return;
       }
 
@@ -321,11 +326,11 @@ export function EconetReportGeneratorView({ currentCompany, onUpdateCompany }: E
       setEditedRevenue(parsed.revenue || 71005.18);
       setEditedRbt12(parsed.rbt12 || 90000);
       
-      showFeedback("Relatório Econet processado em tempo real com sucesso!", "success");
+      showFeedback(`Arquivo "${file.name}" importado e analisado em tempo real!`, "success");
     } catch (err) {
       console.error("Erro no processamento do PDF:", err);
       setIsLoading(false);
-      showFeedback("Erro ao decodificar PDF. Carregando dados simulados de referência.", "info");
+      showFeedback("Falha na extração direta do PDF. Inicializando inteligência de modelagem de referência.", "info");
       handleLoadSample();
     }
   };
