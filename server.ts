@@ -930,46 +930,6 @@ async function startServer() {
       // Map parsed zipped docs to structured DocFiscal objects
       const normalizedDocs = parsed.docs.map(doc => normalizeSefazDoc(doc.nsu, doc.schema, doc.xml));
 
-      // Append municipal NFS-e fetched via National Portal ADN standard using certificate
-      const nfsXml = `<?xml version="1.0" encoding="UTF-8"?>
-<EnviarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">
-  <LoteRps versao="1.00">
-    <Rps>
-      <InfRps>
-        <IdentificacaoRps>
-          <Numero>20260000${Math.floor(10 + Math.random() * 89)}</Numero>
-          <Serie>NFS</Serie>
-          <Tipo>1</Tipo>
-        </IdentificacaoRps>
-        <DataEmissao>${new Date().toISOString().split('T')[0]}T10:00:00</DataEmissao>
-        <Status>1</Status>
-        <Servico>
-          <Valores>
-            <ValorServicos>4200.00</ValorServicos>
-            <ValorIss>210.00</ValorIss>
-          </Valores>
-          <Discriminacao>SERVIÇOS DE SUPORTE TÉCNICO DE T.I., HOSPEDAGEM E SEGURANÇA DA INFORMAÇÃO COM TÚNEL mTLS SEFAZ</Discriminacao>
-        </Servico>
-        <Prestador>
-          <Cnpj>44821902000155</Cnpj>
-          <InscricaoMunicipal>847291</InscricaoMunicipal>
-        </Prestador>
-        <Tomador>
-          <IdentificacaoTomador>
-            <CpfCnpj>
-              <Cnpj>${cleanCnpj}</Cnpj>
-            </CpfCnpj>
-          </IdentificacaoTomador>
-          <RazaoSocial>Sua Empresa S/A</RazaoSocial>
-        </Tomador>
-      </InfRps>
-    </Rps>
-  </LoteRps>
-</EnviarLoteRpsEnvio>`;
-
-      const nfsDoc = normalizeSefazDoc('nfs_' + Math.floor(1000 + Math.random() * 9000), 'nfse', nfsXml);
-      normalizedDocs.push(nfsDoc);
-
       res.json({
         success: true,
         cStat: parsed.cStat,

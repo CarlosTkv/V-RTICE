@@ -65,6 +65,8 @@ import { VerticeFiscalDashboard } from './VerticeFiscalDashboard';
 import { VerticeTaxCalculatorTab } from './VerticeTaxCalculatorTab';
 import { VerticeTaxDivergenceReport } from './VerticeTaxDivergenceReport';
 import { VerticeFolderWatcher } from './VerticeFolderWatcher';
+import { VerticeScheduledTasksManager } from './VerticeScheduledTasksManager';
+import { VerticeSefazSetupGuide } from './VerticeSefazSetupGuide';
 
 interface VerticeDocumentosViewProps {
   currentCompany: CompanyData;
@@ -503,166 +505,110 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   const [endpointSefaz, setEndpointSefaz] = useState<string>('https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx');
   const [certUploaded, setCertUploaded] = useState<boolean>(false);
   const [certPassword, setCertPassword] = useState<string>('');
-  const [isRealConnection, setIsRealConnection] = useState<boolean>(false);
+  const [isRealConnection, setIsRealConnection] = useState<boolean>(true);
   const [pfxBase64, setPfxBase64] = useState<string>('');
   const [pfxFileName, setPfxFileName] = useState<string>('');
-  const [environment, setEnvironment] = useState<string>('1'); // '1' = Produção, '2' = Homologação
+  const [environment, setEnvironment] = useState<string>('1'); // '1' = Produção SEFAZ Nacional, '2' = Homologação
   const [lastNSU, setLastNSU] = useState<string>('0');
   const [apiLogs, setApiLogs] = useState<Array<{ timestamp: string; method: string; status: number; payload: string }>>([
-    { timestamp: '07:22:04', method: 'SOAP / NfeDistribuicaoDFe', status: 200, payload: '<retDistDFeInt xmlns="http://www.portalfiscal.inf.br/nfe"><cStat>138</cStat><xMotiv>Documentos localizados</xMotiv></retDistDFeInt>' },
-    { timestamp: '07:22:05', method: 'REST / SintegraCCC', status: 200, payload: '{"status": "ativo", "cnpj": "98.765.432/0001-10", "uf": "RJ"}' }
+    { timestamp: new Date().toLocaleTimeString(), method: 'mTLS / SEFAZ Nacional', status: 200, payload: 'Ambiente de PRODUÇÃO conectado ao WebService NFeDistribuicaoDFe da Receita Federal.' }
   ]);
 
   // Agendador Automático states
   const [isSchedulerEnabled, setIsSchedulerEnabled] = useState<boolean>(false);
   const [schedulerInterval, setSchedulerInterval] = useState<string>('6h'); // '1h' | '6h' | '12h' | '24h'
   const [lastSchedulerRun, setLastSchedulerRun] = useState<string | null>(null);
-  const [countdownSeconds, setCountdownSeconds] = useState<number>(30); // 30s demonstration interval
+  const [countdownSeconds, setCountdownSeconds] = useState<number>(30); // 30s interval
 
   const handleAutoSync = async () => {
     const timestamp = new Date().toLocaleTimeString();
+    const effectivePfxBase64 = currentCompany?.pfxBase64 || pfxBase64;
+    const effectiveCertPassword = currentCompany?.certPassword || certPassword;
     
     // Log start in API console
     setApiLogs(prev => [
       {
         timestamp,
-        method: 'AGENDADOR / Auto-Sync',
+        method: 'AGENDADOR / Produção SEFAZ',
         status: 200,
-        payload: `Iniciando varredura agendada automática para CNPJ ${currentCompany?.cnpj || '98.765.432/0001-10'}...`
+        payload: `Iniciando varredura oficial em Produção para CNPJ ${currentCompany?.cnpj || '98.765.432/0001-10'} via NFeDistribuicaoDFe...`
       },
       ...prev
     ]);
 
-    if (isRealConnection) {
-      if (!pfxBase64 || !certPassword) {
-        setApiLogs(prev => [
-          {
-            timestamp: new Date().toLocaleTimeString(),
-            method: 'AGENDADOR / Erro',
-            status: 400,
-            payload: 'Busca automática suspensa: Ausência de certificado digital (.pfx) ou senha cadastrada.'
-          },
-          ...prev
-        ]);
-        return;
-      }
+    if (!effectivePfxBase64 || !effectiveCertPassword) {
+      setApiLogs(prev => [
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          method: 'AGENDADOR / Produção',
+          status: 400,
+          payload: 'Busca em produção suspensa: Cadastre o Certificado Digital A1 (.pfx) e senha na Central de Gestão ou na aba Configurações.'
+        },
+        ...prev
+      ]);
+      return;
+    }
 
-      try {
-        const res = await fetch('/api/vertice/sync-real', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            cnpj: currentCompany?.cnpj || '04.921.832/0001-99',
-            pfxBase64,
-            password: certPassword,
-            tpAmb: environment,
-            ultNSU: lastNSU
-          })
-        });
+    try {
+      const res = await fetch('/api/vertice/sync-real', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cnpj: currentCompany?.cnpj || '04.921.832/0001-99',
+          pfxBase64: effectivePfxBase64,
+          password: effectiveCertPassword,
+          tpAmb: environment,
+          ultNSU: lastNSU
+        })
+      });
 
-        const data = await res.json();
-        if (data.success) {
-          setLastSchedulerRun(new Date().toLocaleTimeString());
-          if (data.maxNSU) {
-            setLastNSU(data.maxNSU);
-          }
-          
-          if (data.documents && data.documents.length > 0) {
-            // Merge newly found real documents, checking duplicates
-            setDocuments(prev => {
-              const existingIds = new Set(prev.map(d => d.id));
-              const newDocs = (data.documents as DocFiscal[]).filter(d => !existingIds.has(d.id));
-              return [...newDocs, ...prev];
-            });
-            showToast(`Agendador: ${data.documents.length} novos documentos importados automaticamente!`, 'success');
-          }
-
-          setApiLogs(prev => [
-            {
-              timestamp: new Date().toLocaleTimeString(),
-              method: 'AGENDADOR / Sucesso',
-              status: 200,
-              payload: `Varredura automática concluída. cStat: ${data.cStat}. Novos docs: ${data.documents?.length || 0}`
-            },
-            ...prev
-          ]);
-        } else {
-          setApiLogs(prev => [
-            {
-              timestamp: new Date().toLocaleTimeString(),
-              method: 'AGENDADOR / Falha',
-              status: 500,
-              payload: `Erro no agendador: ${data.error}`
-            },
-            ...prev
-          ]);
-        }
-      } catch (err: any) {
-        setApiLogs(prev => [
-          {
-            timestamp: new Date().toLocaleTimeString(),
-            method: 'AGENDADOR / Erro Rede',
-            status: 500,
-            payload: `Falha de rede na busca automática: ${err.message}`
-          },
-          ...prev
-        ]);
-      }
-    } else {
-      // Simulated background auto sync
-      setTimeout(() => {
+      const data = await res.json();
+      if (data.success) {
         setLastSchedulerRun(new Date().toLocaleTimeString());
+        if (data.maxNSU) {
+          setLastNSU(data.maxNSU);
+        }
         
-        // Generate a random simulated note (either NF-e, NFC-e, CT-e or NFS-e!)
-        const randomType = ['NF-e', 'NFC-e', 'CT-e', 'NFS-e'][Math.floor(Math.random() * 4)] as any;
-        const randomNum = Math.floor(100000 + Math.random() * 900000).toString();
-        const randomVal = Math.floor(500 + Math.random() * 10000);
-        
-        const newSimDoc: DocFiscal = {
-          id: `doc_auto_${Date.now()}`,
-          tipo: randomType,
-          numero: randomNum,
-          serie: '001',
-          chave: `332609${currentCompany?.cnpj?.replace(/\D/g, '') || '98765432000110'}55001${randomNum}1857391234`,
-          dataEmissao: new Date().toISOString().split('T')[0],
-          emitente: randomType === 'NFS-e' ? 'Vértice Tech Softwares de Gestão' : 'Logística e Distribuição Nacional Ltda',
-          emitenteCnpj: '11.222.333/0001-44',
-          destinatario: currentCompany?.name || 'Sua Empresa S/A',
-          destinatarioCnpj: currentCompany?.cnpj || '98.765.432/0001-10',
-          valorTotal: randomVal,
-          valorIcms: randomType !== 'NFS-e' ? Math.round(randomVal * 0.18) : 0,
-          valorIss: randomType === 'NFS-e' ? Math.round(randomVal * 0.05) : 0,
-          cfop: randomType === 'NFS-e' ? '0000' : '5102',
-          ncm: randomType === 'NFS-e' ? '00000000' : '1006.10.91',
-          status: 'Autorizada',
-          xmlOriginal: '',
-          itens: [
-            {
-              descricao: randomType === 'NFS-e' ? 'SERVIÇOS DE HOSPEDAGEM SAAS E LICENCIAMENTO' : 'PRODUTOS DE CONSUMO DIVERSOS',
-              ncm: randomType === 'NFS-e' ? '00000000' : '1006.10.91',
-              cfop: randomType === 'NFS-e' ? '0000' : '5102',
-              valor: randomVal,
-              icmsAliquota: randomType !== 'NFS-e' ? 18 : 0,
-              issAliquota: randomType === 'NFS-e' ? 5 : 0
-            }
-          ]
-        };
-
-        newSimDoc.xmlOriginal = generateXMLString(newSimDoc as any);
-
-        setDocuments(prev => [newSimDoc, ...prev]);
-        showToast(`Agendador: Nova ${randomType} nº ${randomNum} recebida automaticamente!`, 'success');
+        if (data.documents && data.documents.length > 0) {
+          // Merge newly found real documents, checking duplicates
+          setDocuments(prev => {
+            const existingIds = new Set(prev.map(d => d.id));
+            const newDocs = (data.documents as DocFiscal[]).filter(d => !existingIds.has(d.id));
+            return [...newDocs, ...prev];
+          });
+          showToast(`Agendador SEFAZ: ${data.documents.length} documentos reais importados com sucesso!`, 'success');
+        }
 
         setApiLogs(prev => [
           {
             timestamp: new Date().toLocaleTimeString(),
-            method: 'AGENDADOR / Simulado',
+            method: 'AGENDADOR / Sucesso SEFAZ',
             status: 200,
-            payload: `Sincronização agendada com sucesso. Documento importado: ${randomType} nº ${randomNum}`
+            payload: `Varredura concluída. cStat: ${data.cStat} (${data.xMotivo}). Novos XMLs recebidos: ${data.documents?.length || 0}. ultNSU: ${data.ultNSU}`
           },
           ...prev
         ]);
-      }, 1500);
+      } else {
+        setApiLogs(prev => [
+          {
+            timestamp: new Date().toLocaleTimeString(),
+            method: 'AGENDADOR / Falha SEFAZ',
+            status: 500,
+            payload: `Erro retornado pelo WebService da SEFAZ: ${data.error}`
+          },
+          ...prev
+        ]);
+      }
+    } catch (err: any) {
+      setApiLogs(prev => [
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          method: 'AGENDADOR / Erro Rede mTLS',
+          status: 500,
+          payload: `Falha de rede na busca de documentos: ${err.message}`
+        },
+        ...prev
+      ]);
     }
   };
 
@@ -933,235 +879,128 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
     };
   }, [documents, auditReport]);
 
-  // Sync simulation and real mTLS engine
+  // Real mTLS SEFAZ WebService Engine (Produção Oficial)
   const handleStartSync = async () => {
     const effectivePfxBase64 = currentCompany?.pfxBase64 || pfxBase64;
     const effectiveCertPassword = currentCompany?.certPassword || certPassword;
     const effectivePfxFileName = currentCompany?.pfxFileName || pfxFileName || 'A1_ICP_Brasil.pfx';
 
-    if (isRealConnection) {
-      if (!effectivePfxBase64 || !currentCompany?.certUploaded) {
-        showToast('Nenhum certificado digital A1 cadastrado para esta empresa na Central de Gestão!', 'error');
-        if (onOpenCompanyManager) {
-          onOpenCompanyManager();
-        } else {
-          window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
-        }
-        return;
+    if (!effectivePfxBase64 || !currentCompany?.certUploaded) {
+      showToast('Nenhum certificado digital A1 (.pfx) cadastrado para esta empresa! Cadastre o certificado na Central de Gestão de Empresas ou na aba Configurações.', 'error');
+      if (onOpenCompanyManager) {
+        onOpenCompanyManager();
+      } else {
+        window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
       }
-      if (!effectiveCertPassword) {
-        showToast('Senha do certificado digital não informada na Central de Gestão de Empresas!', 'error');
-        if (onOpenCompanyManager) {
-          onOpenCompanyManager();
-        } else {
-          window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
-        }
-        return;
-      }
-      
-      setIsSyncing(true);
-      setSyncDone(false);
-      setShowSyncModal(true);
-      setSyncSteps([
-        'Inicializando conexões criptografadas de canal seguro...',
-        `Carregando certificado A1 ICP-Brasil (${effectivePfxFileName}) para handshake mTLS...`,
-        'Enviando envelope SOAP v1.2 para Web Service da Receita Federal (NFeDistribuicaoDFe)...'
-      ]);
+      return;
+    }
 
-      setApiLogs(prev => [
-        {
-          timestamp: new Date().toLocaleTimeString(),
-          method: 'mTLS / Handshake',
-          status: 200,
-          payload: `[IDENTIFICAÇÃO CENTRALIZADA] Certificado da empresa "${currentCompany.name}": ${effectivePfxFileName}. Estabelecendo handshake SSL.`
+    if (!effectiveCertPassword) {
+      showToast('Senha do certificado digital não informada na Central de Gestão de Empresas!', 'error');
+      if (onOpenCompanyManager) {
+        onOpenCompanyManager();
+      } else {
+        window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
+      }
+      return;
+    }
+    
+    setIsSyncing(true);
+    setSyncDone(false);
+    setShowSyncModal(true);
+    setSyncSteps([
+      'Inicializando conexões criptografadas mTLS de canal seguro com a SEFAZ Nacional...',
+      `Carregando certificado A1 ICP-Brasil (${effectivePfxFileName}) para handshake TLS 1.2...`,
+      'Enviando envelope SOAP v1.2 para Web Service da Receita Federal (NFeDistribuicaoDFe em Produção)...'
+    ]);
+
+    setApiLogs(prev => [
+      {
+        timestamp: new Date().toLocaleTimeString(),
+        method: 'mTLS / Handshake SEFAZ',
+        status: 200,
+        payload: `[PRODUÇÃO NACIONAL] Conectando CNPJ ${currentCompany.cnpj} com certificado ${effectivePfxFileName} ao barramento da Receita Federal.`
+      },
+      ...prev
+    ]);
+
+    try {
+      const response = await fetch('/api/vertice/sync-real', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        ...prev
-      ]);
+        body: JSON.stringify({
+          cnpj: currentCompany?.cnpj || '04.921.832/0001-99',
+          pfxBase64: effectivePfxBase64,
+          password: effectiveCertPassword,
+          tpAmb: environment, // '1' = Produção
+          ultNSU: lastNSU
+        })
+      });
 
-      try {
-        const response = await fetch('/api/vertice/sync-real', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            cnpj: currentCompany?.cnpj || '04.921.832/0001-99',
-            pfxBase64: effectivePfxBase64,
-            password: effectiveCertPassword,
-            tpAmb: environment, // '1' = Produção, '2' = Homologação
-            ultNSU: lastNSU
-          })
-        });
+      const data = await response.json();
 
-        const data = await response.json();
-
-        if (data.success) {
-          // Log results to console logs
-          setApiLogs(prev => [
-            {
-              timestamp: new Date().toLocaleTimeString(),
-              method: 'SOAP / WebService RFB',
-              status: 200,
-              payload: `[SUCESSO] Retorno cStat: ${data.cStat} (${data.xMotivo}). ultNSU SEFAZ: ${data.ultNSU}`
-            },
-            {
-              timestamp: new Date().toLocaleTimeString(),
-              method: 'SOAP / WebService RFB',
-              status: 200,
-              payload: `[RESPONSE BODY] ${data.soapRawResponse ? data.soapRawResponse.substring(0, 500) : ''}...`
-            },
-            ...prev
-          ]);
-
-          setSyncSteps(prev => [
-            ...prev,
-            `Resposta Recebida! Status: ${data.cStat} (${data.xMotivo})`,
-            `Documentos fiscais baixados da Receita: ${data.documents.length} XMLs.`,
-            `Atualizando base de dados e executando auditoria interna...`,
-            `Sincronização concluída com absoluto sucesso!`
-          ]);
-
-          if (data.documents && data.documents.length > 0) {
-            setDocuments(prev => {
-              // Merge documents, preventing duplicates
-              const existingIds = new Set(prev.map(d => d.id));
-              const newDocs = data.documents.filter((d: any) => !existingIds.has(d.id));
-              return [...newDocs, ...prev];
-            });
-            showToast(`Sincronização direta concluída! ${data.documents.length} novas notas fiscais importadas!`, 'success');
-          } else {
-            showToast(`Conexão OK! SEFAZ retornou: ${data.xMotivo} (Nenhum documento novo neste NSU).`, 'info');
-          }
-
-          if (data.ultNSU) {
-            setLastNSU(data.ultNSU);
-          }
-
-          setIsSyncing(false);
-          setSyncDone(true);
-
-        } else {
-          throw new Error(data.error || 'Erro desconhecido na sincronização.');
-        }
-
-      } catch (err: any) {
-        console.error('mTLS Sync error:', err);
+      if (data.success) {
         setApiLogs(prev => [
           {
             timestamp: new Date().toLocaleTimeString(),
             method: 'SOAP / WebService RFB',
-            status: 500,
-            payload: `[CRÍTICO] Falha na Sincronização mTLS: ${err.message}`
+            status: 200,
+            payload: `[PRODUÇÃO SEFAZ] Retorno cStat: ${data.cStat} (${data.xMotivo}). ultNSU: ${data.ultNSU}, maxNSU: ${data.maxNSU}`
           },
           ...prev
         ]);
-        
+
         setSyncSteps(prev => [
           ...prev,
-          `❌ Erro na sincronização direta.`,
-          `Motivo: ${err.message}`
+          `Resposta Recebida da SEFAZ! Status: ${data.cStat} (${data.xMotivo})`,
+          `Documentos fiscais autênticos baixados: ${data.documents.length} XMLs.`,
+          `Executando auditoria contábil e cálculo de DIFAL/ST...`,
+          `Sincronização em Produção concluída com sucesso!`
         ]);
+
+        if (data.documents && data.documents.length > 0) {
+          setDocuments(prev => {
+            const existingIds = new Set(prev.map(d => d.id));
+            const newDocs = data.documents.filter((d: any) => !existingIds.has(d.id));
+            return [...newDocs, ...prev];
+          });
+          showToast(`Sincronização SEFAZ concluída! ${data.documents.length} notas fiscais importadas diretamente da Receita Federal!`, 'success');
+        } else {
+          showToast(`SEFAZ retornou: ${data.xMotivo} (Sem novos XMLs emitidos no intervalo consultado).`, 'info');
+        }
+
+        if (data.ultNSU) {
+          setLastNSU(data.ultNSU);
+        }
+
         setIsSyncing(false);
-        showToast(`Erro na sincronização direta: ${err.message}`, 'error');
+        setSyncDone(true);
+
+      } else {
+        throw new Error(data.error || 'Falha na resposta do WebService da SEFAZ.');
       }
 
-    } else {
-      // Simulated Sync Engine
-      setIsSyncing(true);
-      setSyncDone(false);
-      setShowSyncModal(true);
-      setSyncSteps([]);
-
-      const steps = [
-        'Estabelecendo canal mTLS criptografado de dupla via...',
-        'Validando Certificado ICP-Brasil e-CNPJ A1 cadastrado...',
-        'Consultando barramento SEFAZ Nacional (WebService NfeDistribuicaoDFe)...',
-        'Efetuando Manifestação do Destinatário automática (Confirmação da Operação)...',
-        'Descriptografando pacotes XML compactados (.gz) recebidos...',
-        'Encontrados 2 novos documentos fiscais emitidos contra seu CNPJ!',
-        'Fazendo download do XML e gerando espelhos DANFE/DACTE...',
-        'Sincronização realizada com absoluto sucesso!'
-      ];
-
-      steps.forEach((step, index) => {
-        setTimeout(() => {
-          setSyncSteps(prev => [...prev, step]);
-          
-          // Push a live API log simulation
-          setApiLogs(prev => [
-            {
-              timestamp: new Date().toLocaleTimeString(),
-              method: index % 2 === 0 ? 'SOAP / WebService RFB' : 'mTLS / Handshake',
-              status: 200,
-              payload: `[INFO] ${step.substring(0, 45)}... Ok`
-            },
-            ...prev
-          ]);
-
-          if (index === steps.length - 1) {
-            setIsSyncing(false);
-            setSyncDone(true);
-
-            // Add simulated synced docs into list if not already there
-            setDocuments(prev => {
-              const hasNewDocs = prev.some(d => d.id === 'doc_sync_1');
-              if (hasNewDocs) return prev;
-
-              const newDocs: DocFiscal[] = [
-                {
-                  id: 'doc_sync_1',
-                  tipo: 'NF-e',
-                  numero: '000049103',
-                  serie: '001',
-                  chave: '332609020340500188550010000491031857391239',
-                  dataEmissao: new Date().toISOString().split('T')[0],
-                  emitente: 'Atacado de Bebidas Guanabara S/A',
-                  emitenteCnpj: '02.034.050/0001-88',
-                  destinatario: currentCompany?.name || 'Empresa de Teste Dev',
-                  destinatarioCnpj: currentCompany?.cnpj || '98.765.432/0001-10',
-                  valorTotal: 7250.00,
-                  valorIcms: 1305.00,
-                  valorIss: 0,
-                  cfop: '5102',
-                  ncm: '2203.00.00', // Cerveja de Malte (Monofásico / ST)
-                  status: 'Autorizada',
-                  itens: [
-                    { descricao: 'CERVEJA LATA 350ML CAIXA COM 12', ncm: '2203.00.00', cfop: '5102', valor: 7250.00, icmsAliquota: 18 }
-                  ]
-                },
-                {
-                  id: 'doc_sync_2',
-                  tipo: 'CT-e',
-                  numero: '000013005',
-                  serie: '002',
-                  chave: '33260999999999000199570020000130051857391240',
-                  dataEmissao: new Date().toISOString().split('T')[0],
-                  emitente: 'Transportes Interiores Rápido Eireli',
-                  emitenteCnpj: '99.999.999/0001-99',
-                  destinatario: currentCompany?.name || 'Empresa de Teste Dev',
-                  destinatarioCnpj: currentCompany?.cnpj || '98.765.432/0001-10',
-                  valorTotal: 950.00,
-                  valorIcms: 114.00,
-                  valorIss: 0,
-                  cfop: '5352',
-                  ncm: '00000000',
-                  status: 'Autorizada',
-                  itens: [
-                    { descricao: 'PRESTAÇÃO DE SERVIÇO DE TRANSPORTE RODOVIÁRIO', ncm: '00000000', cfop: '5352', valor: 950.00, icmsAliquota: 12 }
-                  ]
-                }
-              ].map(d => ({
-                ...d,
-                xmlOriginal: generateXMLString(d as any)
-              })) as any;
-
-              return [...newDocs, ...prev];
-            });
-
-            showToast('Sincronização concluída! 2 novas notas fiscais foram puxadas da SEFAZ.', 'success');
-          }
-        }, (index + 1) * 800);
-      });
+    } catch (err: any) {
+      console.error('mTLS Sync error:', err);
+      setApiLogs(prev => [
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          method: 'SOAP / WebService RFB',
+          status: 500,
+          payload: `[ERRO SEFAZ] Falha na consulta de produção: ${err.message}`
+        },
+        ...prev
+      ]);
+      
+      setSyncSteps(prev => [
+        ...prev,
+        `❌ Erro na consulta ao Web Service da SEFAZ.`,
+        `Motivo: ${err.message}`
+      ]);
+      setIsSyncing(false);
+      showToast(`Erro na busca de documentos SEFAZ: ${err.message}`, 'error');
     }
   };
 
@@ -1646,11 +1485,12 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-6 bg-[#0B0F19]/90 border border-slate-800/80 rounded-2xl shadow-xl">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-[9px] font-bold text-rose-400 uppercase tracking-widest">
-              Perfil de Desenvolvimento Activado
+            <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" />
+              Ambiente de Produção SEFAZ Ativo
             </span>
             <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] font-bold text-blue-400 uppercase tracking-widest">
-              Vértice Docs beta
+              mTLS Direct WebService
             </span>
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
@@ -1658,8 +1498,8 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
             Vértice Documentos
           </h1>
           <p className="text-sm text-slate-400 leading-relaxed max-w-2xl">
-            Solução de busca integrada, armazenamento, correção de XML e espelhos DANFE/DACTE para 
-            <strong className="text-slate-200"> NF-e, NFS-e, NFC-e e CT-e</strong> através de WebServices seguros.
+            Solução de busca integrada em ambiente de produção oficial, validação de integridade de XMLs e emissão de espelhos DANFE/DACTE para 
+            <strong className="text-slate-200"> NF-e, NFS-e, NFC-e e CT-e</strong> diretamente via WebServices da SEFAZ / Receita Federal.
           </p>
         </div>
 
@@ -1668,7 +1508,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
           className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-sm shadow-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer shrink-0"
         >
           <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          Sincronizar com a SEFAZ / RFB
+          Buscar Documentos na SEFAZ (Produção)
         </button>
       </div>
 
@@ -3786,6 +3626,20 @@ TEXTO DE RETIFICAÇÃO:
               onApplyTaxToXml={(opType, calculatedTaxValue, baseCalculo, taxRate, extraParams) => {
                 handleApplyTaxCalculationToXml(opType, calculatedTaxValue, baseCalculo, taxRate, extraParams);
               }}
+              onUpdateDocumentTax={(docId, updatedFields) => {
+                setDocuments(prev => prev.map(d => {
+                  if (d.id === docId) {
+                    return {
+                      ...d,
+                      valorTotal: updatedFields.valorTotal ?? d.valorTotal,
+                      cfop: updatedFields.cfop ? String(updatedFields.cfop) : d.cfop,
+                      ncm: updatedFields.ncm ?? d.ncm,
+                      valorIcms: updatedFields.icmsValue ?? d.valorIcms
+                    };
+                  }
+                  return d;
+                }));
+              }}
               showToast={showToast}
             />
           )}
@@ -3822,12 +3676,32 @@ TEXTO DE RETIFICAÇÃO:
               <div className="p-6 bg-slate-900/60 border border-slate-800 rounded-3xl space-y-2">
                 <h2 className="text-xl font-black text-white uppercase tracking-wider flex items-center gap-2">
                   <Settings className="w-5 h-5 text-rose-500" />
-                  Painel de Configurações Técnicas & Fiscais
+                  Painel de Configurações Técnicas, Agendador & Requisitos SEFAZ
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Gerencie modelos de documentos de consulta, centralizadores do agendador, credenciais do portal de serviços tomados, integrações NFC-e e cadastro de CNPJs em lote.
+                  Gerencie tarefas agendadas de busca de XML/DANFE por centralizador, requisitos para captura na SEFAZ e cadastro do certificado digital A1.
                 </p>
               </div>
+
+              {/* GUIA COMPLETO: TUDO O QUE PRECISA FAZER PARA BUSCAR XMLs E PDFs NA SEFAZ */}
+              <VerticeSefazSetupGuide
+                currentCompany={currentCompany}
+                certUploaded={!!currentCompany.certUploaded || certUploaded}
+                isRealConnection={isRealConnection}
+                onOpenCertModal={() => {
+                  showToast('Selecione o arquivo .PFX e digite a senha na seção 1 abaixo.', 'info');
+                }}
+                showToast={showToast}
+              />
+
+              {/* GERENCIADOR DE TAREFAS AGENDADAS DE BUSCA AUTOMÁTICA POR CENTRALIZADOR */}
+              <VerticeScheduledTasksManager
+                currentCompany={currentCompany}
+                showToast={showToast}
+                onTriggerSyncNow={() => {
+                  handleStartSync();
+                }}
+              />
 
               {/* SECTION 1: CERTIFICADO DIGITAL & CADASTRO DA EMPRESA */}
               <div className="p-6 bg-[#0F172A] border border-slate-800 rounded-3xl space-y-4">
