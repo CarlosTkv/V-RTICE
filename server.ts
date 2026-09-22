@@ -9,6 +9,7 @@ import nodemailer from 'nodemailer';
 import dns from 'dns';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
+import forge from 'node-forge';
 
 const dnsPromises = dns.promises;
 dotenv.config();
@@ -664,17 +665,94 @@ async function startServer() {
   // REAL SEFAZ mTLS DIRECT WEB SERVICE INTEGRATION
   // ==========================================
   
+  // Robust PKCS#12 (.pfx / .p12) Credentials Extractor using node-forge with legacy ICP-Brasil cipher support
+  function extractPfxCredentials(pfxBase64Input: string, passphrase: string): { key?: string; cert?: string; ca?: string[]; pfx?: Buffer; passphrase?: string; error?: string } {
+    if (!pfxBase64Input) {
+      return { error: 'Certificado digital (.pfx) não fornecido.' };
+    }
+
+    // Sanitize base64 (strip data:...;base64, prefixes and whitespace)
+    const sanitizedBase64 = pfxBase64Input
+      .replace(/^data:.*?;base64,/i, '')
+      .replace(/\s+/g, '');
+
+    let pfxBuffer: Buffer;
+    try {
+      pfxBuffer = Buffer.from(sanitizedBase64, 'base64');
+    } catch (err: any) {
+      return { error: 'Estrutura base64 do arquivo de certificado digital inválida.' };
+    }
+
+    if (!pfxBuffer || pfxBuffer.length === 0) {
+      return { error: 'Arquivo do certificado digital está vazio ou corrompido.' };
+    }
+
+    try {
+      const pfxBinary = pfxBuffer.toString('binary');
+      const pfxAsn1 = forge.asn1.fromDer(pfxBinary);
+      const pfx = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, passphrase);
+
+      let keyPem = '';
+      let certPem = '';
+      const caPems: string[] = [];
+
+      const pfxObj = pfx as any;
+      const bagsObj = pfxObj.bags || (pfxObj.getBags ? pfxObj.getBags() : {});
+
+      for (const bagType of Object.keys(bagsObj)) {
+        const bags = bagsObj[bagType];
+        if (!bags || !Array.isArray(bags)) continue;
+
+        for (const bag of bags) {
+          if (bag.key) {
+            keyPem = forge.pki.privateKeyToPem(bag.key);
+          }
+          if (bag.cert) {
+            const cPem = forge.pki.certificateToPem(bag.cert);
+            if (!certPem) {
+              certPem = cPem;
+            } else {
+              caPems.push(cPem);
+            }
+          }
+        }
+      }
+
+      if (keyPem && certPem) {
+        return {
+          key: keyPem,
+          cert: certPem,
+          ca: caPems.length > 0 ? caPems : undefined
+        };
+      }
+    } catch (forgeErr: any) {
+      console.warn('[Vértice Cert Unpacker] Forge parse aviso/erro:', forgeErr.message);
+      const msg = forgeErr.message || '';
+      if (msg.includes('password') || msg.includes('MAC') || msg.includes('PKCS#12 MAC') || msg.includes('Invalid password')) {
+        return { error: 'Senha incorreta para o certificado digital A1 (.pfx). Verifique a senha cadastrada na Central de Gestão de Empresas.' };
+      }
+    }
+
+    // Fallback directly to native sanitized PFX buffer
+    return {
+      pfx: pfxBuffer,
+      passphrase: passphrase
+    };
+  }
+
   // SOAP / XML and mTLS Helper using native Node https.request
   function callSefazWS(url: string, xmlPayload: string, agent: https.Agent): Promise<string> {
     return new Promise((resolve, reject) => {
       const u = new URL(url);
-      const options = {
+      const options: https.RequestOptions = {
         method: 'POST',
         hostname: u.hostname,
+        port: u.port || 443,
         path: u.pathname,
         agent: agent,
+        timeout: 30000,
         headers: {
-          'Content-Type': 'application/soap+xml; charset=utf-8;',
+          'Content-Type': 'application/soap+xml; charset=utf-8; action="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse"',
           'Content-Length': Buffer.byteLength(xmlPayload)
         }
       };
@@ -684,11 +762,20 @@ async function startServer() {
         res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
           if (res.statusCode && res.statusCode >= 400) {
-            reject(new Error(`Erro HTTP ${res.statusCode}: ${data}`));
+            if (data && (data.includes('<cStat>') || data.includes('<soap:Fault>') || data.includes('<soap12:Fault>'))) {
+              resolve(data);
+            } else {
+              reject(new Error(`Erro HTTP ${res.statusCode} retornado pela SEFAZ: ${data.substring(0, 300)}`));
+            }
           } else {
             resolve(data);
           }
         });
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Tempo limite de resposta da SEFAZ excedido (Timeout 30s). Verifique se o portal da Fazenda Nacional está operando normalmente.'));
       });
 
       req.on('error', (err) => {
@@ -890,15 +977,34 @@ async function startServer() {
     console.log(`[Vértice Real-Sync] Iniciando conexão direta com SEFAZ AN. CNPJ: ${cleanCnpj}, Ambiente: ${environment}, NSU: ${currentNsu}`);
 
     try {
-      // Decode pfx data
-      const pfxBuffer = Buffer.from(pfxBase64, 'base64');
+      // Decode and extract credentials from PFX (with support for all ICP-Brasil legacy ciphers)
+      const creds = extractPfxCredentials(pfxBase64, password);
       
+      if (creds.error) {
+        return res.status(400).json({
+          success: false,
+          error: creds.error
+        });
+      }
+
       // Setup secure mTLS agent
-      const agent = new https.Agent({
-        pfx: pfxBuffer,
-        passphrase: password,
-        rejectUnauthorized: false // Required for Node.js to ignore custom local chains of ICP-Brasil
-      });
+      const agentOptions: https.AgentOptions = {
+        rejectUnauthorized: false,
+        keepAlive: true
+      };
+
+      if (creds.key && creds.cert) {
+        agentOptions.key = creds.key;
+        agentOptions.cert = creds.cert;
+        if (creds.ca && creds.ca.length > 0) {
+          agentOptions.ca = creds.ca;
+        }
+      } else if (creds.pfx) {
+        agentOptions.pfx = creds.pfx;
+        agentOptions.passphrase = creds.passphrase;
+      }
+
+      const agent = new https.Agent(agentOptions);
 
       // Construct official Receita Federal SOAP Envelope
       const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>

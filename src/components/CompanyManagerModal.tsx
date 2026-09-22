@@ -346,13 +346,14 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string || '';
+      const rawBase64 = (event.target?.result as string) || '';
+      const sanitizedBase64 = rawBase64.replace(/^data:.*?;base64,/i, '').replace(/\s+/g, '');
       const updated: CompanyData = {
         ...company,
         certUploaded: true,
         pfxFileName: inlineCertFile.name,
         certPassword: inlineCertPassword,
-        pfxBase64: base64
+        pfxBase64: sanitizedBase64
       };
       if (onUpdateCompany) {
         onUpdateCompany(updated, index);
@@ -1011,10 +1012,12 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
                         onFileSelect={(file, password) => {
                           const reader = new FileReader();
                           reader.onload = (event) => {
+                            const rawBase64 = (event.target?.result as string) || '';
+                            const sanitizedBase64 = rawBase64.replace(/^data:.*?;base64,/i, '').replace(/\s+/g, '');
                             setFormCertUploaded(true);
                             setFormPfxFileName(file.name);
                             setFormCertPassword(password);
-                            setFormPfxBase64(event.target?.result as string || '');
+                            setFormPfxBase64(sanitizedBase64);
                           };
                           reader.readAsDataURL(file);
                         }}
