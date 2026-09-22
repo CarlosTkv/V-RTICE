@@ -286,8 +286,10 @@ export interface CompanyData {
   cnae: string;
   cnaeDescription: string;
   uf: string;
+  state?: string; // Alias para UF
   city?: string; // Município / Cidade da empresa
   regimeTributario?: 'simples_nacional' | 'lucro_presumido' | 'lucro_real' | 'mei'; // Regime tributário da empresa
+  taxRegime?: TaxRegime; // Alias para regimeTributario
   atividadeEmpresa?: 'servicos' | 'comercio' | 'industria' | 'misto'; // Atividade principal da empresa
   customIcmsRate?: number; // Alíquota de ICMS interna da UF personalizada (%)
   customIssRate?: number; // Alíquota de ISS municipal personalizada (%) (ex: 2.0% a 5.0%)
@@ -335,6 +337,31 @@ export interface CompanyData {
   financialStatements?: FinancialStatement[]; // Histórico de Balancetes/DREs importados para comparação
   createdAt?: string;
   updatedAt?: string;
+  searchNotesConfig?: {
+    emitidas: { nfe: boolean; cte: boolean; nfse: boolean };
+    recebidas: { nfe: boolean; cte: boolean; nfse: boolean };
+  };
+  nfceIntegration?: {
+    ativo: boolean;
+    emissor: string;
+    apiKey: string;
+    apiSecret?: string;
+    endpointUrl?: string;
+  };
+  nfseCredentials?: {
+    usarCredenciaisNaoCertificado: boolean;
+    usuario?: string;
+    senha?: string;
+    provedor?: string;
+  };
+  centralizadorConfig?: {
+    nfeCte: string;
+    nfse: string;
+  };
+  certUploaded?: boolean;
+  pfxFileName?: string;
+  certPassword?: string;
+  pfxBase64?: string;
 }
 
 export interface SavedSimulation {
@@ -1148,6 +1175,7 @@ export type AppActiveTab =
   | 'portal_parceiro'
   | 'webmail_umbler'
   | 'econet_report'
+  | 'vertice_documentos'
   // Sub-abas (usadas para navegação interna ou permissões específicas)
   | 'regimes' 
   | 'financeiro' 

@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { FileText, Download, Send, RefreshCw, CheckCircle2, Search, Filter, ShieldCheck, QrCode, ExternalLink, Key, Sparkles, Mail } from 'lucide-react';
-import { BillingInvoice, BankConfig, NfseNacionalData } from '../types';
+import React, { useState, useEffect } from 'react';
+import { FileText, Download, Send, RefreshCw, CheckCircle2, Search, Filter, ShieldCheck, QrCode, ExternalLink, Key, Sparkles, Mail, Building2, Lock, AlertTriangle } from 'lucide-react';
+import { BillingInvoice, BankConfig, NfseNacionalData, CompanyData } from '../types';
 import { NfseNacionalService } from '../utils/nfseService';
 import { AuthService } from '../utils/authService';
 import { NfseNacionalModal } from './NfseNacionalModal';
-import { CertificateUploadField } from './CertificateUploadField';
 
 interface NFSEServiceModuleProps {
   invoices: BillingInvoice[];
@@ -21,6 +20,23 @@ export const NFSEServiceModule: React.FC<NFSEServiceModuleProps> = ({
   const [selectedInvoice, setSelectedInvoice] = useState<BillingInvoice | null>(null);
   const [isNfseModalOpen, setIsNfseModalOpen] = useState(false);
   const [isEmittingBatch, setIsEmittingBatch] = useState(false);
+  const [companies, setCompanies] = useState<CompanyData[]>([]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sna_companies_data');
+      if (saved) {
+        setCompanies(JSON.parse(saved));
+      }
+    } catch (e) {}
+  }, []);
+
+  const companyWithCert = companies.find(c => c.certUploaded) || companies[0];
+  const hasCertIdentified = Boolean(companyWithCert?.certUploaded);
+
+  const handleOpenCompanyCentral = () => {
+    window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
+  };
 
   // Filtro de faturas
   const filteredInvoices = invoices.filter(inv => 
@@ -152,24 +168,73 @@ export const NFSEServiceModule: React.FC<NFSEServiceModuleProps> = ({
 
           <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3.5 space-y-1.5">
             <div className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>✅ Para a nota ser autorizada diretamente na Receita Federal:</span>
+              <span>✅ Conexão com a Central de Empresas & Certificado Digital A1:</span>
             </div>
             <p className="text-slate-300 leading-relaxed text-[11px]">
-              O WebService oficial da Receita Federal (ADN Gov.br) exige autenticação síncrona via mTLS com ICP-Brasil. Basta:
+              O WebService oficial da Receita Federal (ADN Gov.br) exige autenticação síncrona via mTLS ICP-Brasil.
             </p>
             <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5 pl-1">
-              <li>Upload do <strong>Certificado Digital e-CNPJ A1 (.pfx)</strong> com a senha no campo abaixo;</li>
-              <li>O sistema assina a DPS com a chave privada, envia diretamente à API do Emissor Nacional e recebe a autorização oficial com a Chave de 50 dígitos.</li>
+              <li>O Certificado A1 (.pfx) é centralizado na <strong>Central de Gestão e Cadastro de Empresas</strong>;</li>
+              <li>O módulo de NFS-e identifica automaticamente o certificado da empresa emissora para assinar digitalmente a DPS e transmitir.</li>
             </ul>
           </div>
         </div>
       </div>
 
-      <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-6">
-        <CertificateUploadField 
-          label="Atualizar Certificado de Emissão"
-          onFileSelect={(file, password) => showToast(`Certificado ${file.name} carregado (senha: ${password.replace(/./g, '*')}).`)}
-        />
+      {/* Identificação Corporativa do Certificado Digital */}
+      <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className={`p-3 rounded-xl border shrink-0 ${
+              hasCertIdentified 
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+            }`}>
+              <Lock className="w-5 h-5" />
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Identificação do Certificado Digital A1 (ICP-Brasil)
+                </span>
+                {hasCertIdentified ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-extrabold uppercase border border-emerald-500/30">
+                    Certificado Ativo no Cadastro
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-extrabold uppercase border border-amber-500/30">
+                    Não Vinculado
+                  </span>
+                )}
+              </div>
+
+              {hasCertIdentified ? (
+                <div className="text-xs text-slate-200">
+                  <span className="font-semibold text-white">Empresa Emissora:</span> {companyWithCert?.name} (CNPJ: {companyWithCert?.cnpj}) • 
+                  <span className="text-emerald-400 font-mono ml-1">Arquivo: {companyWithCert?.pfxFileName || 'certificado_a1.pfx'}</span>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Nenhum certificado digital .pfx associado a esta empresa. O upload e gerenciamento é realizado na Central de Gestão e Cadastro de Empresas.
+                </p>
+              )}
+
+              <div className="text-[10px] text-slate-500 flex items-center gap-1.5 pt-0.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Protocolo síncrono mTLS ativado para Ambiente Nacional de Dados (ADN Gov.br)</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleOpenCompanyCentral}
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition flex items-center justify-center gap-2 shrink-0 border border-slate-700 cursor-pointer shadow-sm"
+          >
+            <Building2 className="w-4 h-4 text-blue-400" />
+            Central de Empresas
+          </button>
+        </div>
       </div>
 
       {/* Barra de Filtros e Busca */}

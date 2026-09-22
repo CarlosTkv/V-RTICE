@@ -44,6 +44,7 @@ import { NCMServiceLookupView } from './components/NCMServiceLookupView';
 import { SimplesHibridoModule } from './components/taxPlanning/SimplesHibridoModule';
 import { SimplesHibridoClientPortal } from './components/taxPlanning/SimplesHibridoClientPortal';
 import { EconetReportGeneratorView } from './components/EconetReportGeneratorView';
+import { VerticeDocumentosView } from './components/VerticeDocumentosView';
 // Remove import
 import { PRESET_COMPANIES } from './data/presets';
 import { CompanyData, AuthUser, AppViewMode, AppActiveTab } from './types';
@@ -281,7 +282,16 @@ export default function App() {
     };
     handleHash();
     window.addEventListener('hashchange', handleHash);
-    return () => window.removeEventListener('hashchange', handleHash);
+
+    const handleOpenCompanyManagerEvent = () => {
+      setIsCompanyManagerOpen(true);
+    };
+    window.addEventListener('vertice:open-company-manager', handleOpenCompanyManagerEvent);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHash);
+      window.removeEventListener('vertice:open-company-manager', handleOpenCompanyManagerEvent);
+    };
   }, []);
 
   // Dedicated Client URL Query Param Detection (Simples Hibrido Module Exclusive Link)
@@ -395,6 +405,25 @@ export default function App() {
     saveCompanies(newCompanies);
     setActiveCompanyIndex(newCompanies.length - 1);
     showToast('Nova empresa cadastrada com sucesso!', 'success');
+  };
+
+  const handleUpdateCompany = (updatedCompany: CompanyData, index?: number) => {
+    const targetIdx = index !== undefined && index >= 0 
+      ? index 
+      : companies.findIndex(c => c.id === updatedCompany.id || (c.cnpj && c.cnpj === updatedCompany.cnpj));
+    
+    if (targetIdx >= 0) {
+      const updated = [...companies];
+      updated[targetIdx] = updatedCompany;
+      saveCompanies(updated);
+      showToast(`Empresa "${updatedCompany.name}" atualizada com sucesso!`, 'success');
+    }
+  };
+
+  const handleBatchCreateCompanies = (newComps: CompanyData[]) => {
+    const newCompanies = [...companies, ...newComps];
+    saveCompanies(newCompanies);
+    showToast(`${newComps.length} empresas adicionadas à base com sucesso!`, 'success');
   };
 
   const handleDeleteCompany = (indexToDelete: number) => {
@@ -815,6 +844,21 @@ export default function App() {
           />
         );
 
+      case 'vertice_documentos':
+        return (
+          <VerticeDocumentosView
+            currentCompany={safeCurrentCompany}
+            companies={companies}
+            onUpdateCompany={handleUpdateCurrentCompany}
+            onSelectCompany={(idx: number) => setActiveCompanyIndex(idx)}
+            onCreateCompany={handleCreateCompany}
+            onDeleteCompany={handleDeleteCompany}
+            onOpenCompanyManager={() => setIsCompanyManagerOpen(true)}
+            showToast={showToast}
+            isMaster={authUser?.role === 'master' || authUser?.isMaster}
+          />
+        );
+
       default:
         return (
           <DashboardView
@@ -1057,6 +1101,8 @@ export default function App() {
           activeCompanyIndex={activeCompanyIndex}
           onSelectCompany={setActiveCompanyIndex}
           onCreateCompany={handleCreateCompany}
+          onUpdateCompany={handleUpdateCompany}
+          onBatchCreateCompanies={handleBatchCreateCompanies}
           onDeleteCompany={handleDeleteCompany}
           onOpenPDFUpload={() => {
             setIsCompanyManagerOpen(false);

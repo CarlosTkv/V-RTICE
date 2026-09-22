@@ -85,7 +85,8 @@ type NavModuleId =
   | 'agenda_fiscal' 
   | 'emissao_nfse'
   | 'portal_parceiro' 
-  | 'gestao_master';
+  | 'gestao_master'
+  | 'vertice_documentos';
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentCompany,
@@ -118,6 +119,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Identifica o módulo ativo com base na aba
   const activeModule: NavModuleId = React.useMemo(() => {
+    if (['vertice_documentos'].includes(activeTab)) return 'vertice_documentos';
     if (['dashboard', 'auditoria_digital', 'fator_r', 'socios'].includes(activeTab)) return 'auditoria_digital';
     if (['planejamento_tributario', 'regimes', 'reforma', 'projecao', 'parecer', 'historico', 'simples_hibrido', 'econet_report'].includes(activeTab)) return 'planejamento_tributario';
     if (['financeiro_gerencial', 'financeiro', 'balancete_dre', 'bpo', 'bpo_financeiro'].includes(activeTab)) return 'financeiro_gerencial';
@@ -163,6 +165,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'emissao_nfse': setActiveTab('emissao_nfse'); break;
       case 'portal_parceiro': setActiveTab('portal_parceiro'); break;
       case 'gestao_master': setActiveTab('gestao_planos'); break;
+      case 'vertice_documentos': setActiveTab('vertice_documentos'); break;
     }
   };
 
@@ -229,6 +232,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const activeBrandModule = React.useMemo(() => {
+    if (['vertice_documentos'].includes(activeTab)) return 'nfse';
     if (['dashboard', 'auditoria_digital'].includes(activeTab)) return 'master';
     if (['fator_r', 'planejamento_tributario', 'regimes'].includes(activeTab)) return 'simples';
     if (['reforma'].includes(activeTab)) return 'reforma';
@@ -290,6 +294,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                  >
                    <Server className="w-3.5 h-3.5 text-purple-400" />
                    <span className="hidden xl:inline">Mapa de APIs & Robôs</span>
+                 </button>
+               )}
+               {isMasterUser && (
+                 <button
+                   onClick={() => setActiveTab && setActiveTab('vertice_documentos')}
+                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900/70 text-rose-300 border border-rose-800/70 transition text-[10px] font-bold cursor-pointer"
+                   title="Vértice Documentos: Busca, Correção e Download de XMLs (Exclusivo Dev)"
+                 >
+                   <FileCode className="w-3.5 h-3.5 text-rose-400" />
+                   <span className="hidden xl:inline">Vértice Documentos (Dev)</span>
                  </button>
                )}
                <button onClick={onOpenNotifications} className="p-2 text-slate-500 hover:text-amber-400 transition relative">
@@ -456,6 +470,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   pattern="slate" 
                   subLabel="Planos Master & Licenças" 
                 />
+                {isMasterUser && (
+                  <NavButton 
+                    id="vertice_documentos" 
+                    label="Vértice Documentos" 
+                    icon={FileCode} 
+                    color="rose" 
+                    pattern="rose" 
+                    subLabel="Busca, Correção & XML (Dev)" 
+                  />
+                )}
               </div>
             </div>
           ) : (
