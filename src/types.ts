@@ -786,6 +786,7 @@ export interface AuthUser {
   permissions?: string[];
   viewMode?: AppViewMode;
   allowedModules?: PlanAllowedModules;
+  allowedSubmodules?: Record<string, boolean>;
   maxCompaniesAllowed?: number;
   maxUsersAllowed?: number;
   isPartnerActive?: boolean;

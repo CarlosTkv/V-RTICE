@@ -256,6 +256,56 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
   const role = user.role;
   const viewMode = user.viewMode;
 
+  // 0. VERIFICAÇÃO GRANULAR DE SUBMÓDULOS ATRIBUÍDOS AO COLABORADOR
+  if (user.allowedSubmodules && !isMaster) {
+    const sub = user.allowedSubmodules;
+    if (tab === 'dashboard' && sub.auditoria_dashboard === false) {
+      return { allowed: false, reason: 'Acesso ao Dashboard desabilitado pelo Administrador da conta.' };
+    }
+    if (tab === 'fator_r' && sub.auditoria_fator_r === false) {
+      return { allowed: false, reason: 'Acesso ao submódulo Fator R desabilitado para o seu usuário.' };
+    }
+    if (tab === 'socios' && sub.auditoria_socios === false) {
+      return { allowed: false, reason: 'Acesso ao Quadro de Sócios desabilitado para o seu usuário.' };
+    }
+    if (tab === 'regimes' && sub.plan_regimes === false) {
+      return { allowed: false, reason: 'Acesso ao Comparativo de Regimes desabilitado pelo Administrador.' };
+    }
+    if (tab === 'simples_hibrido' && (sub.plan_simples_hibrido === false || (sub.hibrido_aliquotas === false && sub.hibrido_creditos === false && sub.hibrido_parecer === false))) {
+      return { allowed: false, reason: 'Acesso ao Módulo Simples Híbrido desabilitado para o seu usuário.' };
+    }
+    if (tab === 'projecao' && sub.plan_projecao === false) {
+      return { allowed: false, reason: 'Acesso a Projeções de Crescimento desabilitado.' };
+    }
+    if (tab === 'parecer' && sub.plan_parecer === false && sub.hibrido_parecer === false) {
+      return { allowed: false, reason: 'Acesso à Emissão de Parecer Técnico desabilitado.' };
+    }
+    if (tab === 'vertice_documentos' && sub.dfe_busca_sefaz === false && sub.dfe_repositorio_xml === false) {
+      return { allowed: false, reason: 'Acesso ao Vértice Documentos / SEFAZ DFe desabilitado.' };
+    }
+    if (tab === 'cfop' && sub.cons_cfop === false) {
+      return { allowed: false, reason: 'Acesso à Consulta CFOP / Monofásicos desabilitado.' };
+    }
+    if (tab === 'ncm_consulta' && sub.cons_ncm === false) {
+      return { allowed: false, reason: 'Acesso à Consulta NCM / Alíquotas desabilitado.' };
+    }
+    if (tab === 'servicos_consulta' && sub.cons_servicos === false) {
+      return { allowed: false, reason: 'Acesso à Consulta de Serviços Municipais desabilitado.' };
+    }
+    if ((tab === 'emissao_nfse' || tab === 'nfse') && sub.nfse_emissao === false) {
+      return { allowed: false, reason: 'Acesso à Emissão de NFS-e Nacional desabilitado.' };
+    }
+    if ((tab === 'financeiro' || tab === 'bpo' || tab === 'bpo_financeiro') && sub.bpo_dre === false && sub.bpo_balancetes === false && sub.bpo_fluxo_caixa === false) {
+      return { allowed: false, reason: 'Acesso ao Financeiro / BPO desabilitado.' };
+    }
+    if ((tab === 'societario' || tab === 'direito') && sub.legal_qsa === false && sub.legal_contratos === false) {
+      return { allowed: false, reason: 'Acesso ao Módulo Legal & Societário desabilitado.' };
+    }
+    if (tab === 'agenda_fiscal' && sub.agenda_calendario === false && sub.agenda_obrigacoes === false) {
+      return { allowed: false, reason: 'Acesso à Agenda Fiscal desabilitado.' };
+    }
+  }
+
   // 1. GESTÃO DE PLANOS, CONTRATOS E FATURAMENTO DA PLATAFORMA
   // Exclusivo do Desenvolvedor (Carlos Miguel) ou de quem ele explicitamente liberar!
   if (tab === 'gestao_planos' || tab === 'contratos') {

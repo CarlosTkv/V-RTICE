@@ -690,28 +690,53 @@ async function startServer() {
     try {
       const pfxBinary = pfxBuffer.toString('binary');
       const pfxAsn1 = forge.asn1.fromDer(pfxBinary);
-      const pfx = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, passphrase);
+      const pfx = forge.pkcs12.pkcs12FromAsn1(pfxAsn1, false, passphrase || '');
 
       let keyPem = '';
       let certPem = '';
       const caPems: string[] = [];
 
-      const pfxObj = pfx as any;
-      const bagsObj = pfxObj.bags || (pfxObj.getBags ? pfxObj.getBags() : {});
+      // Extract certificates
+      const certBags = (pfx.getBags && pfx.getBags({ bagType: forge.pki.oids.certBag }))?.[forge.pki.oids.certBag] || [];
+      for (const bag of certBags) {
+        if (bag.cert) {
+          const cPem = forge.pki.certificateToPem(bag.cert);
+          if (!certPem) {
+            certPem = cPem;
+          } else {
+            caPems.push(cPem);
+          }
+        }
+      }
 
+      // Extract private keys (both pkcs8ShroudedKeyBag and keyBag)
+      const shroudedBags = (pfx.getBags && pfx.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag }))?.[forge.pki.oids.pkcs8ShroudedKeyBag] || [];
+      const keyBags = (pfx.getBags && pfx.getBags({ bagType: forge.pki.oids.keyBag }))?.[forge.pki.oids.keyBag] || [];
+      const allKeyBags = [...shroudedBags, ...keyBags];
+
+      for (const bag of allKeyBags) {
+        if (bag.key) {
+          keyPem = forge.pki.privateKeyToPem(bag.key);
+          break;
+        }
+      }
+
+      // Also fallback scan generic bags
+      const pfxObj = pfx as any;
+      const bagsObj = pfxObj.bags || {};
       for (const bagType of Object.keys(bagsObj)) {
         const bags = bagsObj[bagType];
         if (!bags || !Array.isArray(bags)) continue;
 
         for (const bag of bags) {
-          if (bag.key) {
+          if (bag.key && !keyPem) {
             keyPem = forge.pki.privateKeyToPem(bag.key);
           }
           if (bag.cert) {
             const cPem = forge.pki.certificateToPem(bag.cert);
             if (!certPem) {
               certPem = cPem;
-            } else {
+            } else if (!caPems.includes(cPem) && cPem !== certPem) {
               caPems.push(cPem);
             }
           }
@@ -729,7 +754,7 @@ async function startServer() {
       console.warn('[Vértice Cert Unpacker] Forge parse aviso/erro:', forgeErr.message);
       const msg = forgeErr.message || '';
       if (msg.includes('password') || msg.includes('MAC') || msg.includes('PKCS#12 MAC') || msg.includes('Invalid password')) {
-        return { error: 'Senha incorreta para o certificado digital A1 (.pfx). Verifique a senha cadastrada na Central de Gestão de Empresas.' };
+        return { error: 'Senha incorreta para o certificado digital A1 (.pfx). Verifique se a senha digitada é a mesma cadastrada na emissão do certificado na autoridade certificadora.' };
       }
     }
 
@@ -990,7 +1015,9 @@ async function startServer() {
       // Setup secure mTLS agent
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
-        keepAlive: true
+        keepAlive: true,
+        ciphers: 'ALL:@SECLEVEL=0',
+        minVersion: 'TLSv1.2'
       };
 
       if (creds.key && creds.cert) {

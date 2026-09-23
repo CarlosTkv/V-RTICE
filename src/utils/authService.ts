@@ -25,6 +25,7 @@ export interface UserAccount {
   viewMode: AppViewMode;
   permissions: string[];
   allowedModules?: PlanAllowedModules;
+  allowedSubmodules?: Record<string, boolean>;
   maxCompaniesAllowed?: number;
   maxUsersAllowed?: number;
   isPartnerActive?: boolean;
@@ -408,6 +409,7 @@ export class AuthService {
       viewMode: account.viewMode,
       permissions: account.permissions,
       allowedModules: account.allowedModules,
+      allowedSubmodules: account.allowedSubmodules,
       maxCompaniesAllowed: account.maxCompaniesAllowed,
       maxUsersAllowed: account.maxUsersAllowed,
       isPartnerActive: account.isPartnerActive,

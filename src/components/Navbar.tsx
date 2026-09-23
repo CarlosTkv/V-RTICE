@@ -420,11 +420,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 />
                 <NavButton 
                   id="financeiro_gerencial" 
-                  label="Gestão Financeira & BPO" 
+                  label="Central Financeira & Contratos" 
                   icon={Wallet} 
                   color="teal" 
                   pattern="teal" 
-                  subLabel="DRE • Balancete • Lucros" 
+                  subLabel="Faturamento • Boletos/PIX • DRE" 
                 />
               </div>
 

@@ -40,6 +40,7 @@ import { LandingWelcomePortal } from './components/LandingWelcomePortal';
 import { CommercialNfseModule } from './components/CommercialNfseModule';
 import { UmblerWebmailModule } from './components/UmblerWebmailModule';
 import { FinancialStatementsView } from './components/FinancialStatementsView';
+import { FinancialCommercialHubView } from './components/FinancialCommercialHubView';
 import { NCMServiceLookupView } from './components/NCMServiceLookupView';
 import { SimplesHibridoModule } from './components/taxPlanning/SimplesHibridoModule';
 import { SimplesHibridoClientPortal } from './components/taxPlanning/SimplesHibridoClientPortal';
@@ -617,25 +618,54 @@ export default function App() {
 
       case 'financeiro':
         return (
-          <FinancialDashboardView
-            company={safeCurrentCompany}
-            onChangeCompany={handleUpdateCurrentCompany}
+          <FinancialCommercialHubView
+            currentCompany={safeCurrentCompany}
+            currentUser={authUser}
             calculation={calculation}
-            onNavigateToTab={setActiveTab}
+            viewMode={viewMode}
+            showToast={showToast}
+            defaultSubTab="visao_geral"
           />
         );
 
       case 'financeiro_gerencial':
       case 'balancete_dre':
+      case 'bpo':
+      case 'bpo_financeiro':
         return (
-          <FinancialStatementsView
+          <FinancialCommercialHubView
             currentCompany={safeCurrentCompany}
-            onUpdateCompany={handleUpdateCurrentCompany}
+            currentUser={authUser}
+            calculation={calculation}
+            viewMode={viewMode}
+            showToast={showToast}
+            defaultSubTab="dre_fluxo_caixa"
           />
         );
 
       case 'gestao_planos':
-        return <AdminPlansBillingView currentUser={authUser!} />;
+        return (
+          <FinancialCommercialHubView
+            currentCompany={safeCurrentCompany}
+            currentUser={authUser}
+            calculation={calculation}
+            viewMode={viewMode}
+            showToast={showToast}
+            defaultSubTab="faturamento_cobrancas"
+          />
+        );
+
+      case 'contratos':
+        return (
+          <FinancialCommercialHubView
+            currentCompany={safeCurrentCompany}
+            currentUser={authUser}
+            calculation={calculation}
+            viewMode={viewMode}
+            showToast={showToast}
+            defaultSubTab="clientes_contratos"
+          />
+        );
 
       case 'emissao_nfse':
       case 'nfse':
@@ -645,23 +675,6 @@ export default function App() {
             authUser={authUser}
             viewMode={viewMode}
             showToast={showToast}
-          />
-        );
-
-      case 'contratos':
-        return (
-          <ServiceContractsModule 
-            currentCompany={safeCurrentCompany}
-            currentUser={authUser!}
-          />
-        );
-
-      case 'bpo':
-      case 'bpo_financeiro':
-        return (
-          <BPOFinanceiroView
-            company={safeCurrentCompany}
-            calculation={calculation}
           />
         );
 
@@ -1109,6 +1122,7 @@ export default function App() {
             setIsPDFUploadOpen(true);
           }}
           onClearCompanyData={handleClearCompanyData}
+          currentUser={authUser || undefined}
         />
 
         <PrivacyLGPDModal
