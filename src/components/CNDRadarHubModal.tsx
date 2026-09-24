@@ -293,7 +293,7 @@ export const CNDRadarHubModal: React.FC<CNDRadarHubModalProps> = ({
                   className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 flex items-center gap-2 transition-all disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-                  {isScanning ? 'Varrendo Órgãos...' : 'Atualizar CNDs'}
+                  {isScanning ? 'Atualizando esferas...' : 'Atualizar todas as CND\'s'}
                 </button>
 
                 <button
