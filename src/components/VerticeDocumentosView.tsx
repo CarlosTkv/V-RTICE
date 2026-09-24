@@ -67,6 +67,11 @@ import { VerticeTaxDivergenceReport } from './VerticeTaxDivergenceReport';
 import { VerticeFolderWatcher } from './VerticeFolderWatcher';
 import { VerticeScheduledTasksManager } from './VerticeScheduledTasksManager';
 import { VerticeSefazSetupGuide } from './VerticeSefazSetupGuide';
+import { CertificateInspectionModal } from './CertificateInspectionModal';
+import { DocumentUploadHubModal } from './DocumentUploadHubModal';
+import { SefazRadarSearchModal } from './SefazRadarSearchModal';
+import { CNDRadarHubModal } from './CNDRadarHubModal';
+import { parseFiscalXmlString } from '../utils/xmlDocumentParser';
 
 interface VerticeDocumentosViewProps {
   currentCompany: CompanyData;
@@ -479,6 +484,12 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   const [filterManifestacao, setFilterManifestacao] = useState<'all' | 'Pendente' | 'Confirmada' | 'Ciência' | 'Desconhecida'>('all');
   const [showQuickXmlUpload, setShowQuickXmlUpload] = useState<boolean>(false);
   const [showManifestarDropdown, setShowManifestarDropdown] = useState<boolean>(false);
+  
+  // Advanced Modals
+  const [showRadarSearchModal, setShowRadarSearchModal] = useState<boolean>(false);
+  const [showUploadHubModal, setShowUploadHubModal] = useState<boolean>(false);
+  const [showCertInspectModal, setShowCertInspectModal] = useState<boolean>(false);
+  const [showCndHubModal, setShowCndHubModal] = useState<boolean>(false);
   
   // Tax simulation overrides
   const [calcOrigemUf, setCalcOrigemUf] = useState<string>('RJ');
@@ -1503,13 +1514,32 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleStartSync}
-          className="px-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-sm shadow-xl transition-all flex items-center justify-center gap-2.5 cursor-pointer shrink-0"
-        >
-          <RefreshCw className="w-4 h-4 animate-spin-slow" />
-          Buscar Documentos na SEFAZ (Produção)
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={() => setShowRadarSearchModal(true)}
+            className="px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs shadow-xl shadow-rose-900/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Radio className="w-4 h-4 animate-pulse text-amber-300" />
+            <span>Radar Buscador SEFAZ & ADN (NF-e, CT-e, NFS-e)</span>
+          </button>
+
+          <button
+            onClick={() => setShowUploadHubModal(true)}
+            className="px-4 py-3 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs border border-slate-700 shadow-md transition flex items-center gap-2 cursor-pointer"
+          >
+            <Upload className="w-4 h-4 text-emerald-400" />
+            <span>Upload em Lote (XML / ZIP / PDF)</span>
+          </button>
+
+          <button
+            onClick={() => setShowCndHubModal(true)}
+            className="px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-900/70 to-blue-900/70 hover:from-indigo-800 hover:to-blue-800 text-indigo-200 hover:text-white font-bold text-xs border border-indigo-500/30 shadow-md transition flex items-center gap-2 cursor-pointer"
+            title="Consultar CNDs nas 5 Esferas (Federal, Estadual pela UF, Municipal pela Cidade, CNDT e FGTS)"
+          >
+            <ShieldCheck className="w-4 h-4 text-indigo-400" />
+            <span>Monitor de CNDs & Débitos 360°</span>
+          </button>
+        </div>
       </div>
 
       {/* Centralized Corporate Certificate & Active Company Status Banner */}
@@ -1537,37 +1567,44 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-800/80 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className={`p-2 rounded-xl border ${
+          <button
+            type="button"
+            onClick={() => setShowCertInspectModal(true)}
+            className={`p-2.5 rounded-xl border transition flex items-center gap-3 cursor-pointer text-left ${
               currentCompany?.certUploaded 
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                ? 'bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/30 text-emerald-300' 
+                : 'bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/30 text-amber-300'
+            }`}
+            title="Clique para inspecionar ou atualizar o Certificado Digital A1"
+          >
+            <div className={`p-1.5 rounded-lg ${
+              currentCompany?.certUploaded ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
             }`}>
               <Lock className="w-4 h-4" />
             </div>
-            <div className="space-y-0.5 text-left">
+            <div className="space-y-0.5">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-200">
-                  {currentCompany?.certUploaded ? 'Certificado A1 Vinculado' : 'Certificado Pendente'}
+                <span className="text-xs font-bold text-white">
+                  {currentCompany?.certUploaded ? 'Certificado A1 Ativo' : 'Subir Certificado A1'}
                 </span>
                 {currentCompany?.certUploaded ? (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase border border-emerald-500/30">
+                  <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 text-[8px] font-black uppercase border border-emerald-500/30">
                     ICP-Brasil
                   </span>
                 ) : (
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-black uppercase border border-amber-500/30">
-                    Não Detectado
+                  <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 text-[8px] font-black uppercase border border-amber-500/30">
+                    Pendente
                   </span>
                 )}
               </div>
               <div className="text-[10px] text-slate-400 font-mono">
                 {currentCompany?.certUploaded 
-                  ? `${currentCompany.pfxFileName || 'A1_ICP_Brasil.pfx'} • Pronto p/ mTLS`
-                  : 'Cadastre na Central de Gestão de Empresas'
+                  ? `${currentCompany.pfxFileName || 'A1_ICP_Brasil.pfx'} • Clique p/ Validar`
+                  : 'Clique para vincular o arquivo .pfx'
                 }
               </div>
             </div>
-          </div>
+          </button>
 
           <button
             type="button"
@@ -1578,11 +1615,11 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                 window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
               }
             }}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition flex items-center gap-2 border border-slate-700 cursor-pointer shrink-0"
+            className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition flex items-center gap-2 border border-slate-700 cursor-pointer shrink-0"
             title="Acessar Central de Gestão e Cadastro de Empresas"
           >
             <Building2 className="w-4 h-4 text-blue-400" />
-            <span>Central de Empresas</span>
+            <span>Gerenciar Empresas</span>
           </button>
         </div>
       </div>
@@ -4303,6 +4340,73 @@ TEXTO DE RETIFICAÇÃO:
           )}
 
       </div>
+
+      {/* SEFAZ Radar Search Modal */}
+      <SefazRadarSearchModal
+        isOpen={showRadarSearchModal}
+        onClose={() => setShowRadarSearchModal(false)}
+        currentCompany={currentCompany}
+        onSuccessImport={(newDocs, returnedNsu) => {
+          if (newDocs && newDocs.length > 0) {
+            setDocuments(prev => {
+              const existingIds = new Set(prev.map(d => d.id));
+              const filtered = newDocs.filter((d: any) => !existingIds.has(d.id));
+              return [...filtered, ...prev];
+            });
+            if (returnedNsu) setLastNSU(returnedNsu);
+          }
+        }}
+        showToast={showToast}
+        onOpenCertificateModal={() => {
+          setShowRadarSearchModal(false);
+          setShowCertInspectModal(true);
+        }}
+      />
+
+      {/* Document Upload Hub Modal */}
+      <DocumentUploadHubModal
+        isOpen={showUploadHubModal}
+        onClose={() => setShowUploadHubModal(false)}
+        currentCompany={currentCompany}
+        onImportDocuments={(importedDocs) => {
+          if (importedDocs && importedDocs.length > 0) {
+            setDocuments(prev => {
+              const existingIds = new Set(prev.map(d => d.id));
+              const filtered = importedDocs.filter((d: any) => !existingIds.has(d.id));
+              return [...filtered, ...prev];
+            });
+          }
+        }}
+        showToast={showToast}
+      />
+
+      {/* Certificate Inspection Modal */}
+      <CertificateInspectionModal
+        isOpen={showCertInspectModal}
+        onClose={() => setShowCertInspectModal(false)}
+        currentCompany={currentCompany}
+        onUpdateCompany={(updated) => {
+          onUpdateCompany(updated);
+          if (updated.pfxBase64) {
+            setPfxBase64(updated.pfxBase64);
+            setPfxFileName(updated.pfxFileName || '');
+            setCertUploaded(true);
+          }
+        }}
+        showToast={showToast}
+      />
+
+      {/* CND & Debt Monitoring Hub Modal */}
+      <CNDRadarHubModal
+        isOpen={showCndHubModal}
+        onClose={() => setShowCndHubModal(false)}
+        currentCompany={currentCompany}
+        showToast={showToast}
+        onOpenCertificateModal={() => {
+          setShowCndHubModal(false);
+          setShowCertInspectModal(true);
+        }}
+      />
 
     </div>
   );

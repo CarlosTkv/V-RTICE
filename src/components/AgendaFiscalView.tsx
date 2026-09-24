@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { CompanyData, ObrigacaoFiscal } from '../types';
+import { CNDRadarHubModal } from './CNDRadarHubModal';
 
 interface AgendaFiscalViewProps {
   currentCompany?: CompanyData;
@@ -149,6 +150,7 @@ export const AgendaFiscalView: React.FC<AgendaFiscalViewProps> = ({ currentCompa
   const [selectedSetor, setSelectedSetor] = useState<'Todos' | 'Fiscal' | 'Contábil' | 'Societário' | 'Departamento Pessoal' | 'Financeiro'>('Todos');
   const [selectedObrigacao, setSelectedObrigacao] = useState<ObrigacaoFiscal | null>(OBRIGACOES_DATABASE[0]);
   const [filtrarPorPerfil, setFiltrarPorPerfil] = useState(true);
+  const [showCndModal, setShowCndModal] = useState<boolean>(false);
 
   const regimeEmpresa = currentCompany?.regimeTributario || 'simples_nacional';
   const atividadeEmpresa = currentCompany?.atividadeEmpresa || 'servicos';
@@ -240,7 +242,16 @@ export const AgendaFiscalView: React.FC<AgendaFiscalViewProps> = ({ currentCompa
             </p>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+             <button
+               onClick={() => setShowCndModal(true)}
+               className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-indigo-600/20 transition cursor-pointer"
+               title="Verificar CNDs nas 5 Esferas (Federal, Estadual, Municipal, Trabalhista e FGTS)"
+             >
+               <ShieldCheck className="w-4 h-4 text-white" />
+               <span>Verificar CNDs & Débitos 360° ({currentCompany?.city || 'Curitiba'}/{currentCompany?.uf || currentCompany?.state || 'PR'})</span>
+             </button>
+
              <button
                onClick={() => {
                  let icsLines = [
@@ -507,6 +518,15 @@ export const AgendaFiscalView: React.FC<AgendaFiscalViewProps> = ({ currentCompa
           )}
         </div>
       </div>
+
+      {/* CND Radar Hub Modal */}
+      {currentCompany && (
+        <CNDRadarHubModal
+          isOpen={showCndModal}
+          onClose={() => setShowCndModal(false)}
+          currentCompany={currentCompany}
+        />
+      )}
     </div>
   );
 };

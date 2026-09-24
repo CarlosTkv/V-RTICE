@@ -362,6 +362,75 @@ export interface CompanyData {
   pfxFileName?: string;
   certPassword?: string;
   pfxBase64?: string;
+  certExpiryDate?: string;
+  lastSyncNSU?: string;
+  cndComplianceSummary?: {
+    overallStatus: 'REGULAR_TOTAL' | 'REGULAR_COM_RESSALVA' | 'IRREGULAR_BLOQUEANTE';
+    lastCheckedAt: string;
+    federalStatus: 'NEGATIVA' | 'POSITIVA_COM_EFEITO_NEGATIVA' | 'POSITIVA';
+    estadualStatus: 'NEGATIVA' | 'POSITIVA_COM_EFEITO_NEGATIVA' | 'POSITIVA';
+    municipalStatus: 'NEGATIVA' | 'POSITIVA_COM_EFEITO_NEGATIVA' | 'POSITIVA';
+    trabalhistaStatus: 'NEGATIVA' | 'POSITIVA_COM_EFEITO_NEGATIVA' | 'POSITIVA';
+    fgtsStatus: 'NEGATIVA' | 'POSITIVA_COM_EFEITO_NEGATIVA' | 'POSITIVA';
+    totalDebtsValue: number;
+  };
+}
+
+export type CNDSphere = 'federal' | 'estadual' | 'municipal' | 'trabalhista' | 'fgts';
+export type CNDStatus = 'NEGATIVA' | 'POSITIVA_COM_EFEITO_NEGATIVA' | 'POSITIVA' | 'EXPIRADA' | 'EM_PROCESSAMENTO' | 'NAO_CONSULTADA';
+
+export interface CNDItem {
+  id: string;
+  sphere: CNDSphere;
+  title: string;
+  organ: string;
+  jurisdictionName: string;
+  targetStateOrCity: string;
+  status: CNDStatus;
+  controlCode: string;
+  issueDate: string;
+  expiryDate: string;
+  daysRemaining: number;
+  isExpired: boolean;
+  officialValidationUrl: string;
+  authMethod: string;
+  legalBase: string;
+  hasDebts: boolean;
+  debtsCount: number;
+  notes?: string;
+}
+
+export interface CompanyDebtItem {
+  id: string;
+  sphere: CNDSphere;
+  organ: string;
+  tributo: string;
+  inscriptionOrProcess: string;
+  competence: string;
+  originalValue: number;
+  fineAndInterest: number;
+  totalDebt: number;
+  status: 'EM_COBRANCA' | 'PARCELADO_EM_DIA' | 'INSCRITO_DIVIDA_ATIVA' | 'EXECUCAO_FISCAL';
+  isSuspended: boolean;
+  suspensionReason?: string;
+  actionRequired: string;
+  negotiationLink?: string;
+}
+
+export interface CNDComplianceReport {
+  companyCnpj: string;
+  companyName: string;
+  companyUf: string;
+  companyCity: string;
+  generatedAt: string;
+  overallScore: number;
+  overallStatus: 'REGULAR_TOTAL' | 'REGULAR_COM_RESSALVA' | 'IRREGULAR_BLOQUEANTE';
+  certDigitalUsed: boolean;
+  certDigitalName?: string;
+  items: CNDItem[];
+  debts: CompanyDebtItem[];
+  totalDebtAmount: number;
+  totalSuspendedAmount: number;
 }
 
 export interface SavedSimulation {
