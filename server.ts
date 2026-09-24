@@ -1204,6 +1204,120 @@ async function startServer() {
     }
   });
 
+  // Rotas da API REST Oficial SefinNacional (Portal Nacional da NFS-e - ADN Receita Federal)
+  app.post('/api/sefin/consult-chave', async (req, res) => {
+    const { pfxBase64, password, chaveAcesso, tpAmb } = req.body;
+    
+    if (!pfxBase64 || !password || !chaveAcesso) {
+      return res.status(400).json({ success: false, error: 'Certificado A1 (.pfx), senha e chave de acesso da NFS-e são obrigatórios.' });
+    }
+
+    const environment = tpAmb || '1';
+    const baseUrl = environment === '1'
+      ? 'https://sefin.nfse.gov.br/SefinNacional'
+      : 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional';
+
+    const cleanChave = chaveAcesso.replace(/\D/g, '');
+    const url = `${baseUrl}/nfse/${cleanChave}`;
+
+    console.log(`[SefinNacional mTLS REST] Consultando NFS-e por Chave: ${cleanChave} em ${url}...`);
+
+    try {
+      const creds = extractPfxCredentials(pfxBase64, password);
+      if (creds.error) {
+        return res.status(400).json({ success: false, error: creds.error });
+      }
+
+      const agentOptions: https.AgentOptions = {
+        rejectUnauthorized: false,
+        keepAlive: true,
+        ciphers: 'ALL:@SECLEVEL=0',
+        minVersion: 'TLSv1.2'
+      };
+
+      if (creds.key && creds.cert) {
+        agentOptions.key = creds.key;
+        agentOptions.cert = creds.cert;
+      } else if (creds.pfx) {
+        agentOptions.pfx = creds.pfx;
+        agentOptions.passphrase = creds.passphrase;
+      }
+
+      const agent = new https.Agent(agentOptions);
+
+      const restResponse = await new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
+        const u = new URL(url);
+        const reqOpts: https.RequestOptions = {
+          hostname: u.hostname,
+          port: u.port || 443,
+          path: u.pathname + u.search,
+          method: 'GET',
+          agent: agent,
+          headers: {
+            'Accept': 'application/xml, application/json',
+            'User-Type': 'Contribuinte'
+          }
+        };
+
+        const reqHttp = https.request(reqOpts, (resHttp) => {
+          let chunks: Buffer[] = [];
+          resHttp.on('data', chunk => chunks.push(chunk));
+          resHttp.on('end', () => {
+            resolve({
+              statusCode: resHttp.statusCode || 500,
+              body: Buffer.concat(chunks).toString('utf8')
+            });
+          });
+        });
+
+        reqHttp.on('error', err => reject(err));
+        reqHttp.end();
+      });
+
+      if (restResponse.statusCode === 200) {
+        res.json({
+          success: true,
+          statusCode: 200,
+          data: restResponse.body,
+          url: url
+        });
+      } else {
+        res.status(restResponse.statusCode).json({
+          success: false,
+          statusCode: restResponse.statusCode,
+          error: `SefinNacional retornou HTTP ${restResponse.statusCode}: ${restResponse.body.substring(0, 500)}`,
+          url: url
+        });
+      }
+    } catch (err: any) {
+      console.error('[SefinNacional REST] Erro na consulta mTLS:', err.message);
+      res.status(500).json({
+        success: false,
+        error: `Falha na conexão mTLS com SefinNacional (ADN): ${err.message}`
+      });
+    }
+  });
+
+  // Consulta Parâmetros Municipais (LC 116 / Convênios SefinNacional)
+  app.get('/api/sefin/parametros-municipais/:codigoMunicipio', async (req, res) => {
+    const { codigoMunicipio } = req.params;
+    const { tpAmb } = req.query;
+    const environment = tpAmb === '2' ? '2' : '1';
+    const baseUrl = environment === '1'
+      ? 'https://sefin.nfse.gov.br/SefinNacional'
+      : 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional';
+
+    const url = `${baseUrl}/parametros_municipais/${codigoMunicipio}/convenio`;
+
+    try {
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const text = await response.text();
+      res.status(response.status).send(text);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Rota para Inspeção Profunda e Validação de Certificado Digital A1 (.pfx / .p12)
   app.post('/api/vertice/cert/inspect', async (req, res) => {
     const { pfxBase64, password } = req.body;
