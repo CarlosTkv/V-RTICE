@@ -64,6 +64,7 @@ import { BoletoPixModal } from './BoletoPixModal';
 import { NfseNacionalModal } from './NfseNacionalModal';
 import { NfseNacionalService } from '../utils/nfseService';
 import { BrandLogo } from './BrandLogo';
+import { FinancialReportExportModal } from './FinancialReportExportModal';
 import { jsPDF } from 'jspdf';
 
 export type FinancialHubSubTab = 
@@ -242,6 +243,7 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
 
   const [selectedNfseInvoice, setSelectedNfseInvoice] = useState<BillingInvoice | null>(null);
   const [isNfseModalOpen, setIsNfseModalOpen] = useState(false);
+  const [isFinancialPdfModalOpen, setIsFinancialPdfModalOpen] = useState(false);
 
   // New Contract Modal
   const [isNewContractModalOpen, setIsNewContractModalOpen] = useState(false);
@@ -684,6 +686,15 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
 
           {/* Quick Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsFinancialPdfModalOpen(true)}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/20 flex items-center space-x-1.5 cursor-pointer"
+              title="Exportar Relatório de Faturamento e Extrato Financeiro Oficial em PDF A4"
+            >
+              <Download className="w-4 h-4" />
+              <span>Relatório & Extrato (PDF)</span>
+            </button>
+
             <button
               onClick={() => setIsNewContractModalOpen(true)}
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-600/20 flex items-center space-x-1.5 cursor-pointer"
@@ -2126,6 +2137,16 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
           </div>
         </div>
       )}
+
+      {/* Modal de Exportação do Relatório de Faturamento & Extrato Financeiro */}
+      <FinancialReportExportModal
+        isOpen={isFinancialPdfModalOpen}
+        onClose={() => setIsFinancialPdfModalOpen(false)}
+        company={currentCompany}
+        calculation={calculation}
+        defaultReportType="faturamento"
+        showToast={triggerToast}
+      />
 
     </div>
   );

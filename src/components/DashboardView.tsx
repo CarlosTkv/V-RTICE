@@ -58,6 +58,7 @@ import {
   FEDERAL_LIMIT, 
   CRITICAL_EXCLUSION_THRESHOLD 
 } from '../utils/taxRules';
+import { ConsolidatedCNDReportsModal } from './ConsolidatedCNDReportsModal';
 import { HelpTooltip } from './HelpTooltip';
 import { ModuleIcon } from './ModuleIcon';
 import { BrandLogo, BrandModuleKey, BRAND_MODULE_CONFIGS } from './BrandLogo';
@@ -131,6 +132,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
     return Math.max(15, Math.min(100, score));
   }, [calculation, company]);
+
+  // Modal de Relatórios Consolidados de CNDs
+  const [showConsolidatedCndModal, setShowConsolidatedCndModal] = useState<boolean>(false);
 
   // Interactive Checklist State for LC 123/06
   const [manualChecklist, setManualChecklist] = useState<{ [key: string]: boolean }>(() => {
@@ -1312,6 +1316,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                   );
                 })}
+
+                {/* Seção 3: Atalho do Caderno Consolidado de CNDs */}
+                <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>Caderno com 5 CNDs em 1 único PDF Oficial</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowConsolidatedCndModal(true)}
+                    className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Gerar Caderno Consolidado de CNDs (PDF)</span>
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -2175,6 +2195,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         onClose={() => setIsTutorialOpen(false)}
         moduleName="Dashboard & Cockpit Tributário"
         description="Acompanhe o panorama fiscal da sua empresa com indicadores automatizados em tempo real, validando o teto do Simples Nacional, os riscos societários e as métricas do Fator R."
+      />
+
+      {/* MODAL DE RELATÓRIOS CONSOLIDADOS DE CNDS */}
+      <ConsolidatedCNDReportsModal
+        isOpen={showConsolidatedCndModal}
+        onClose={() => setShowConsolidatedCndModal(false)}
+        currentCompany={company}
+        showToast={showToast}
+        onNavigateToTab={onNavigateToTab}
       />
 
     </div>

@@ -433,6 +433,53 @@ export interface CNDComplianceReport {
   totalSuspendedAmount: number;
 }
 
+export type CNDFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'proactive_before_expiry';
+
+export interface CNDScheduleConfig {
+  id: string;
+  enabled: boolean;
+  title: string;
+  frequency: CNDFrequency;
+  executionTime: string; // "03:00"
+  executionDayOfWeek?: number; // 1 = Monday
+  executionDayOfMonth?: number; // 1 to 28
+  daysBeforeExpiryAlert?: number; // e.g., 5 days
+  spheres: {
+    federal: boolean;
+    estadual: boolean;
+    municipal: boolean;
+    trabalhista: boolean;
+    fgts: boolean;
+  };
+  scope: 'all_companies' | 'active_company_only' | 'selected_companies';
+  selectedCompanyIds?: string[];
+  actions: {
+    autoDownloadPdf: boolean;
+    sendEmailNotification: boolean;
+    emailRecipients: string;
+    alertOnDebts: boolean;
+    archiveInSystemFolder: boolean;
+  };
+  lastRunAt?: string;
+  nextRunAt?: string;
+  status: 'active' | 'paused' | 'running' | 'error';
+}
+
+export interface CNDExecutionLogItem {
+  id: string;
+  timestamp: string;
+  triggerType: 'scheduled' | 'manual' | 'proactive';
+  scheduleTitle: string;
+  companiesProcessed: number;
+  totalCNDsChecked: number;
+  totalSuccess: number;
+  totalDebtsDetected: number;
+  durationSeconds: number;
+  status: 'SUCCESS' | 'WARNING' | 'ERROR';
+  details: string;
+  generatedBatchZipSize?: string;
+}
+
 export interface SavedSimulation {
   id: string;
   timestamp: string; // ISO ou formatado DD/MM/AAAA HH:mm

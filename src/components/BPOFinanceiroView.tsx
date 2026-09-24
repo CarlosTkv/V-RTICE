@@ -49,6 +49,7 @@ import {
 } from 'recharts';
 import { CompanyData, CalculationResult } from '../types';
 import { BrandLogo } from './BrandLogo';
+import { FinancialReportExportModal } from './FinancialReportExportModal';
 
 interface BPOFinanceiroViewProps {
   company: CompanyData;
@@ -109,6 +110,7 @@ export const BPOFinanceiroView: React.FC<BPOFinanceiroViewProps> = ({
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-09');
   const [showNewPayableModal, setShowNewPayableModal] = useState(false);
   const [showNewReceivableModal, setShowNewReceivableModal] = useState(false);
+  const [showPdfExportModal, setShowPdfExportModal] = useState(false);
   const [activeTooltipMetric, setActiveTooltipMetric] = useState<string | null>(null);
 
   const formatBRL = (val: number) =>
@@ -428,6 +430,16 @@ export const BPOFinanceiroView: React.FC<BPOFinanceiroViewProps> = ({
                 <option value="2026-10">Outubro / 2026 (Projetado)</option>
               </select>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPdfExportModal(true)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-600/20"
+              title="Exportar Extrato Financeiro e Conciliação em PDF Oficial"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Exportar Extrato (PDF)</span>
+            </button>
 
             <button
               type="button"
@@ -1278,6 +1290,15 @@ export const BPOFinanceiroView: React.FC<BPOFinanceiroViewProps> = ({
 
         </div>
       )}
+
+      {/* Modal de Exportação do Relatório de Extrato Financeiro & Faturamento em PDF */}
+      <FinancialReportExportModal
+        isOpen={showPdfExportModal}
+        onClose={() => setShowPdfExportModal(false)}
+        company={company}
+        calculation={calculation}
+        defaultReportType="extrato"
+      />
 
     </div>
   );

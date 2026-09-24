@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { CompanyData, FinancialStatement, FinancialAccountEntry, FinancialComparison } from '../types';
 import { parseFinancialContent, calculateStatementTotals } from '../utils/financialParser';
+import { FinancialReportExportModal } from './FinancialReportExportModal';
 
 interface FinancialStatementsViewProps {
   currentCompany: CompanyData;
@@ -65,6 +66,7 @@ const formatPercentBR = (val: number) => {
 export const FinancialStatementsView: React.FC<FinancialStatementsViewProps> = ({ currentCompany, onUpdateCompany }) => {
   const [activeView, setActiveView] = useState<'dre' | 'balancete' | 'comparativo' | 'importacao'>('importacao');
   const [isExporting, setIsExporting] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   
   // Estados para o formulário de importação
   const [importType, setImportType] = useState<'dre' | 'balancete'>('dre');
@@ -309,6 +311,14 @@ export const FinancialStatementsView: React.FC<FinancialStatementsViewProps> = (
                 <span>{isExporting ? 'Processando...' : `Exportar ${activeView.toUpperCase()}`}</span>
               </button>
             )}
+            <button 
+              onClick={() => setIsPdfModalOpen(true)}
+              className="flex items-center space-x-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase transition shadow-xl cursor-pointer"
+              title="Exportar Relatório de Faturamento e Extrato Financeiro Oficial em PDF A4"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Dossiê & Extratos em PDF</span>
+            </button>
           </div>
         </div>
       </div>
@@ -715,6 +725,14 @@ export const FinancialStatementsView: React.FC<FinancialStatementsViewProps> = (
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de Exportação do Relatório de Faturamento & Extrato Financeiro */}
+      <FinancialReportExportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        company={currentCompany}
+        defaultReportType="faturamento"
+      />
     </div>
   );
 };

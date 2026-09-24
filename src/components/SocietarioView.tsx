@@ -45,9 +45,10 @@ import {
   Wand2,
   Upload,
   Cpu,
-  Bot
+  Bot,
+  Network
 } from 'lucide-react';
-import { CompanyData } from '../types';
+import { CompanyData, Partner } from '../types';
 import { BrandLogo } from './BrandLogo';
 import { ExecutiveDocumentViewer } from './ExecutiveDocumentViewer';
 import { AutomatedFilingRobot } from './societario/AutomatedFilingRobot';
@@ -91,6 +92,8 @@ import {
   ContractPrecedentModel, 
   RedesimPreset 
 } from '../data/precedentesClausulasData';
+import { ConsolidatedCNDReportsPanel } from './ConsolidatedCNDReportsPanel';
+import { MapaDeSociosInterativo } from './MapaDeSociosInterativo';
 
 interface SocietarioViewProps {
   currentCompany: CompanyData;
@@ -122,7 +125,7 @@ export interface ContractPartnerInput {
   isRetiring?: boolean;
 }
 
-export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }) => {
+export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany, onUpdateCompany }) => {
   // Estado das Abas Principais do Módulo Societário (Blindagem Societária como 3º Módulo Principal)
   const [activeSubSection, setActiveSubSection] = useState<'gerador_contrato' | 'juntas_passo_a_passo' | 'modelos_guia' | 'blindagem_societaria'>('blindagem_societaria');
 
@@ -195,7 +198,7 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
   };
 
   // Sub-abas dentro do Módulo de Blindagem Societária
-  const [blindagemSubTab, setBlindagemSubTab] = useState<'estruturador' | 'radar_compliance' | 'biblioteca_avancada' | 'vade_mecum_inteligente' | 'biblioteca_minutas' | 'auditor_ia'>('estruturador');
+  const [blindagemSubTab, setBlindagemSubTab] = useState<'estruturador' | 'radar_compliance' | 'mapa_socios' | 'relatorios_cnd' | 'biblioteca_avancada' | 'vade_mecum_inteligente' | 'biblioteca_minutas' | 'auditor_ia'>('estruturador');
   const [selectedRedesimPresetId, setSelectedRedesimPresetId] = useState<string>('preset_constituicao_blindada');
   const [matrixSearch, setMatrixSearch] = useState<string>('');
   const [selectedMatrixVertical, setSelectedMatrixVertical] = useState<string>('all');
@@ -1578,6 +1581,18 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
+              onClick={() => {
+                setActiveSubSection('blindagem_societaria');
+                setBlindagemSubTab('mapa_socios');
+              }}
+              className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-900 to-indigo-800 hover:from-indigo-800 hover:to-indigo-700 text-indigo-200 border border-indigo-500/40 text-xs font-bold transition shadow-lg shadow-indigo-950/50 cursor-pointer"
+              title="Abrir Mapa de Sócios, Teia Societária e Cálculo de Sublimites LC 123/06"
+            >
+              <Network className="w-4 h-4 text-indigo-300" />
+              <span>Mapa de Sócios (LC 123)</span>
+            </button>
+
+            <button
               onClick={() => setShowMatrixModal(true)}
               className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-blue-950/80 hover:bg-blue-900 text-blue-300 border border-blue-600/40 text-xs font-bold transition shadow cursor-pointer"
               title="Ver Checklist de Integrações da Redesim e Arquitetura da VPS Oracle"
@@ -2359,14 +2374,29 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                   Quadro de Sócios & Administração ({partners.length})
                 </h3>
 
-                <button
-                  type="button"
-                  onClick={handleAddPartner}
-                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 transition cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Adicionar Sócio</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSubSection('blindagem_societaria');
+                      setBlindagemSubTab('mapa_socios');
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/40 text-indigo-300 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                    title="Ver teia societária, múltiplos CNPJs e cálculo de sublimites LC 123"
+                  >
+                    <Network className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="hidden sm:inline">Mapa de Sócios (LC 123)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddPartner}
+                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>Adicionar Sócio</span>
+                  </button>
+                </div>
               </div>
 
               {partners.map((partner, index) => (
@@ -3168,8 +3198,8 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
               </div>
             </div>
 
-            {/* SELETOR DE SUB-ABAS - GRID HORIZONTAL 6 COLUNAS */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 pt-2 border-t border-slate-800 w-full">
+            {/* SELETOR DE SUB-ABAS - GRID HORIZONTAL 8 COLUNAS */}
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 pt-2 border-t border-slate-800 w-full">
               <button
                 type="button"
                 onClick={() => setBlindagemSubTab('estruturador')}
@@ -3198,6 +3228,32 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
 
               <button
                 type="button"
+                onClick={() => setBlindagemSubTab('mapa_socios')}
+                className={`flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                  blindagemSubTab === 'mapa_socios'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-900/40'
+                    : 'text-indigo-300 hover:text-indigo-100 hover:bg-indigo-950/40 border border-indigo-500/30'
+                }`}
+              >
+                <Network className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+                <span className="truncate">3. Mapa de Sócios</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBlindagemSubTab('relatorios_cnd')}
+                className={`flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                  blindagemSubTab === 'relatorios_cnd'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-900/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">4. Caderno CNDs</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setBlindagemSubTab('biblioteca_avancada')}
                 className={`flex items-center justify-center space-x-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
                   blindagemSubTab === 'biblioteca_avancada'
@@ -3206,7 +3262,7 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">3. Biblioteca Cláusulas</span>
+                <span className="truncate">5. Cláusulas</span>
               </button>
 
               <button
@@ -3219,7 +3275,7 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="truncate">4. Vade Mecum</span>
+                <span className="truncate">6. Vade Mecum</span>
               </button>
 
               <button
@@ -3232,7 +3288,7 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                 }`}
               >
                 <Library className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">5. 500 Minutas</span>
+                <span className="truncate">7. 500 Minutas</span>
               </button>
 
               <button
@@ -3245,10 +3301,44 @@ export const SocietarioView: React.FC<SocietarioViewProps> = ({ currentCompany }
                 }`}
               >
                 <FileSearch className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">6. Parecer Oficial</span>
+                <span className="truncate">8. Parecer</span>
               </button>
             </div>
           </div>
+
+          {/* SUB-ABA 3: MAPA DE SÓCIOS & TEIA SOCIETÁRIA LC 123/06 */}
+          {blindagemSubTab === 'mapa_socios' && (
+            <div className="space-y-6 animate-fadeIn">
+              <MapaDeSociosInterativo
+                currentCompany={currentCompany}
+                onUpdateCompanyPartners={(updatedPartners) => {
+                  if (onUpdateCompany) {
+                    onUpdateCompany({
+                      ...currentCompany,
+                      partners: updatedPartners
+                    });
+                  }
+                }}
+                showToast={(msg) => {
+                  setToastMessage(msg);
+                  setTimeout(() => setToastMessage(null), 3500);
+                }}
+              />
+            </div>
+          )}
+
+          {/* SUB-ABA: RELATÓRIOS CONSOLIDADOS & CADERNO DE CNDS EM PDF */}
+          {blindagemSubTab === 'relatorios_cnd' && (
+            <div className="space-y-6 animate-fadeIn">
+              <ConsolidatedCNDReportsPanel
+                currentCompany={currentCompany}
+                showToast={(msg) => {
+                  setToastMessage(msg);
+                  setTimeout(() => setToastMessage(null), 3500);
+                }}
+              />
+            </div>
+          )}
 
           {/* SUB-ABA 1: ESTRUTURADOR INTERATIVO */}
           {blindagemSubTab === 'estruturador' && (

@@ -71,6 +71,7 @@ import { CertificateInspectionModal } from './CertificateInspectionModal';
 import { DocumentUploadHubModal } from './DocumentUploadHubModal';
 import { SefazRadarSearchModal } from './SefazRadarSearchModal';
 import { CNDRadarHubModal } from './CNDRadarHubModal';
+import { ConsolidatedCNDReportsModal } from './ConsolidatedCNDReportsModal';
 import { parseFiscalXmlString } from '../utils/xmlDocumentParser';
 
 interface VerticeDocumentosViewProps {
@@ -490,6 +491,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   const [showUploadHubModal, setShowUploadHubModal] = useState<boolean>(false);
   const [showCertInspectModal, setShowCertInspectModal] = useState<boolean>(false);
   const [showCndHubModal, setShowCndHubModal] = useState<boolean>(false);
+  const [showConsolidatedCndModal, setShowConsolidatedCndModal] = useState<boolean>(false);
   
   // Tax simulation overrides
   const [calcOrigemUf, setCalcOrigemUf] = useState<string>('RJ');
@@ -1538,6 +1540,15 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
           >
             <ShieldCheck className="w-4 h-4 text-indigo-400" />
             <span>Monitor de CNDs & Débitos 360°</span>
+          </button>
+
+          <button
+            onClick={() => setShowConsolidatedCndModal(true)}
+            className="px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition flex items-center gap-2 cursor-pointer"
+            title="Gerar Caderno Consolidado de CNDs em PDF (Federal, Estadual, Municipal, Trabalhista, FGTS em 1 arquivo unificado)"
+          >
+            <FileText className="w-4 h-4 text-indigo-200" />
+            <span>Caderno Consolidado de CNDs (PDF)</span>
           </button>
         </div>
       </div>
@@ -4401,6 +4412,7 @@ TEXTO DE RETIFICAÇÃO:
         isOpen={showCndHubModal}
         onClose={() => setShowCndHubModal(false)}
         currentCompany={currentCompany}
+        companies={companies}
         showToast={showToast}
         onOpenCertificateModal={() => {
           setShowCndHubModal(false);
@@ -4408,6 +4420,13 @@ TEXTO DE RETIFICAÇÃO:
         }}
       />
 
+      {/* Modal de Relatórios Consolidados de CNDs */}
+      <ConsolidatedCNDReportsModal
+        isOpen={showConsolidatedCndModal}
+        onClose={() => setShowConsolidatedCndModal(false)}
+        currentCompany={currentCompany}
+        showToast={showToast}
+      />
     </div>
   );
 };

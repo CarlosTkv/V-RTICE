@@ -27,7 +27,8 @@ import {
   CheckCircle2,
   RefreshCw,
   Clock,
-  ArrowRight
+  ArrowRight,
+  Download
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -53,6 +54,7 @@ import {
 } from '../utils/taxRules';
 import { exportTableToCSV } from '../utils/reportExporter';
 import { ReportViewerModal } from './ReportViewerModal';
+import { FinancialReportExportModal } from './FinancialReportExportModal';
 import { HelpTooltip } from './HelpTooltip';
 
 interface FinancialDashboardViewProps {
@@ -70,6 +72,8 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
 }) => {
   // Modal de Relatório Financeiro
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isPdfExportModalOpen, setIsPdfExportModalOpen] = useState(false);
+  const [pdfReportType, setPdfReportType] = useState<'faturamento' | 'extrato' | 'consolidado'>('faturamento');
 
   // Sub-abas do Painel Financeiro
   const [activeSubTab, setActiveSubTab] = useState<'dre' | 'graficos' | 'breakeven' | 'prolabore' | 'stresstest'>('dre');
@@ -347,6 +351,18 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
 
           {/* Ações Rápidas */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => {
+                setPdfReportType('faturamento');
+                setIsPdfExportModalOpen(true);
+              }}
+              className="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-indigo-600/20 transition cursor-pointer"
+              title="Exportar Relatório Oficial de Faturamento (RBT12) e Extrato em PDF Padrão Vértice"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Exportar em PDF</span>
+            </button>
+
             <button
               onClick={() => setIsReportModalOpen(true)}
               className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-blue-600/20 transition cursor-pointer"
@@ -1560,6 +1576,15 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
         reportType="financeiro"
         company={company}
         calculation={calculation}
+      />
+
+      {/* Modal Especializado de Exportação em PDF de Faturamento e Extrato Financeiro */}
+      <FinancialReportExportModal
+        isOpen={isPdfExportModalOpen}
+        onClose={() => setIsPdfExportModalOpen(false)}
+        company={company}
+        calculation={calculation}
+        defaultReportType={pdfReportType}
       />
 
     </div>
