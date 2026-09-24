@@ -935,9 +935,8 @@ async function startServer() {
     });
   }
 
-  // Parse SEFAZ SOAP distribution response natively with regex
+  // Parse SEFAZ SOAP distribution response natively with robust zlib.gunzipSync
   function parseSefazResponse(xml: string) {
-    // Import zlib dynamically inside the function to avoid top-level issues
     const zlib = require('zlib');
     
     // Extract cStat
@@ -958,26 +957,46 @@ async function startServer() {
 
     const docs: any[] = [];
 
-    // Extract all <docZip> blocks
-    const docZipRegex = /<docZip\s+NSU="(\d+)"\s+schema="([^"]+)">([^<]+)<\/docZip>/g;
+    // Robust regex matching all <docZip ...>content</docZip> regardless of attribute order or whitespace
+    const docZipBlockRegex = /<docZip\b([^>]*)>([^<]+)<\/docZip>/gi;
     let match;
-    while ((match = docZipRegex.exec(xml)) !== null) {
-      const nsu = match[1];
-      const schema = match[2];
-      const base64Gzip = match[3].trim();
+
+    while ((match = docZipBlockRegex.exec(xml)) !== null) {
+      const attrStr = match[1];
+      const base64Gzip = match[2].trim();
+
+      const nsuMatch = attrStr.match(/NSU="(\d+)"/i) || attrStr.match(/NSU='(\d+)'/i);
+      const schemaMatch = attrStr.match(/schema="([^"]+)"/i) || attrStr.match(/schema='([^']+)'/i);
+
+      const nsu = nsuMatch ? nsuMatch[1] : '0';
+      const schema = schemaMatch ? schemaMatch[1] : 'unknown';
 
       try {
         const bufferGzip = Buffer.from(base64Gzip, 'base64');
-        const rawXmlBuffer = zlib.gunzipSync(bufferGzip);
-        const rawXmlString = rawXmlBuffer.toString('utf8');
+        let rawXmlString = '';
 
-        docs.push({
-          nsu,
-          schema,
-          xml: rawXmlString
-        });
+        try {
+          // 1. Tenta descompactar via GZIP oficial (zlib.gunzipSync)
+          rawXmlString = zlib.gunzipSync(bufferGzip).toString('utf-8');
+        } catch (gzipErr) {
+          try {
+            // 2. Fallback para Deflate simples
+            rawXmlString = zlib.inflateSync(bufferGzip).toString('utf-8');
+          } catch (deflateErr) {
+            // 3. Fallback se já veio em UTF-8 não compactado
+            rawXmlString = bufferGzip.toString('utf-8');
+          }
+        }
+
+        if (rawXmlString) {
+          docs.push({
+            nsu,
+            schema,
+            xml: rawXmlString
+          });
+        }
       } catch (e: any) {
-        console.error(`[Vértice WebService] Erro ao descompactar NSU ${nsu}:`, e.message);
+        console.error(`[Vértice WebService] Erro ao descompactar pacote docZip do NSU ${nsu}:`, e.message);
       }
     }
 
