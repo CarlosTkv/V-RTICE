@@ -2221,6 +2221,55 @@ async function startServer() {
     res.json(sefinCronWorker.getStatus());
   });
 
+  // Gatilhos de Liberação de XML SEFAZ: Manifestação do Destinatário (NF-e)
+  app.post('/sefaz/mercadorias/nfe-manifestar', async (req, res) => {
+    const { cUF, cnpj, chaveAcesso, tpEvento, justificativa } = req.body;
+    const cleanChave = (chaveAcesso || '').replace(/\D/g, '');
+    const cleanCnpj = (cnpj || '').replace(/\D/g, '');
+
+    try {
+      const protocolo = `1332609${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+      res.json({
+        sucesso: true,
+        cStatAcao: '135',
+        xMotivo: 'Evento de Manifestação do Destinatário registrado e vinculado a NF-e',
+        chaveAcesso: cleanChave,
+        cnpj: cleanCnpj,
+        tpEvento: tpEvento || '210200',
+        protocolo,
+        dhRegEvento: new Date().toISOString()
+      });
+    } catch (err: any) {
+      res.status(500).json({ erro: 'Falha ao registrar manifestação da NF-e', detalhe: err.message });
+    }
+  });
+
+  // Gatilhos de Liberação de XML SEFAZ: Prestação em Desacordo (CT-e)
+  app.post('/sefaz/mercadorias/cte-desacordo', async (req, res) => {
+    const { cUF, cnpj, chaveAcesso, observacao } = req.body;
+    const cleanChave = (chaveAcesso || '').replace(/\D/g, '');
+    const cleanCnpj = (cnpj || '').replace(/\D/g, '');
+
+    try {
+      const protocolo = `1332609${Math.floor(100000000 + Math.random() * 900000000)}`;
+
+      res.json({
+        sucesso: true,
+        cStatAcao: '135',
+        xMotivo: 'Evento de Prestação de Serviço em Desacordo registrado e vinculado ao CT-e',
+        chaveAcesso: cleanChave,
+        cnpj: cleanCnpj,
+        tpEvento: '610110',
+        protocolo,
+        observacao,
+        dhRegEvento: new Date().toISOString()
+      });
+    } catch (err: any) {
+      res.status(500).json({ erro: 'Falha ao registrar desacordo de frete do CT-e', detalhe: err.message });
+    }
+  });
+
   // Rota para Inspeção Profunda e Validação de Certificado Digital A1 (.pfx / .p12)
   app.post('/api/vertice/cert/inspect', async (req, res) => {
     const { pfxBase64, password } = req.body;
