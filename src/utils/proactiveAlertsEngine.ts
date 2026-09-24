@@ -1,8 +1,9 @@
 import { CompanyData, CalculationResult, ObrigacaoFiscal } from '../types';
 import { OBRIGACOES_DATABASE } from '../components/AgendaFiscalView';
 import { formatCurrencyBRL, STATE_SUBLIMIT, FEDERAL_LIMIT } from './taxRules';
+import { analyzeCompanyCNDsPredictive } from './cndPredictiveEngine';
 
-export type AlertCategory = 'tax_deadline' | 'fator_r' | 'sublimit' | 'cadastral';
+export type AlertCategory = 'tax_deadline' | 'fator_r' | 'sublimit' | 'cadastral' | 'cnd_compliance';
 export type AlertSeverity = 'critical' | 'warning' | 'opportunity' | 'info';
 
 export interface ProactiveAlert {
@@ -23,7 +24,14 @@ export interface ProactiveAlert {
   fatorRTarget?: number;
   suggestedMonthlyAdjustment?: number;
   estimatedAnnualBenefit?: number;
-  actionType: 'mark_delivered' | 'adjust_payroll' | 'navigate_fator_r' | 'navigate_agenda' | 'navigate_parecer' | 'open_details';
+  // Propriedades específicas de CND Preditiva
+  cndSphere?: string;
+  cndOrgan?: string;
+  cndPreviousStatus?: string;
+  cndCurrentStatus?: string;
+  clientEmail?: string;
+  emailDispatched?: boolean;
+  actionType: 'mark_delivered' | 'adjust_payroll' | 'navigate_fator_r' | 'navigate_agenda' | 'navigate_parecer' | 'open_details' | 'open_cnd_radar' | 'dispatch_cnd_email';
   actionLabel: string;
   secondaryActionLabel?: string;
   secondaryActionType?: 'dismiss' | 'details' | 'navigate';
@@ -37,6 +45,7 @@ export interface ProactiveAlertSummary {
   opportunityCount: number;
   obligationsPendingCount: number;
   fatorRAlertsCount: number;
+  cndAlertsCount: number;
   alerts: ProactiveAlert[];
 }
 
@@ -379,6 +388,68 @@ export function generateProactiveAlerts(
     });
   }
 
+  // ==========================================
+  // 4. CAMADA DE VERIFICAÇÃO PREDITIVA DE CNDs
+  // ==========================================
+  try {
+    const cndFindings = analyzeCompanyCNDsPredictive(company);
+
+    cndFindings.forEach(finding => {
+      if (finding.riskType === 'status_degradation') {
+        alerts.push({
+          id: finding.id,
+          category: 'cnd_compliance',
+          severity: 'critical',
+          title: `Alerta Sentinela: CND ${finding.sphere.toUpperCase()} com Mudança de Status`,
+          subtitle: `Transição: Situação ${finding.previousStatus} ➔ ${finding.currentStatus} (${finding.organ})`,
+          description: `${finding.summary} ${finding.technicalDetails}`,
+          impactBadge: `⚠️ Status: ${finding.previousStatus} ➔ ${finding.currentStatus}`,
+          legalBasis: finding.legalImpact,
+          dueDate: finding.expiryDate,
+          daysRemaining: finding.daysRemaining,
+          cndSphere: finding.sphere,
+          cndOrgan: finding.organ,
+          cndPreviousStatus: finding.previousStatus,
+          cndCurrentStatus: finding.currentStatus,
+          clientEmail: finding.clientEmail,
+          emailDispatched: finding.emailDispatched,
+          actionType: 'open_cnd_radar',
+          actionLabel: 'Auditar CND no Radar',
+          secondaryActionType: 'details',
+          secondaryActionLabel: 'Notificar E-mail do Cliente'
+        });
+      } else if (finding.riskType === 'imminent_expiry') {
+        const isUrgent = finding.daysRemaining <= 3;
+        alerts.push({
+          id: finding.id,
+          category: 'cnd_compliance',
+          severity: isUrgent ? 'critical' : 'warning',
+          title: `CND Prestes a Vencer: ${finding.organ}`,
+          subtitle: finding.daysRemaining <= 0 
+            ? `Certidão EXPIRADA em ${finding.expiryDate} - Ação Imediata Requerida`
+            : `Validade residual de apenas ${finding.daysRemaining} dia(s) (Vencimento: ${finding.expiryDate})`,
+          description: `${finding.summary} ${finding.preventiveRecommendation}`,
+          impactBadge: finding.daysRemaining <= 0 ? '⛔ CND Expirada' : `⏰ Expira em ${finding.daysRemaining}d`,
+          legalBasis: finding.legalImpact,
+          dueDate: finding.expiryDate,
+          daysRemaining: finding.daysRemaining,
+          cndSphere: finding.sphere,
+          cndOrgan: finding.organ,
+          cndPreviousStatus: finding.previousStatus,
+          cndCurrentStatus: finding.currentStatus,
+          clientEmail: finding.clientEmail,
+          emailDispatched: finding.emailDispatched,
+          actionType: 'open_cnd_radar',
+          actionLabel: 'Renovar Certidão',
+          secondaryActionType: 'details',
+          secondaryActionLabel: 'Notificar Cliente por E-mail'
+        });
+      }
+    });
+  } catch (err) {
+    console.warn('Erro ao processar camada preditiva de CNDs:', err);
+  }
+
   // Ordenar alertas: Críticos primeiro, depois Avisos, Oportunidades e Informativos
   const severityOrder: Record<AlertSeverity, number> = {
     critical: 0,
@@ -401,6 +472,7 @@ export function generateProactiveAlerts(
   const opportunityCount = alerts.filter(a => a.severity === 'opportunity').length;
   const obligationsPendingCount = alerts.filter(a => a.category === 'tax_deadline').length;
   const fatorRAlertsCount = alerts.filter(a => a.category === 'fator_r').length;
+  const cndAlertsCount = alerts.filter(a => a.category === 'cnd_compliance').length;
 
   return {
     totalAlerts: alerts.length,
@@ -409,6 +481,7 @@ export function generateProactiveAlerts(
     opportunityCount,
     obligationsPendingCount,
     fatorRAlertsCount,
+    cndAlertsCount,
     alerts
   };
 }

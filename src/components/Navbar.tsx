@@ -64,6 +64,7 @@ interface NavbarProps {
   onOpenSystemTour: () => void;
   onOpenManual?: () => void;
   onOpenNotifications?: () => void;
+  onOpenNotificationSettings?: () => void;
   onOpenPublishShare?: () => void;
   onOpenCompanyManager: () => void;
   onOpenAuthModal: () => void;
@@ -103,6 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSystemTour,
   onOpenManual,
   onOpenNotifications,
+  onOpenNotificationSettings,
   onOpenPublishShare,
   onOpenCompanyManager,
   onOpenAuthModal,

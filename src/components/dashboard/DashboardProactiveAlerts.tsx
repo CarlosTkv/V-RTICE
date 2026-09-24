@@ -19,7 +19,10 @@ import {
   Calendar,
   Layers,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldCheck,
+  Mail,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CompanyData, CalculationResult } from '../../types';
@@ -30,6 +33,7 @@ import {
   AlertSeverity 
 } from '../../utils/proactiveAlertsEngine';
 import { formatCurrencyBRL } from '../../utils/taxRules';
+import { sendCNDPredictiveAlertEmail } from '../../utils/emailService';
 import { ProactiveAlertDetailsModal } from './ProactiveAlertDetailsModal';
 
 interface DashboardProactiveAlertsProps {
@@ -37,6 +41,8 @@ interface DashboardProactiveAlertsProps {
   onChangeCompany: (company: CompanyData) => void;
   calculation: CalculationResult;
   onNavigateToTab: (tab: any) => void;
+  onOpenCndRadar?: () => void;
+  onOpenCndScheduler?: () => void;
   showToast?: (msg: string) => void;
   isCompact?: boolean;
 }
@@ -46,13 +52,17 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
   onChangeCompany,
   calculation,
   onNavigateToTab,
+  onOpenCndRadar,
+  onOpenCndScheduler,
   showToast,
   isCompact = false
 }) => {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'tax_deadline' | 'fator_r' | 'sublimit'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'tax_deadline' | 'fator_r' | 'sublimit' | 'cnd_compliance'>('all');
   const [selectedAlertForModal, setSelectedAlertForModal] = useState<ProactiveAlert | null>(null);
   const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
+  const [sentEmailIds, setSentEmailIds] = useState<string[]>([]);
 
   // Local storage synchronized obligation status
   const [localObligationStatus, setLocalObligationStatus] = useState<Record<string, 'Pendente' | 'Entregue' | 'Atrasado'>>(() => {
@@ -95,6 +105,7 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
       if (activeFilter === 'tax_deadline') return alert.category === 'tax_deadline';
       if (activeFilter === 'fator_r') return alert.category === 'fator_r';
       if (activeFilter === 'sublimit') return alert.category === 'sublimit';
+      if (activeFilter === 'cnd_compliance') return alert.category === 'cnd_compliance';
       return true;
     });
   }, [alertSummary.alerts, activeFilter, dismissedAlertIds]);
@@ -136,6 +147,52 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
 
     if (showToast) {
       showToast(`Pró-labore ampliado em +${formatCurrencyBRL(additionalMonthly)}/mês. Fator R recalibrado!`);
+    }
+  };
+
+  const handleDispatchCndEmailAlert = async (alert: ProactiveAlert, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSendingEmailId(alert.id);
+    try {
+      const clientEmail = alert.clientEmail || company.responsibleEmail || company.email || 'fiscal@empresa.com.br';
+      const isStatusChange = alert.cndPreviousStatus && alert.cndCurrentStatus && alert.cndPreviousStatus !== alert.cndCurrentStatus;
+      
+      const res = await sendCNDPredictiveAlertEmail({
+        recipientEmail: clientEmail,
+        recipientName: company.responsibleName || company.name,
+        companyName: company.name,
+        companyCnpj: company.cnpj,
+        finding: {
+          id: alert.id,
+          companyId: company.id || company.cnpj,
+          companyName: company.name,
+          companyCnpj: company.cnpj,
+          clientEmail,
+          sphere: (alert.cndSphere as any) || 'estadual',
+          cndTitle: alert.title,
+          organ: alert.cndOrgan || 'Órgão Fazendário',
+          previousStatus: (alert.cndPreviousStatus as any) || 'NEGATIVA',
+          currentStatus: (alert.cndCurrentStatus as any) || 'POSITIVA',
+          isImminentExpiry: (alert.daysRemaining !== undefined && alert.daysRemaining <= 7),
+          daysRemaining: alert.daysRemaining ?? 0,
+          expiryDate: alert.dueDate || 'Imediato',
+          riskType: isStatusChange ? 'status_degradation' : 'imminent_expiry',
+          riskSeverity: alert.severity === 'critical' ? 'CRITICAL' : 'HIGH',
+          summary: alert.description,
+          technicalDetails: `Varredura preditiva sentinela Vértice detectou apontamento fiscal no cadastro de ${company.name} em ${new Date().toLocaleDateString('pt-BR')}.`,
+          preventiveRecommendation: 'Regularização tempestiva para resguardar o enquadramento no Simples Nacional e certidões ativas.',
+          legalImpact: alert.legalBasis,
+          detectedAt: new Date().toLocaleString('pt-BR')
+        }
+      });
+
+      setSentEmailIds(prev => [...prev, alert.id]);
+      showToast?.(`Alerta de CND enviado com sucesso para ${clientEmail}!`);
+    } catch (err) {
+      console.error(err);
+      showToast?.('Erro ao enviar e-mail de alerta.');
+    } finally {
+      setSendingEmailId(null);
     }
   };
 
@@ -321,6 +378,20 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
                   {alertSummary.fatorRAlertsCount}
                 </span>
               </button>
+
+              {alertSummary.cndAlertsCount > 0 && (
+                <button
+                  onClick={() => setActiveFilter('cnd_compliance')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer flex items-center gap-1.5 ${
+                    activeFilter === 'cnd_compliance'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-purple-400 hover:text-purple-300'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>CNDs & Débitos ({alertSummary.cndAlertsCount})</span>
+                </button>
+              )}
             </div>
 
             {/* Alerts List */}
@@ -329,6 +400,7 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
                 const isCritical = alert.severity === 'critical';
                 const isOpportunity = alert.severity === 'opportunity';
                 const isWarning = alert.severity === 'warning';
+                const isCnd = alert.category === 'cnd_compliance';
 
                 return (
                   <motion.div
@@ -342,6 +414,8 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
                         ? 'bg-rose-950/20 border-rose-800/60 hover:border-rose-600'
                         : isOpportunity
                         ? 'bg-emerald-950/20 border-emerald-800/60 hover:border-emerald-600'
+                        : isCnd
+                        ? 'bg-purple-950/20 border-purple-800/60 hover:border-purple-600'
                         : isWarning
                         ? 'bg-amber-950/20 border-amber-800/60 hover:border-amber-600'
                         : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
@@ -364,6 +438,12 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
                               · Limite: {alert.dueDate}
                             </span>
                           )}
+
+                          {alert.cndOrgan && (
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/30 text-purple-300">
+                              {alert.cndOrgan}
+                            </span>
+                          )}
                         </div>
 
                         <h4 className="text-sm font-bold text-white tracking-tight leading-snug">
@@ -374,13 +454,55 @@ export const DashboardProactiveAlerts: React.FC<DashboardProactiveAlertsProps> =
                           {alert.description}
                         </p>
 
-                        <div className="text-[10px] text-slate-400 pt-0.5 font-mono">
-                          Base Legal: {alert.legalBasis}
+                        <div className="text-[10px] text-slate-400 pt-0.5 font-mono flex flex-wrap items-center gap-3">
+                          <span>Base Legal: {alert.legalBasis}</span>
+                          {alert.clientEmail && (
+                            <span className="text-slate-500">
+                              · Destinatário de Alertas: <strong className="text-slate-400">{alert.clientEmail}</strong>
+                            </span>
+                          )}
                         </div>
                       </div>
 
                       {/* Right Action Buttons */}
                       <div className="flex flex-wrap items-center gap-2 shrink-0 pt-2 lg:pt-0">
+                        {/* CND Specific Actions */}
+                        {isCnd && (
+                          <>
+                            <button
+                              onClick={() => {
+                                if (onOpenCndScheduler) onOpenCndScheduler();
+                                else if (onOpenCndRadar) onOpenCndRadar();
+                                else onNavigateToTab('agenda_fiscal' as any);
+                              }}
+                              className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                              <span>{alert.actionLabel || 'Auditar no CND Radar'}</span>
+                            </button>
+
+                            <button
+                              onClick={(e) => handleDispatchCndEmailAlert(alert, e)}
+                              disabled={sendingEmailId === alert.id || sentEmailIds.includes(alert.id)}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-md cursor-pointer ${
+                                sentEmailIds.includes(alert.id)
+                                  ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 cursor-default'
+                                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
+                              }`}
+                              title="Disparar alerta preditivo oficial no e-mail do cliente"
+                            >
+                              {sendingEmailId === alert.id ? (
+                                <Clock className="w-3.5 h-3.5 animate-spin" />
+                              ) : sentEmailIds.includes(alert.id) ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Mail className="w-3.5 h-3.5" />
+                              )}
+                              <span>{sentEmailIds.includes(alert.id) ? 'E-mail Enviado' : 'Disparar E-mail ao Cliente'}</span>
+                            </button>
+                          </>
+                        )}
+
                         {/* Primary Action Button */}
                         {alert.actionType === 'mark_delivered' && alert.obligationId && (
                           <button

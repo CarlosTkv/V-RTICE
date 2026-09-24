@@ -76,7 +76,7 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
   const [pdfReportType, setPdfReportType] = useState<'faturamento' | 'extrato' | 'consolidado'>('faturamento');
 
   // Sub-abas do Painel Financeiro
-  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'graficos' | 'breakeven' | 'prolabore' | 'stresstest'>('dre');
+  const [activeSubTab, setActiveSubTab] = useState<'dre' | 'graficos' | 'breakeven' | 'prolabore' | 'stresstest' | 'fluxo_caixa'>('dre');
 
   // Parâmetros operacionais e financeiros locais (com valores default derivados da empresa)
   const [monthlyRevenue, setMonthlyRevenue] = useState<number>(company.monthlyRevenue || (company.rbt12 / 12) || 100000);
@@ -263,6 +263,54 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
   const annualFatorRSavings = useMemo(() => {
     return taxBurdenEvolutionData.reduce((acc, item) => acc + item.economiaMensal, 0);
   }, [taxBurdenEvolutionData]);
+
+  // Projeção de Fluxo de Caixa Mensal (12 Meses)
+  const cashFlowProjectionData = useMemo(() => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const growthFactor = (company.projectionGrowthPercent || 15) / 100 / 12;
+    let initialBalance = grossRevenue * 0.5;
+
+    return months.map((m, idx) => {
+      const entrada = Math.round(grossRevenue * (1 + (growthFactor * idx)));
+      const saidaTributos = Math.round(entrada * (taxRate / 100));
+      const saidaCustos = Math.round(entrada * (inputCostsPercent / 100));
+      const saidaFixas = Math.round(fixedCostsTotal);
+      const saidaTotal = saidaTributos + saidaCustos + saidaFixas;
+      const fluxoLiquido = entrada - saidaTotal;
+      initialBalance += fluxoLiquido;
+
+      return {
+        month: m,
+        entradas: entrada,
+        saidas: saidaTotal,
+        fluxoLiquido,
+        saldoAcumulado: Math.round(initialBalance),
+      };
+    });
+  }, [grossRevenue, taxRate, inputCostsPercent, fixedCostsTotal, company.projectionGrowthPercent]);
+
+  // Gráfico de 'Burn Rate' Comparativo (Despesas Fixas vs Variáveis)
+  const burnRateComparisonData = useMemo(() => {
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const growthFactor = (company.projectionGrowthPercent || 15) / 100 / 12;
+    const caixaReservaInicial = 150000;
+
+    return months.map((m, idx) => {
+      const monthRev = grossRevenue * (1 + (growthFactor * idx));
+      const despesasFixas = Math.round(fixedCostsTotal);
+      const despesasVariaveis = Math.round((monthRev * (inputCostsPercent / 100)) + (monthRev * (taxRate / 100)));
+      const totalBurnRate = despesasFixas + despesasVariaveis;
+      const runwayMeses = totalBurnRate > 0 ? Number((caixaReservaInicial / totalBurnRate).toFixed(1)) : 12;
+
+      return {
+        month: m,
+        despesasFixas,
+        despesasVariaveis,
+        totalBurnRate,
+        runwayMeses,
+      };
+    });
+  }, [grossRevenue, taxRate, inputCostsPercent, fixedCostsTotal, company.projectionGrowthPercent]);
 
   const taxBurdenCurrentRate = taxBurdenEvolutionData[0]?.cargaAtualPerc || 15.5;
   const taxBurdenOptimizedRate = taxBurdenEvolutionData[0]?.cargaOtimizadaPerc || 6.0;
@@ -602,6 +650,18 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
         >
           <Sliders className="w-4 h-4" />
           <span>Stress Test & Sensibilidade</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('fluxo_caixa')}
+          className={`py-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition flex items-center space-x-2 cursor-pointer  ${
+            activeSubTab === 'fluxo_caixa'
+              ? 'border-emerald-500 text-emerald-400 bg-[#0F172A]/80 rounded-t-xl'
+              : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 rounded-t-xl'
+          }`}
+        >
+          <Wallet className="w-4 h-4" />
+          <span>Fluxo de Caixa & Burn Rate</span>
         </button>
       </div>
 
@@ -1564,6 +1624,143 @@ export const FinancialDashboardView: React.FC<FinancialDashboardViewProps> = ({
               )}
             </div>
 
+          </div>
+
+        </div>
+      )}
+
+      {/* SUB-ABA: FLUXO DE CAIXA & BURN RATE */}
+      {activeSubTab === 'fluxo_caixa' && (
+        <div className="space-y-6">
+          
+          {/* Banner Explicativo Fluxo de Caixa & Burn Rate */}
+          <div className="bg-[#0F172A] border border-blue-900/60 rounded-2xl p-5 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-start space-x-3">
+              <div className="p-2.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 rounded-xl shrink-0">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center space-x-2">
+                  <span>Projeção de Fluxo de Caixa Mensal & Burn Rate Corporativo</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30">
+                    Visão de Liquidez
+                  </span>
+                </h4>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  Monitore a geração líquida de caixa mês a mês e a velocidade de queima de recursos (<strong className="text-white">Burn Rate</strong>) discriminada entre despesas fixas (estruturais) e variáveis (operacionais e tributárias), calculando o <strong className="text-emerald-400">Runway</strong> de sustentabilidade da empresa.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Gráfico 1: Projeção de Fluxo de Caixa Mensal (Recharts ComposedChart) */}
+          <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-6 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center space-x-2">
+                  <TrendingUp className="w-5 h-5 text-blue-400" />
+                  <span>Projeção de Fluxo de Caixa Mensal (12 Meses)</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Entradas de receitas vs. Saídas totais e evolução do saldo acumulado de caixa
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-[#0B0F19] px-3 py-2 rounded-xl border border-slate-800 text-xs font-mono">
+                <span className="text-slate-400">Saldo Final 12M:</span>
+                <span className="font-bold text-emerald-400">
+                  {formatCurrencyBRL(cashFlowProjectionData[cashFlowProjectionData.length - 1]?.saldoAcumulado || 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={cashFlowProjectionData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                  <XAxis dataKey="month" stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 11 }} />
+                  <YAxis stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`} />
+                  <Tooltip 
+                    formatter={(val: any, name: any) => [
+                      formatCurrencyBRL(Number(val)),
+                      name === 'entradas' ? 'Entradas (Receitas)' : name === 'saidas' ? 'Saídas Totais' : name === 'fluxoLiquido' ? 'Fluxo Líquido Mensal' : 'Saldo Acumulado'
+                    ]}
+                    contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px', color: '#F8FAFC', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} formatter={(val) => <span className="text-slate-300 font-medium">{val}</span>} />
+                  <Bar dataKey="entradas" name="Entradas (Receitas)" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                  <Bar dataKey="saidas" name="Saídas Totais" fill="#ef4444" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                  <Line type="monotone" dataKey="saldoAcumulado" name="Saldo Acumulado em Caixa" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Gráfico 2: Burn Rate Comparativo (Despesas Fixas vs Variáveis) */}
+          <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-6 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center space-x-2">
+                  <BarChart3 className="w-5 h-5 text-amber-400" />
+                  <span>Gráfico de 'Burn Rate' Comparativo (Despesas Fixas vs. Variáveis)</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Velocidade de consumo de caixa discriminada entre estrutura fixa e custos variáveis
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-[#0B0F19] px-3 py-2 rounded-xl border border-slate-800 text-xs font-mono">
+                <span className="text-slate-400">Burn Rate Médio:</span>
+                <span className="font-bold text-amber-400">
+                  {formatCurrencyBRL(burnRateComparisonData.reduce((acc, i) => acc + i.totalBurnRate, 0) / 12)} / mês
+                </span>
+              </div>
+            </div>
+
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={burnRateComparisonData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                  <XAxis dataKey="month" stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 11 }} />
+                  <YAxis stroke="#94A3B8" tick={{ fill: '#94A3B8', fontSize: 11 }} tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`} />
+                  <Tooltip 
+                    formatter={(val: any, name: any) => [
+                      formatCurrencyBRL(Number(val)),
+                      name === 'despesasFixas' ? 'Despesas Fixas (Burn Fixo)' : 'Despesas Variáveis (Burn Variável)'
+                    ]}
+                    contentStyle={{ backgroundColor: '#0F172A', borderColor: '#334155', borderRadius: '0.75rem', fontSize: '12px', color: '#F8FAFC', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} formatter={(val) => <span className="text-slate-300 font-medium">{val}</span>} />
+                  <Bar dataKey="despesasFixas" name="Despesas Fixas (Burn Fixo)" fill="#8b5cf6" stackId="burn" radius={[0, 0, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="despesasVariaveis" name="Despesas Variáveis (Burn Variável)" fill="#f97316" stackId="burn" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Cards de Métricas de Burn Rate */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className="bg-[#0B0F19] p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[11px] uppercase font-bold text-slate-400 block">Burn Rate Fixo Mensal</span>
+                <div className="text-lg font-bold font-mono text-purple-400">
+                  {formatCurrencyBRL(fixedCostsTotal)}
+                </div>
+                <span className="text-[10px] text-slate-400 block">Folha, Pró-Labore & Despesas Operacionais Fixas</span>
+              </div>
+
+              <div className="bg-[#0B0F19] p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[11px] uppercase font-bold text-slate-400 block">Burn Rate Variável Médio</span>
+                <div className="text-lg font-bold font-mono text-orange-400">
+                  {formatCurrencyBRL((grossRevenue * (inputCostsPercent / 100)) + taxOnSales)}
+                </div>
+                <span className="text-[10px] text-slate-400 block">CPV, Insumos & Tributos s/ Faturamento</span>
+              </div>
+
+              <div className="bg-[#0B0F19] p-4 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[11px] uppercase font-bold text-slate-400 block">Runway Estimado (Reserva R$ 150k)</span>
+                <div className="text-lg font-bold font-mono text-emerald-400">
+                  {burnRateComparisonData[0]?.runwayMeses || 0} Meses
+                </div>
+                <span className="text-[10px] text-slate-400 block">Autonomia financeira sem novas entradas</span>
+              </div>
+            </div>
           </div>
 
         </div>

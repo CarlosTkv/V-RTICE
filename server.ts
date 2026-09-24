@@ -61,9 +61,40 @@ function initSendGrid() {
   }
 }
 
-async function sendTransactionalEmail(to: string, subject: string, rawText: string, rawHtml: string) {
+async function sendTransactionalEmail(to: string, subject: string, rawText: string, rawHtml: string, customSmtp?: any) {
   const text = `${rawText}\n\n${EMAIL_SIGNATURE_TEXT}`;
   const html = `${rawHtml}${EMAIL_SIGNATURE_HTML}`;
+
+  // 0. Try Custom Office SMTP if provided and enabled
+  if (customSmtp && customSmtp.enabled && customSmtp.host && customSmtp.user && customSmtp.pass) {
+    const port = Number(customSmtp.port) || 587;
+    const isSecure = customSmtp.secure !== undefined ? Boolean(customSmtp.secure) : (port === 465);
+    const transporter = nodemailer.createTransport({
+      host: customSmtp.host,
+      port,
+      secure: isSecure,
+      auth: {
+        user: customSmtp.user,
+        pass: customSmtp.pass,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    const fromAddress = customSmtp.fromEmail || customSmtp.user;
+    const fromName = customSmtp.fromName || 'Escritório Contábil';
+
+    await transporter.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      replyTo: customSmtp.replyTo || fromAddress,
+      to,
+      subject,
+      text,
+      html,
+    });
+    return { sender: `Custom SMTP: ${fromAddress}` };
+  }
 
   // 1. Try Umbler SMTP if configured
   if (process.env.UMBLER_SMTP_USER && process.env.UMBLER_SMTP_PASS) {
@@ -87,7 +118,7 @@ async function sendTransactionalEmail(to: string, subject: string, rawText: stri
       text,
       html,
     });
-    return;
+    return { sender: 'Umbler SMTP' };
   }
 
   // 2. Try SendGrid if configured
@@ -100,11 +131,12 @@ async function sendTransactionalEmail(to: string, subject: string, rawText: stri
       text,
       html,
     });
-    return;
+    return { sender: 'SendGrid' };
   }
 
   // 3. Fallback: log if neither is set
-  console.log(`[Email Mock via Umbler SMTP contato@verticeanalises.com.br] To: ${to} | Subject: ${subject}`);
+  console.log(`[Email Mock via System Default] To: ${to} | Subject: ${subject}`);
+  return { sender: 'Mock Fallback' };
 }
 
 let aiClient: GoogleGenAI | null = null;
@@ -478,16 +510,103 @@ async function startServer() {
   });
 
   app.post('/api/email/dispatch', async (req, res) => {
-    const { to, subject, text, html } = req.body;
+    const { to, subject, text, html, smtpConfig } = req.body;
     try {
       if (!to || !subject) {
         return res.status(400).json({ success: false, error: 'Missing to or subject' });
       }
-      await sendTransactionalEmail(to, subject, text || '', html || '');
-      res.json({ success: true, message: 'Email dispatched successfully' });
-    } catch (error) {
+      const result = await sendTransactionalEmail(to, subject, text || '', html || '', smtpConfig);
+      res.json({
+        success: true,
+        message: smtpConfig?.enabled
+          ? `Alerta enviado com sucesso pelo servidor SMTP corporativo (${smtpConfig.fromEmail || smtpConfig.user})`
+          : 'Email dispatched successfully',
+        sender: result?.sender || 'Default System'
+      });
+    } catch (error: any) {
       console.error('Error dispatching email:', error);
-      res.status(500).json({ success: false, error: 'Failed to dispatch email' });
+      res.status(500).json({ success: false, error: error?.message || 'Failed to dispatch email' });
+    }
+  });
+
+  app.post('/api/email/test-smtp', async (req, res) => {
+    const { smtpConfig, testRecipient } = req.body;
+    try {
+      if (!smtpConfig || !smtpConfig.host || !smtpConfig.user || !smtpConfig.pass) {
+        return res.status(400).json({
+          success: false,
+          error: 'Parâmetros SMTP incompletos. Informe Host, Porta, Usuário e Senha.'
+        });
+      }
+
+      const port = Number(smtpConfig.port) || 587;
+      const isSecure = smtpConfig.secure !== undefined ? Boolean(smtpConfig.secure) : (port === 465);
+
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port,
+        secure: isSecure,
+        auth: {
+          user: smtpConfig.user,
+          pass: smtpConfig.pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+
+      // Validar conexão e credenciais via verify
+      await transporter.verify();
+
+      const recipient = testRecipient || smtpConfig.fromEmail || smtpConfig.user;
+      const fromName = smtpConfig.fromName || 'Vértice - Notificações CND';
+      const fromEmail = smtpConfig.fromEmail || smtpConfig.user;
+
+      const testSubject = `[TESTE SMTP] Conexão Bem-Sucedida - ${fromName}`;
+      const testHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+          <h2 style="color: #059669; margin-top: 0;">✅ Teste de Conexão SMTP Bem-Sucedido!</h2>
+          <p>O servidor SMTP corporativo do seu escritório foi conectado e autenticado com êxito no <strong>Vértice Auditor Fiscal</strong>.</p>
+          <div style="background-color: #f8fafc; border-left: 4px solid #10b981; padding: 12px; margin: 16px 0; border-radius: 4px;">
+            <strong>Parâmetros Validados:</strong><br>
+            • <strong>Host:</strong> ${smtpConfig.host}:${port}<br>
+            • <strong>Segurança:</strong> ${isSecure ? 'SSL (Porta 465)' : 'TLS/STARTTLS (Porta 587)'}<br>
+            • <strong>Usuário Autenticado:</strong> ${smtpConfig.user}<br>
+            • <strong>Remetente Exibido:</strong> "${fromName}" &lt;${fromEmail}&gt;<br>
+            • <strong>Data/Hora do Teste:</strong> ${new Date().toLocaleString('pt-BR')}
+          </div>
+          <p style="font-size: 13px; color: #475569;">A partir de agora, os alertas de vencimento de CNDs e notificações preventivas aos clientes serão enviados com a identidade oficial do seu escritório.</p>
+        </div>
+      `;
+
+      await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        replyTo: smtpConfig.replyTo || fromEmail,
+        to: recipient,
+        subject: testSubject,
+        text: `Teste de conexão SMTP bem-sucedido!\nServidor: ${smtpConfig.host}:${port}\nUsuário: ${smtpConfig.user}\nRemetente: ${fromName} <${fromEmail}>\nData: ${new Date().toLocaleString('pt-BR')}`,
+        html: testHtml,
+      });
+
+      res.json({
+        success: true,
+        message: `Conexão SMTP validada com sucesso! E-mail de teste entregue para ${recipient}.`,
+        details: {
+          host: smtpConfig.host,
+          port,
+          user: smtpConfig.user,
+          recipient,
+          testedAt: new Date().toLocaleString('pt-BR')
+        }
+      });
+    } catch (error: any) {
+      console.error('SMTP Validation Error:', error);
+      res.status(400).json({
+        success: false,
+        error: error?.message || 'Falha ao autenticar no servidor SMTP. Verifique Host, Porta, Usuário e Senha.',
+        code: error?.code,
+        command: error?.command
+      });
     }
   });
 

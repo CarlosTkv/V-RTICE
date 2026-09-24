@@ -59,6 +59,8 @@ import {
   CRITICAL_EXCLUSION_THRESHOLD 
 } from '../utils/taxRules';
 import { ConsolidatedCNDReportsModal } from './ConsolidatedCNDReportsModal';
+import { CNDRadarHubModal } from './CNDRadarHubModal';
+import { CNDAutoSchedulerModal } from './CNDAutoSchedulerModal';
 import { HelpTooltip } from './HelpTooltip';
 import { ModuleIcon } from './ModuleIcon';
 import { BrandLogo, BrandModuleKey, BRAND_MODULE_CONFIGS } from './BrandLogo';
@@ -72,9 +74,11 @@ import { ModuleTutorialModal } from './ModuleTutorialModal';
 import { GlobalCapCapacityBar } from './societario/GlobalCapCapacityBar';
 import { CockpitExecutiveSummary } from './dashboard/CockpitExecutiveSummary';
 import { DashboardProactiveAlerts } from './dashboard/DashboardProactiveAlerts';
+import { TermometroFatorR } from './dashboard/TermometroFatorR';
 
 interface DashboardViewProps {
   company: CompanyData;
+  companies?: CompanyData[];
   onChangeCompany: (company: CompanyData) => void;
   calculation: CalculationResult;
   onNavigateToTab: (tab: any) => void;
@@ -88,6 +92,7 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   company,
+  companies = [],
   onChangeCompany,
   calculation,
   onNavigateToTab,
@@ -136,6 +141,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Modal de Relatórios Consolidados de CNDs
   const [showConsolidatedCndModal, setShowConsolidatedCndModal] = useState<boolean>(false);
+  const [showCndRadarModal, setShowCndRadarModal] = useState<boolean>(false);
+  const [showCndSchedulerModal, setShowCndSchedulerModal] = useState<boolean>(false);
 
   // Interactive Checklist State for LC 123/06
   const [manualChecklist, setManualChecklist] = useState<{ [key: string]: boolean }>(() => {
@@ -606,10 +613,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }`;
 
     const sectionDelays: { [key: string]: number } = {
-      trilha_auditoria: 0.1,
-      agenda_resumo: 0.12,
-      pgdas_import: 0.13,
-      checklist_lc123: 0.16,
+      alertas_proativos: 0.08,
+      termometro_fator_r: 0.1,
+      trilha_auditoria: 0.12,
+      agenda_resumo: 0.14,
+      pgdas_import: 0.15,
+      checklist_lc123: 0.17,
       parametros_fiscais: 0.19,
       chart_trajectory: 0.22,
       chart_regimes: 0.25,
@@ -644,6 +653,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             {dragHandleBanner}
             <DashboardProactiveAlerts
+              company={company}
+              onChangeCompany={onChangeCompany}
+              calculation={calculation}
+              onNavigateToTab={onNavigateToTab}
+              onOpenCndRadar={() => setShowCndRadarModal(true)}
+              onOpenCndScheduler={() => setShowCndSchedulerModal(true)}
+              showToast={showToast}
+            />
+          </motion.div>
+        );
+
+      case 'termometro_fator_r':
+        return (
+          <motion.div
+            key={`${company.id}_${id}`}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay }}
+            className={wrapperClasses}
+          >
+            {dragHandleBanner}
+            <TermometroFatorR
               company={company}
               onChangeCompany={onChangeCompany}
               calculation={calculation}
@@ -1338,20 +1369,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   );
                 })}
 
-                {/* Seção 3: Atalho do Caderno Consolidado de CNDs */}
+                {/* Seção 3: Atalho do Caderno Consolidado de CNDs & Agendador Sentinela */}
                 <div className="mt-4 pt-3 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0" />
-                    <span>Caderno com 5 CNDs em 1 único PDF Oficial</span>
+                    <span>Caderno com 5 CNDs &amp; Sentinela Preditivo</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowConsolidatedCndModal(true)}
-                    className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>Gerar Caderno Consolidado de CNDs (PDF)</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setShowCndSchedulerModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/40 font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Sentinela &amp; Agendador CND</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowConsolidatedCndModal(true)}
+                      className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-bold text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Gerar Caderno Consolidado de CNDs (PDF)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2225,6 +2266,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         currentCompany={company}
         showToast={showToast}
         onNavigateToTab={onNavigateToTab}
+      />
+
+      {/* MODAL DO RADAR 360° DE CNDS */}
+      <CNDRadarHubModal
+        isOpen={showCndRadarModal}
+        onClose={() => setShowCndRadarModal(false)}
+        currentCompany={company}
+        companies={companies.length > 0 ? companies : [company]}
+        showToast={showToast}
+      />
+
+      {/* MODAL DO AGENDADOR AUTOMÁTICO & SENTINELA PREDITIVO DE CNDS */}
+      <CNDAutoSchedulerModal
+        isOpen={showCndSchedulerModal}
+        onClose={() => setShowCndSchedulerModal(false)}
+        currentCompany={company}
+        companies={companies.length > 0 ? companies : [company]}
+        showToast={showToast}
       />
 
     </div>

@@ -15,12 +15,17 @@ import {
   TrendingUp,
   Percent,
   Layers,
-  Scale
+  Scale,
+  ShieldCheck,
+  Mail,
+  Send,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CompanyData, CalculationResult } from '../../types';
 import { ProactiveAlert } from '../../utils/proactiveAlertsEngine';
 import { formatCurrencyBRL } from '../../utils/taxRules';
+import { sendCNDPredictiveAlertEmail } from '../../utils/emailService';
 
 interface ProactiveAlertDetailsModalProps {
   isOpen: boolean;
@@ -31,6 +36,8 @@ interface ProactiveAlertDetailsModalProps {
   onApplyPayrollAdjustment?: (additionalMonthly: number) => void;
   onMarkObligationDelivered?: (obligationId: string) => void;
   onNavigateToTab?: (tab: any) => void;
+  onOpenCndRadar?: () => void;
+  onOpenCndScheduler?: () => void;
   showToast?: (msg: string) => void;
 }
 
@@ -43,14 +50,64 @@ export const ProactiveAlertDetailsModal: React.FC<ProactiveAlertDetailsModalProp
   onApplyPayrollAdjustment,
   onMarkObligationDelivered,
   onNavigateToTab,
+  onOpenCndRadar,
+  onOpenCndScheduler,
   showToast
 }) => {
   // Simulator state for Fator R adjustment
   const initialSimAdd = alert?.suggestedMonthlyAdjustment || (alert?.fatorRTarget && alert.fatorRCurrent ? Math.ceil((company.rbt12 * 0.2805 - company.payroll12m) / 12) : 0);
   const [simMonthlyAdd, setSimMonthlyAdd] = useState<number>(Math.max(0, initialSimAdd));
   const [activeSubTab, setActiveSubTab] = useState<'diagnosis' | 'simulation' | 'legal'>('diagnosis');
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false);
+  const [isEmailSent, setIsEmailSent] = useState<boolean>(false);
 
   if (!isOpen || !alert) return null;
+
+  const handleSendEmailNow = async () => {
+    if (!alert) return;
+    setIsSendingEmail(true);
+    try {
+      const clientEmail = alert.clientEmail || company.responsibleEmail || company.email || 'fiscal@empresa.com.br';
+      const isStatusChange = alert.cndPreviousStatus && alert.cndCurrentStatus && alert.cndPreviousStatus !== alert.cndCurrentStatus;
+      
+      await sendCNDPredictiveAlertEmail({
+        recipientEmail: clientEmail,
+        recipientName: company.responsibleName || company.name,
+        companyName: company.name,
+        companyCnpj: company.cnpj,
+        finding: {
+          id: alert.id,
+          companyId: company.id || company.cnpj,
+          companyName: company.name,
+          companyCnpj: company.cnpj,
+          clientEmail,
+          sphere: (alert.cndSphere as any) || 'estadual',
+          cndTitle: alert.title,
+          organ: alert.cndOrgan || 'Fazenda Pública',
+          previousStatus: (alert.cndPreviousStatus as any) || 'NEGATIVA',
+          currentStatus: (alert.cndCurrentStatus as any) || 'POSITIVA',
+          isImminentExpiry: (alert.daysRemaining !== undefined && alert.daysRemaining <= 7),
+          daysRemaining: alert.daysRemaining ?? 0,
+          expiryDate: alert.dueDate || 'Imediato',
+          riskType: isStatusChange ? 'status_degradation' : 'imminent_expiry',
+          riskSeverity: alert.severity === 'critical' ? 'CRITICAL' : 'HIGH',
+          summary: alert.description,
+          technicalDetails: `Varredura preditiva sentinela Vértice detectou evento crítico em ${new Date().toLocaleDateString('pt-BR')}.`,
+          preventiveRecommendation: 'Regularização tempestiva para evitar exclusão do Simples Nacional.',
+          legalImpact: alert.legalBasis,
+          detectedAt: new Date().toLocaleString('pt-BR')
+        }
+      });
+
+      setIsEmailSent(true);
+      if (showToast) showToast(`Alerta preditivo disparado por e-mail para ${clientEmail}!`);
+    } catch (e) {
+      console.error(e);
+      if (showToast) showToast('Erro ao disparar e-mail.');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
 
   const rbt12 = Math.max(1, company.rbt12);
   const currentPayroll = company.payroll12m || 0;
@@ -267,6 +324,61 @@ export const ProactiveAlertDetailsModal: React.FC<ProactiveAlertDetailsModalProp
                   </div>
                 </div>
               )}
+
+              {/* CND Compliance Specific Highlight */}
+              {alert.category === 'cnd_compliance' && (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 text-purple-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-5 h-5 text-purple-400" />
+                        <span className="font-bold text-xs uppercase tracking-wider text-purple-200">
+                          Monitoramento Sentinela de CND ({alert.cndOrgan || 'Órgão Fazendário'})
+                        </span>
+                      </div>
+                      {alert.cndPreviousStatus && alert.cndCurrentStatus && (
+                        <div className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-purple-500/20 border border-purple-500/30 text-purple-300">
+                          <span>{alert.cndPreviousStatus}</span>
+                          <span>➔</span>
+                          <span className="text-rose-400">{alert.cndCurrentStatus}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      A camada preditiva identificou que a certidão da empresa necessita de intervenção urgente. 
+                      A constatação de débitos impeditivos ou perda de validade expõe a empresa à <strong>exclusão de ofício do Simples Nacional</strong> (LC 123/06, art. 17, V) e impede a contratação com o poder público.
+                    </p>
+
+                    {/* Email Dispatch Action Inside Modal */}
+                    <div className="pt-3 border-t border-purple-800/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Mail className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Destinatário: <strong className="text-white">{alert.clientEmail || company.responsibleEmail || company.email || 'fiscal@empresa.com.br'}</strong></span>
+                      </div>
+
+                      <button
+                        onClick={handleSendEmailNow}
+                        disabled={isSendingEmail || isEmailSent}
+                        className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md cursor-pointer ${
+                          isEmailSent
+                            ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 cursor-default'
+                            : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
+                        }`}
+                      >
+                        {isSendingEmail ? (
+                          <Clock className="w-3.5 h-3.5 animate-spin" />
+                        ) : isEmailSent ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isEmailSent ? 'E-mail Enviado com Sucesso!' : 'Disparar E-mail ao Cliente'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -369,6 +481,43 @@ export const ProactiveAlertDetailsModal: React.FC<ProactiveAlertDetailsModalProp
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Marcar como Entregue</span>
               </button>
+            )}
+
+            {alert.category === 'cnd_compliance' && (
+              <>
+                <button
+                  onClick={handleSendEmailNow}
+                  disabled={isSendingEmail || isEmailSent}
+                  className={`px-4 py-2.5 rounded-xl text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md cursor-pointer ${
+                    isEmailSent
+                      ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-300'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
+                  }`}
+                >
+                  {isSendingEmail ? (
+                    <Clock className="w-4 h-4 animate-spin" />
+                  ) : isEmailSent ? (
+                    <Check className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Mail className="w-4 h-4" />
+                  )}
+                  <span>{isEmailSent ? 'Alerta por E-mail Despachado' : 'Disparar E-mail ao Cliente'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (onOpenCndScheduler) onOpenCndScheduler();
+                    else if (onOpenCndRadar) onOpenCndRadar();
+                    else if (onNavigateToTab) onNavigateToTab('agenda_fiscal' as any);
+                    onClose();
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs transition flex items-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Auditar CND no Radar</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </>
             )}
 
             {alert.category === 'fator_r' && onApplyPayrollAdjustment && (

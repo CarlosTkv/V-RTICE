@@ -283,6 +283,11 @@ export interface CompanyData {
   id?: string; // ID único para controle multi-empresa
   name: string;
   cnpj: string;
+  email?: string;
+  responsibleEmail?: string;
+  responsibleName?: string;
+  accountantEmail?: string;
+  accountantName?: string;
   cnae: string;
   cnaeDescription: string;
   uf: string;
@@ -434,6 +439,47 @@ export interface CNDComplianceReport {
 }
 
 export type CNDFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'proactive_before_expiry';
+export type CNDSphereRecurrence = 'daily' | 'weekly' | 'biweekly';
+
+export interface CNDSphereScheduleSetting {
+  enabled: boolean;
+  recurrence: CNDSphereRecurrence; // 'daily' | 'weekly' | 'biweekly'
+  dayOfWeek?: number; // 1 = Segunda-feira, 2 = Terça, ..., 7 = Domingo
+  preferredTime?: string; // ex: "03:30"
+  lastRunAt?: string;
+  nextRunAt?: string;
+}
+
+export interface CNDSphereEmailConfig {
+  sphere: CNDSphere;
+  enabled: boolean; // Se o envio de alertas por e-mail está ativo para esta certidão
+  sendToClient: boolean; // Enviar alertas de vencimento diretamente para o e-mail do cliente
+  clientEmail?: string; // E-mail específico do cliente (se vazio, usa o e-mail cadastral da empresa)
+  sendToAccountant: boolean; // Enviar alertas diretamente para o contador responsável
+  accountantEmail?: string; // E-mail específico do contador (se vazio, usa o do escritório fiscal)
+  additionalEmails?: string[]; // E-mails adicionais / CC específicos para este tipo de certidão
+  alertOnImminentExpiry: boolean; // Alerta de vencimento iminente
+  daysBeforeExpiry: number; // Janela de antecedência em dias (ex: 5, 7, 10, 15 dias)
+  alertOnStatusChange: boolean; // Alerta imediato se constatar débitos ou alteração de status
+  lastAlertSentAt?: string; // Data/hora do último alerta enviado
+  lastAlertRecipient?: string; // Destinatário(s) que receberam o último alerta
+}
+
+export interface CNDCustomSMTPConfig {
+  enabled: boolean; // Se o envio via SMTP próprio está ativado
+  provider?: 'custom' | 'gmail' | 'outlook' | 'umbler' | 'locaweb' | 'hostinger';
+  host: string; // Ex: smtp.meuescritorio.com.br
+  port: number; // 587, 465, 25
+  secure: boolean; // true para SSL (porta 465), false para TLS/STARTTLS (587)
+  user: string; // Usuário/e-mail para autenticação
+  pass: string; // Senha ou token de app
+  fromName: string; // Nome do remetente exibido
+  fromEmail: string; // E-mail do remetente
+  replyTo?: string; // E-mail para respostas
+  lastTestStatus?: 'SUCCESS' | 'ERROR' | 'UNTESTED';
+  lastTestedAt?: string;
+  lastTestError?: string;
+}
 
 export interface CNDScheduleConfig {
   id: string;
@@ -451,6 +497,24 @@ export interface CNDScheduleConfig {
     trabalhista: boolean;
     fgts: boolean;
   };
+  // Recorrência personalizada e independente para cada tipo de certidão
+  sphereRecurrence?: {
+    federal: CNDSphereScheduleSetting;
+    estadual: CNDSphereScheduleSetting;
+    municipal: CNDSphereScheduleSetting;
+    trabalhista: CNDSphereScheduleSetting;
+    fgts: CNDSphereScheduleSetting;
+  };
+  // Configuração de destinatários de e-mail específicos por tipo de certidão
+  sphereEmails?: {
+    federal: CNDSphereEmailConfig;
+    estadual: CNDSphereEmailConfig;
+    municipal: CNDSphereEmailConfig;
+    trabalhista: CNDSphereEmailConfig;
+    fgts: CNDSphereEmailConfig;
+  };
+  // Servidor SMTP Próprio do Escritório
+  customSmtp?: CNDCustomSMTPConfig;
   scope: 'all_companies' | 'active_company_only' | 'selected_companies';
   selectedCompanyIds?: string[];
   actions: {
@@ -460,9 +524,55 @@ export interface CNDScheduleConfig {
     alertOnDebts: boolean;
     archiveInSystemFolder: boolean;
   };
+  // Camada de Verificação Preditiva
+  predictive?: {
+    enabled: boolean;
+    daysThreshold: number; // ex: 7 dias antes do vencimento
+    detectStatusTransition: boolean; // ex: transição de REGULAR para PENDENTE
+    autoDispatchClientEmail: boolean; // Dispara e-mail imediato para o cliente ao identificar risco
+    lastPredictiveScanAt?: string;
+  };
   lastRunAt?: string;
   nextRunAt?: string;
   status: 'active' | 'paused' | 'running' | 'error';
+}
+
+export interface CNDPredictiveFinding {
+  id: string;
+  companyId: string;
+  companyName: string;
+  companyCnpj: string;
+  clientEmail: string;
+  sphere: CNDSphere;
+  cndTitle: string;
+  organ: string;
+  previousStatus: CNDStatus | 'REGULAR';
+  currentStatus: CNDStatus | 'PENDENTE' | 'EXPIRADA' | 'POSITIVA';
+  isImminentExpiry: boolean;
+  daysRemaining: number;
+  expiryDate: string;
+  riskType: 'imminent_expiry' | 'status_degradation' | 'debts_detected' | 'critical_suspension';
+  riskSeverity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+  summary: string;
+  technicalDetails: string;
+  preventiveRecommendation: string;
+  legalImpact: string; // Ex: LC 123/2006 Art. 17, V - Risco de exclusão de ofício do Simples Nacional
+  emailDispatched?: boolean;
+  emailDispatchedAt?: string;
+  emailRecipient?: string;
+  emailSubject?: string;
+  detectedAt: string;
+}
+
+export interface CNDPredictiveScanResult {
+  scanTimestamp: string;
+  companiesScanned: number;
+  totalFindings: number;
+  criticalCount: number;
+  imminentExpiryCount: number;
+  statusTransitionCount: number;
+  emailsDispatchedCount: number;
+  findings: CNDPredictiveFinding[];
 }
 
 export interface CNDExecutionLogItem {
@@ -1538,6 +1648,7 @@ export interface ServiceCodeTaxData {
 
 export type DashboardWidgetId = 
   | 'alertas_proativos'
+  | 'termometro_fator_r'
   | 'kpi_rbt12'
   | 'kpi_fator_r'
   | 'kpi_aliquota'

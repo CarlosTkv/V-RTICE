@@ -35,6 +35,7 @@ import { CompanyManagerModal } from './components/CompanyManagerModal';
 import { PrivacyLGPDModal } from './components/PrivacyLGPDModal';
 import { PartnerPortalModal } from './components/PartnerPortalModal';
 import { DocumentValidatorModal } from './components/DocumentValidatorModal';
+import { NotificationSettingsModal } from './components/NotificationSettingsModal';
 import { LoginPage } from './components/LoginPage';
 import { LandingWelcomePortal } from './components/LandingWelcomePortal';
 import { CommercialNfseModule } from './components/CommercialNfseModule';
@@ -195,6 +196,7 @@ export default function App() {
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [isPartnerPortalOpen, setIsPartnerPortalOpen] = useState(false);
   const [isDocumentValidatorOpen, setIsDocumentValidatorOpen] = useState(false);
+  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
   const [govUpdatePopup, setGovUpdatePopup] = useState<{ open: boolean; count: number; message: string } | null>(null);
 
   // Verificação automática diária 2 vezes (08:00 e 14:00) de novas publicações governamentais e envio de e-mail se offline/online
@@ -604,6 +606,7 @@ export default function App() {
         return (
           <DashboardView
             company={safeCurrentCompany}
+            companies={companies}
             onChangeCompany={handleUpdateCurrentCompany}
             calculation={calculation}
             onNavigateToTab={setActiveTab}
@@ -876,6 +879,7 @@ export default function App() {
         return (
           <DashboardView
             company={safeCurrentCompany}
+            companies={companies}
             onChangeCompany={handleUpdateCurrentCompany}
             calculation={calculation}
             onNavigateToTab={setActiveTab}
@@ -1146,6 +1150,12 @@ export default function App() {
           isOpen={isDocumentValidatorOpen}
           onClose={() => setIsDocumentValidatorOpen(false)}
           currentCompany={safeCurrentCompany}
+        />
+
+        <NotificationSettingsModal
+          isOpen={isNotificationSettingsOpen}
+          onClose={() => setIsNotificationSettingsOpen(false)}
+          showToast={showToast}
         />
 
         {govUpdatePopup?.open && (
