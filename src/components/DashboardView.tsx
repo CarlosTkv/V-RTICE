@@ -71,6 +71,7 @@ import { DashboardWidgetCustomizerModal } from './DashboardWidgetCustomizerModal
 import { ModuleTutorialModal } from './ModuleTutorialModal';
 import { GlobalCapCapacityBar } from './societario/GlobalCapCapacityBar';
 import { CockpitExecutiveSummary } from './dashboard/CockpitExecutiveSummary';
+import { DashboardProactiveAlerts } from './dashboard/DashboardProactiveAlerts';
 
 interface DashboardViewProps {
   company: CompanyData;
@@ -632,6 +633,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
 
     switch (id) {
+      case 'alertas_proativos':
+        return (
+          <motion.div
+            key={`${company.id}_${id}`}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay }}
+            className={wrapperClasses}
+          >
+            {dragHandleBanner}
+            <DashboardProactiveAlerts
+              company={company}
+              onChangeCompany={onChangeCompany}
+              calculation={calculation}
+              onNavigateToTab={onNavigateToTab}
+              showToast={showToast}
+            />
+          </motion.div>
+        );
+
       case 'central_relatorios':
         const relatorios = [
           {

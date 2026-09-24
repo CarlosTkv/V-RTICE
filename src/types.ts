@@ -1537,6 +1537,7 @@ export interface ServiceCodeTaxData {
 }
 
 export type DashboardWidgetId = 
+  | 'alertas_proativos'
   | 'kpi_rbt12'
   | 'kpi_fator_r'
   | 'kpi_aliquota'
