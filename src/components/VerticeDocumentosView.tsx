@@ -72,6 +72,7 @@ import { DocumentUploadHubModal } from './DocumentUploadHubModal';
 import { SefazRadarSearchModal } from './SefazRadarSearchModal';
 import { CNDRadarHubModal } from './CNDRadarHubModal';
 import { ConsolidatedCNDReportsModal } from './ConsolidatedCNDReportsModal';
+import { SefinNfseManagerModal } from './SefinNfseManagerModal';
 import { parseFiscalXmlString } from '../utils/xmlDocumentParser';
 
 interface VerticeDocumentosViewProps {
@@ -369,6 +370,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   
   // Advanced Modals
   const [showRadarSearchModal, setShowRadarSearchModal] = useState<boolean>(false);
+  const [showSefinNfseManager, setShowSefinNfseManager] = useState<boolean>(false);
   const [showUploadHubModal, setShowUploadHubModal] = useState<boolean>(false);
   const [showCertInspectModal, setShowCertInspectModal] = useState<boolean>(false);
   const [showCndHubModal, setShowCndHubModal] = useState<boolean>(false);
@@ -1730,6 +1732,16 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                     >
                       <FilePlus className="w-3.5 h-3.5" />
                       Importar XML
+                    </button>
+
+                    {/* SefinNacional NFS-e Module Button */}
+                    <button
+                      onClick={() => setShowSefinNfseManager(true)}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white border border-indigo-400/40 text-[10px] font-black uppercase transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-indigo-600/20"
+                      title="Abrir Módulo SefinNacional NFS-e (Emissão DPS, Cancelamento & Worker de Fundo)"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+                      <span>Módulo SefinNacional (NFS-e ADN)</span>
                     </button>
                   </div>
                 </div>
@@ -4253,6 +4265,15 @@ TEXTO DE RETIFICAÇÃO:
           setShowRadarSearchModal(false);
           setShowCertInspectModal(true);
         }}
+      />
+
+      {/* SefinNacional NFS-e Manager Modal */}
+      <SefinNfseManagerModal
+        isOpen={showSefinNfseManager}
+        onClose={() => setShowSefinNfseManager(false)}
+        currentCompany={currentCompany}
+        showToast={showToast}
+        onOpenCertificateModal={() => setShowCertInspectModal(true)}
       />
 
       {/* Document Upload Hub Modal */}

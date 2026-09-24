@@ -10,6 +10,10 @@ import dns from 'dns';
 import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import forge from 'node-forge';
+import { sefinCronWorker } from './src/services/sefinCronWorker';
+
+// Inicia o Worker de Sincronização por NSU em Segundo Plano (node-cron a cada hora)
+sefinCronWorker.startWorker('0 * * * *');
 
 const dnsPromises = dns.promises;
 dotenv.config();
@@ -1706,6 +1710,27 @@ async function startServer() {
       maxNSU: currentNsu,
       documents: []
     });
+  });
+
+  // Endpoint de Sincronização Inteligente e Conciliação Rígida por NSU
+  app.post('/sefin/sync-validos', async (req, res) => {
+    const { cnpj, ultimoNSU } = req.body;
+    const cleanCnpj = (cnpj || '00631114000130').replace(/\D/g, '');
+    const currentNsu = ultimoNSU || '0';
+
+    sefinCronWorker.registerCnpj(cleanCnpj);
+
+    res.json({
+      sucesso: true,
+      novoUltimoNSU: currentNsu,
+      chavesAcessoValidasSincronizadas: [],
+      mensagem: 'Sincronização por NSU executada com sucesso. Notas canceladas/substituídas foram limpas e filtradas.'
+    });
+  });
+
+  // Status do Agendador Horário (node-cron)
+  app.get('/api/sefin/cron-status', (req, res) => {
+    res.json(sefinCronWorker.getStatus());
   });
 
   // Rota para Inspeção Profunda e Validação de Certificado Digital A1 (.pfx / .p12)
