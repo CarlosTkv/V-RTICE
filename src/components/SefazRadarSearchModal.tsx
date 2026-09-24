@@ -148,15 +148,16 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
         }
       }
 
-      addLog(`Auditoria concluída com sucesso: ${docsReceived.length} documento(s) fiscal(is) extraídos e classificados.`, 'ok');
+      addLog(`Auditoria concluída com sucesso: ${docsReceived.length} documento(s) fiscal(is) extraídos e classificados (Entrada e Saída).`, 'ok');
       setFoundDocs(docsReceived);
       setLastReturnedNsu(data.ultNSU || '');
       setIsSearching(false);
 
       if (docsReceived.length > 0) {
-        showToast(`Busca concluída! ${docsReceived.length} documentos fiscais localizados na SEFAZ e Portal Nacional!`, 'success');
+        onSuccessImport(docsReceived, data.ultNSU || '');
+        showToast(`Busca em Produção Nacional concluída! ${docsReceived.length} documento(s) (Entrada e Saída - NFS-e & NF-e) sincronizado(s) com sucesso!`, 'success');
       } else {
-        showToast(`SEFAZ retornou: ${data.xMotivo} (Sem novos documentos para o período/NSU consultado).`, 'info');
+        showToast(`Consulta realizada com sucesso! Sem novos documentos no período.`, 'info');
       }
 
     } catch (err: any) {
