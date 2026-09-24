@@ -41,9 +41,15 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
   onOpenCertificateModal
 }) => {
   const [searchTarget, setSearchTarget] = useState<'all' | 'nfe' | 'cte' | 'nfse' | 'nfce'>('all');
-  const [searchMode, setSearchMode] = useState<'nsu' | 'chave' | 'periodo'>('nsu');
+  const [searchMode, setSearchMode] = useState<'nsu' | 'chave' | 'periodo'>('periodo');
   const [chaveAcesso, setChaveAcesso] = useState('');
   const [periodoDias, setPeriodoDias] = useState<'7' | '15' | '30' | '90'>('30');
+  const [dataInicio, setDataInicio] = useState<string>(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [dataFim, setDataFim] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [direcaoFilter, setDirecaoFilter] = useState<'todas' | 'entrada' | 'saida'>('todas');
   const [environment, setEnvironment] = useState<'1' | '2'>('1'); // 1 = Produção Oficial, 2 = Homologação
   
   const [isSearching, setIsSearching] = useState(false);
@@ -111,7 +117,10 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
           ultNSU: currentCompany.lastSyncNSU || '0',
           searchTarget,
           searchMode,
-          chaveAcesso: searchMode === 'chave' ? chaveAcesso : undefined
+          chaveAcesso: searchMode === 'chave' ? chaveAcesso : undefined,
+          dataInicio: searchMode === 'periodo' ? dataInicio : undefined,
+          dataFim: searchMode === 'periodo' ? dataFim : undefined,
+          direcaoFilter
         })
       });
 
@@ -343,26 +352,132 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
             )}
 
             {searchMode === 'periodo' && (
-              <div className="grid grid-cols-4 gap-2 pt-1">
-                {[
-                  { val: '7', label: 'Últimos 7 dias' },
-                  { val: '15', label: 'Últimos 15 dias' },
-                  { val: '30', label: 'Últimos 30 dias' },
-                  { val: '90', label: 'Últimos 90 dias' }
-                ].map(p => (
+              <div className="space-y-3 pt-1">
+                {/* Date Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Data Inicial (De)
+                    </label>
+                    <input
+                      type="date"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Data Final (Até)
+                    </label>
+                    <input
+                      type="date"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <button
-                    key={p.val}
                     type="button"
-                    onClick={() => setPeriodoDias(p.val as any)}
-                    className={`py-2 rounded-xl text-xs font-semibold border transition cursor-pointer ${
-                      periodoDias === p.val
-                        ? 'bg-slate-800 border-rose-500 text-white font-bold'
-                        : 'bg-slate-900/40 border-slate-800 text-slate-400 hover:text-white'
-                    }`}
+                    onClick={() => {
+                      const now = new Date();
+                      setDataInicio(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
+                      setDataFim(now.toISOString().split('T')[0]);
+                    }}
+                    className="py-1.5 px-2 rounded-xl text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
                   >
-                    {p.label}
+                    📅 Mês Atual ({new Date().toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })})
                   </button>
-                ))}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const prevMonthFirst = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                      const prevMonthLast = new Date(now.getFullYear(), now.getMonth(), 0);
+                      setDataInicio(prevMonthFirst.toISOString().split('T')[0]);
+                      setDataFim(prevMonthLast.toISOString().split('T')[0]);
+                    }}
+                    className="py-1.5 px-2 rounded-xl text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+                  >
+                    📆 Mês Anterior
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                      setDataInicio(past30.toISOString().split('T')[0]);
+                      setDataFim(now.toISOString().split('T')[0]);
+                    }}
+                    className="py-1.5 px-2 rounded-xl text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+                  >
+                    🕒 Últimos 30 Dias
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      const past90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+                      setDataInicio(past90.toISOString().split('T')[0]);
+                      setDataFim(now.toISOString().split('T')[0]);
+                    }}
+                    className="py-1.5 px-2 rounded-xl text-[11px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+                  >
+                    ⏳ Últimos 90 Dias
+                  </button>
+                </div>
+
+                {/* Direction Filter */}
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                    Filtrar por Tipo de Operação
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDirecaoFilter('todas')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        direcaoFilter === 'todas'
+                          ? 'bg-rose-950/60 border-rose-500 text-rose-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Entradas & Saídas (Ambas)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDirecaoFilter('entrada')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        direcaoFilter === 'entrada'
+                          ? 'bg-emerald-950/60 border-emerald-500 text-emerald-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Apenas Entradas (Tomadas / Recebidas)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setDirecaoFilter('saida')}
+                      className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                        direcaoFilter === 'saida'
+                          ? 'bg-blue-950/60 border-blue-500 text-blue-300'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Apenas Saídas (Emitidas / Prestadas)
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
