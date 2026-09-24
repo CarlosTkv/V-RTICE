@@ -73,6 +73,8 @@ import { SefazRadarSearchModal } from './SefazRadarSearchModal';
 import { CNDRadarHubModal } from './CNDRadarHubModal';
 import { ConsolidatedCNDReportsModal } from './ConsolidatedCNDReportsModal';
 import { SefinNfseManagerModal } from './SefinNfseManagerModal';
+import { GuiasTaxControlModal } from './GuiasTaxControlModal';
+import { GestaoGuiasCertidoesModal } from './GestaoGuiasCertidoesModal';
 import { parseFiscalXmlString } from '../utils/xmlDocumentParser';
 
 interface VerticeDocumentosViewProps {
@@ -371,6 +373,8 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   // Advanced Modals
   const [showRadarSearchModal, setShowRadarSearchModal] = useState<boolean>(false);
   const [showSefinNfseManager, setShowSefinNfseManager] = useState<boolean>(false);
+  const [showGuiasTaxControlModal, setShowGuiasTaxControlModal] = useState<boolean>(false);
+  const [showGestaoGuiasCertidoesModal, setShowGestaoGuiasCertidoesModal] = useState<boolean>(false);
   const [showUploadHubModal, setShowUploadHubModal] = useState<boolean>(false);
   const [showCertInspectModal, setShowCertInspectModal] = useState<boolean>(false);
   const [showCndHubModal, setShowCndHubModal] = useState<boolean>(false);
@@ -525,6 +529,37 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
 
     return () => clearInterval(intervalId);
   }, [isSchedulerEnabled, isRealConnection, pfxBase64, certPassword, currentCompany, lastNSU]);
+
+  // Auto-fetch real client documents on mount or whenever currentCompany changes
+  React.useEffect(() => {
+    if (!currentCompany) return;
+
+    const loadRealCompanyDocs = async () => {
+      try {
+        const res = await fetch('/api/vertice/sync-real', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cnpj: currentCompany.cnpj,
+            pfxBase64: currentCompany.pfxBase64,
+            password: currentCompany.certPassword,
+            dataInicio: '2026-09-01',
+            dataFim: '2026-09-24',
+            searchTarget: 'all'
+          })
+        });
+
+        const data = await res.json();
+        if (data.success && data.documents && data.documents.length > 0) {
+          setDocuments(data.documents as DocFiscal[]);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar documentos iniciais da empresa:', err);
+      }
+    };
+
+    loadRealCompanyDocs();
+  }, [currentCompany?.cnpj]);
 
   // Selected Doc Memo
   const selectedDoc = useMemo(() => {
@@ -1742,6 +1777,16 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                     >
                       <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
                       <span>Módulo SefinNacional (NFS-e ADN)</span>
+                    </button>
+
+                    {/* Guias, e-CAC & Parcelamentos Module Button */}
+                    <button
+                      onClick={() => setShowGuiasTaxControlModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white border border-blue-400/40 text-[10px] font-black uppercase transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-blue-600/20"
+                      title="Abrir Módulo de Controle de Guias Tributárias, e-CAC e Parcelamentos"
+                    >
+                      <Landmark className="w-3.5 h-3.5 text-blue-200" />
+                      <span>Guias, e-CAC & Parcelamentos</span>
                     </button>
                   </div>
                 </div>
@@ -4271,6 +4316,15 @@ TEXTO DE RETIFICAÇÃO:
       <SefinNfseManagerModal
         isOpen={showSefinNfseManager}
         onClose={() => setShowSefinNfseManager(false)}
+        currentCompany={currentCompany}
+        showToast={showToast}
+        onOpenCertificateModal={() => setShowCertInspectModal(true)}
+      />
+
+      {/* Guias, e-CAC & Parcelamentos Tax Control Modal */}
+      <GuiasTaxControlModal
+        isOpen={showGuiasTaxControlModal}
+        onClose={() => setShowGuiasTaxControlModal(false)}
         currentCompany={currentCompany}
         showToast={showToast}
         onOpenCertificateModal={() => setShowCertInspectModal(true)}
