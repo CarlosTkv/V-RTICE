@@ -1499,89 +1499,244 @@ async function startServer() {
     ];
   }
 
-  function getCompanyDocsForPeriod(cleanCnpj: string, companyName?: string, dataInicio?: string, dataFim?: string) {
+  function getCompanyDocsForPeriod(cleanCnpj: string, companyName?: string, dataInicio?: string, dataFim?: string, searchTarget?: string) {
     const compName = companyName || 'BRASOLUB DISTRIB BRASILEIRA DE OLEOS E LUBRIF LTDA';
     const compCnpjFormatted = cleanCnpj.length === 14 
       ? `${cleanCnpj.slice(0,2)}.${cleanCnpj.slice(2,5)}.${cleanCnpj.slice(5,8)}/${cleanCnpj.slice(8,12)}-${cleanCnpj.slice(12,14)}`
       : '00.631.114/0001-30';
 
-    // Base 15 notas do Setembro/2026 se for a BRASOLUB
-    const baseDocs = cleanCnpj === '00631114000130' 
-      ? getBrasolubRealNfseDocs(cleanCnpj, compName)
-      : getCompanyUniversalFiscalDocs(cleanCnpj, compName, dataInicio, dataFim);
-
-    // Datas inicial e final informadas
     const startStr = dataInicio || '2026-09-01';
     const endStr = dataFim || '2026-09-24';
     const startDate = new Date(startStr);
     const endDate = new Date(endStr);
 
-    const resultDocs = [...baseDocs];
+    const resultDocs: any[] = [];
 
-    // Fornecedores recorrentes para preencher qualquer outro mês solicitado
-    const proveedores = [
-      { nome: 'ORSEGUPS MONITORAMENTO ELETRONICO LTDA', cnpj: '08.491.597/0002-07', desc: 'SERVIÇOS DE MONITORAMENTO ELETRÔNICO E SEGURANÇA', valor: 364.95 },
-      { nome: 'TOTALSAT COMERCIO DE EQUIPAMENTOS ELETRONICOS LTDA', cnpj: '07.143.448/0001-03', desc: 'RASTREAMENTO VEICULAR E RASTREAMENTO DE FROTA', valor: 295.00 },
-      { nome: 'DANIELI CHAGAS EUFRASIO', cnpj: '54.495.175/0001-46', desc: 'SERVIÇOS DE LIMPEZA E CONSERVAÇÃO PREDIAL', valor: 900.00 },
-      { nome: 'M.R.C. ESCRITORIO CONTABIL LTDA', cnpj: '13.108.153/0001-07', desc: 'SERVIÇOS DE ASSESSORIA E CONSULTORIA CONTÁBIL, FISCAL E TRABALHISTA', valor: 5100.00 },
-      { nome: 'FACEBOOK SERVICOS ONLINE DO BRASIL LTDA.', cnpj: '13.347.016/0001-17', desc: 'SERVIÇOS DE VEICULAÇÃO DE PUBLICIDADE E PROPAGANDA NA INTERNET', valor: 351.00 },
-      { nome: 'SLD INFORMATICA LTDA', cnpj: '03.088.924/0001-80', desc: 'SERVIÇOS DE SUPORTE TÉCNICO DE TI E MANUTENÇÃO DE REDES', valor: 550.00 },
-      { nome: 'REPAIR REFRIGERACAO E AR CONDICIONADO LTDA', cnpj: '03.744.365/0001-19', desc: 'MANUTENÇÃO DE SISTEMAS DE REFRIGERAÇÃO E AR CONDICIONADO', valor: 120.00 },
-      { nome: 'PETROBRAS DISTRIBUIDORA S/A', cnpj: '33.000.167/0001-01', desc: 'SERVIÇOS TÉCNICOS ESPECIALIZADOS DE ANÁLISE DE LUBRIFICANTES', valor: 28500.00, direcao: 'saida' }
+    // 1. NFS-e Base (15 notas do Setembro/2026 se for a BRASOLUB)
+    if (cleanCnpj === '00631114000130') {
+      const baseNfse = getBrasolubRealNfseDocs(cleanCnpj, compName);
+      resultDocs.push(...baseNfse);
+    } else {
+      const baseUniv = getCompanyUniversalFiscalDocs(cleanCnpj, compName, dataInicio, dataFim);
+      resultDocs.push(...baseUniv);
+    }
+
+    // 2. Templates de NF-e (Mod 55 - Mercadorias e Indústria)
+    const nfeTemplates = [
+      {
+        tipo: 'NF-e',
+        emitente: 'PETROBRAS S.A. - REFINARIA DUQUE DE CAXIAS (REDUC)',
+        emitenteCnpj: '33.000.167/0036-03',
+        destinatario: compName,
+        destinatarioCnpj: compCnpjFormatted,
+        desc: 'ÓLEO LUBRIFICANTE BASE PARA PROCESSAMENTO INDUSTRIAL (LOTE 50.000L)',
+        valor: 148500.00,
+        icms: 17820.00,
+        cfop: '1652',
+        ncm: '27101911',
+        direcao: 'entrada'
+      },
+      {
+        tipo: 'NF-e',
+        emitente: 'IPIRANGA PRODUTOS DE PETROLEO S.A.',
+        emitenteCnpj: '33.337.122/0001-27',
+        destinatario: compName,
+        destinatarioCnpj: compCnpjFormatted,
+        desc: 'ADITIVOS SINTÉTICOS PARA MOTORES DIESEL E GASOLINA',
+        valor: 64200.00,
+        icms: 7704.00,
+        cfop: '1652',
+        ncm: '38112100',
+        direcao: 'entrada'
+      },
+      {
+        tipo: 'NF-e',
+        emitente: compName,
+        emitenteCnpj: compCnpjFormatted,
+        destinatario: 'AUTO POSTO E CONVENIENCIA MARACANA LTDA',
+        destinatarioCnpj: '02.481.932/0001-88',
+        desc: 'LUBRIFICANTE AUTOMOTIVO 5W30 SINTÉTICO (TAMBORES 200L)',
+        valor: 38900.00,
+        icms: 4668.00,
+        cfop: '5652',
+        ncm: '27101911',
+        direcao: 'saida'
+      },
+      {
+        tipo: 'NF-e',
+        emitente: compName,
+        emitenteCnpj: compCnpjFormatted,
+        destinatario: 'TRANSPORTE E LOGISTICA RIO S.A.',
+        destinatarioCnpj: '08.921.445/0001-12',
+        desc: 'GRAXA AUTOMOTIVA MULTIUSO DE ALTA TEMPERATURA (BALDES 20KG)',
+        valor: 19800.00,
+        icms: 2376.00,
+        cfop: '5652',
+        ncm: '27101990',
+        direcao: 'saida'
+      }
     ];
 
-    // Mês inicial e mês final
+    // 3. Templates de CT-e (Mod 57 - Fretes e Transportes)
+    const cteTemplates = [
+      {
+        tipo: 'CT-e',
+        emitente: 'JAMEF TRANSPORTES LTDA',
+        emitenteCnpj: '20.147.617/0001-35',
+        destinatario: compName,
+        destinatarioCnpj: compCnpjFormatted,
+        desc: 'TRANSPORTE DE CARGA RODOVIÁRIA LUBRIFICANTE EMBALADO',
+        valor: 4850.00,
+        icms: 582.00,
+        cfop: '1352',
+        ncm: '00000000',
+        direcao: 'entrada'
+      },
+      {
+        tipo: 'CT-e',
+        emitente: 'TNT MERCURIO CARGAS E ENCOMENDAS EXPRESSAS LTDA',
+        emitenteCnpj: '95.591.723/0001-19',
+        destinatario: compName,
+        destinatarioCnpj: compCnpjFormatted,
+        desc: 'FRETE DE TRANSFERÊNCIA DE INSUMOS E EMBALAGENS',
+        valor: 3200.00,
+        icms: 384.00,
+        cfop: '1352',
+        ncm: '00000000',
+        direcao: 'entrada'
+      }
+    ];
+
+    // 4. Templates de NFC-e (Mod 65 - Varejo ao Consumidor Final)
+    const nfceTemplates = [
+      {
+        tipo: 'NFC-e',
+        emitente: compName,
+        emitenteCnpj: compCnpjFormatted,
+        destinatario: 'CONSUMIDOR FINAL',
+        destinatarioCnpj: '000.000.000-00',
+        desc: 'FRASCO LUBRIFICANTE 1L 20W50 MINERAL BALCÃO',
+        valor: 45.00,
+        icms: 5.40,
+        cfop: '5656',
+        ncm: '27101911',
+        direcao: 'saida'
+      }
+    ];
+
+    // Gerar documentos adicionais para preencher qualquer intervalo de data solicitado
     let currentMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
     const lastMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-
-    let seqCounter = 30;
+    let seqCounter = 50;
 
     while (currentMonth <= lastMonth) {
       const year = currentMonth.getFullYear();
       const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
 
-      // Se não for Setembro/2026 (que já tem as 15 notas oficiais baseDocs)
-      if (!(year === 2026 && month === '09' && cleanCnpj === '00631114000130')) {
-        const daysToGen = [2, 5, 9, 11, 14, 19, 21, 22];
-        daysToGen.forEach((day, idx) => {
-          const dayStr = String(day).padStart(2, '0');
-          const dateStr = `${year}-${month}-${dayStr}`;
+      const datesToGen = [3, 7, 10, 15, 18, 23, 25];
+      datesToGen.forEach((day, idx) => {
+        const dayStr = String(day).padStart(2, '0');
+        const dateStr = `${year}-${month}-${dayStr}`;
 
-          if (dateStr >= startStr && dateStr <= endStr) {
-            const prov = proveedores[idx % proveedores.length];
-            const isSaida = prov.direcao === 'saida';
-            const numSeq = 20260000000 + seqCounter++;
+        if (dateStr >= startStr && dateStr <= endStr) {
+          // Adiciona NF-e (Mod 55)
+          const nfeTpl = nfeTemplates[idx % nfeTemplates.length];
+          const numNfe = 50000 + seqCounter++;
+          resultDocs.push({
+            id: `nfe_${cleanCnpj}_${dateStr}_${idx}`,
+            tipo: 'NF-e',
+            numero: numNfe.toString(),
+            serie: '1',
+            chave: `33${year.toString().slice(-2)}${month}${nfeTpl.emitenteCnpj.replace(/\D/g, '')}55001000${numNfe}1857391230`,
+            dataEmissao: dateStr,
+            emitente: nfeTpl.emitente,
+            emitenteCnpj: nfeTpl.emitenteCnpj,
+            destinatario: nfeTpl.destinatario,
+            destinatarioCnpj: nfeTpl.destinatarioCnpj,
+            valorTotal: nfeTpl.valor,
+            valorIcms: nfeTpl.icms,
+            valorIss: 0,
+            cfop: nfeTpl.cfop,
+            ncm: nfeTpl.ncm,
+            status: 'Autorizada',
+            manifestacao: 'Confirmada',
+            direcao: nfeTpl.direcao,
+            itens: [{ descricao: nfeTpl.desc, ncm: nfeTpl.ncm, cfop: nfeTpl.cfop, valor: nfeTpl.valor, icmsAliquota: 12 }]
+          });
 
-            resultDocs.push({
-              id: `nfse_dyn_${cleanCnpj}_${dateStr}_${idx}`,
-              tipo: 'NFS-e',
-              numero: numSeq.toString(),
-              serie: 'NFS',
-              chave: `NFS${prov.cnpj.replace(/\D/g, '')}${year}${month}${dayStr}${numSeq.toString().slice(-6)}`,
-              dataEmissao: dateStr,
-              emitente: isSaida ? compName : prov.nome,
-              emitenteCnpj: isSaida ? compCnpjFormatted : prov.cnpj,
-              destinatario: isSaida ? prov.nome : compName,
-              destinatarioCnpj: isSaida ? prov.cnpj : compCnpjFormatted,
-              valorTotal: prov.valor,
-              valorIcms: 0,
-              valorIss: Number((prov.valor * 0.05).toFixed(2)),
-              cfop: '0000',
-              ncm: '00000000',
-              status: 'Autorizada',
-              manifestacao: 'Confirmada',
-              direcao: isSaida ? 'saida' : 'entrada',
-              itens: [{ descricao: prov.desc, ncm: '00000000', cfop: '0000', valor: prov.valor, issAliquota: 5 }]
-            });
-          }
-        });
-      }
+          // Adiciona CT-e (Mod 57)
+          const cteTpl = cteTemplates[idx % cteTemplates.length];
+          const numCte = 10000 + seqCounter++;
+          resultDocs.push({
+            id: `cte_${cleanCnpj}_${dateStr}_${idx}`,
+            tipo: 'CT-e',
+            numero: numCte.toString(),
+            serie: '1',
+            chave: `33${year.toString().slice(-2)}${month}${cteTpl.emitenteCnpj.replace(/\D/g, '')}57001000${numCte}1857391230`,
+            dataEmissao: dateStr,
+            emitente: cteTpl.emitente,
+            emitenteCnpj: cteTpl.emitenteCnpj,
+            destinatario: cteTpl.destinatario,
+            destinatarioCnpj: cteTpl.destinatarioCnpj,
+            valorTotal: cteTpl.valor,
+            valorIcms: cteTpl.icms,
+            valorIss: 0,
+            cfop: cteTpl.cfop,
+            ncm: cteTpl.ncm,
+            status: 'Autorizada',
+            manifestacao: 'Confirmada',
+            direcao: cteTpl.direcao,
+            itens: [{ descricao: cteTpl.desc, ncm: '00000000', cfop: cteTpl.cfop, valor: cteTpl.valor, icmsAliquota: 12 }]
+          });
+
+          // Adiciona NFC-e (Mod 65)
+          const nfceTpl = nfceTemplates[0];
+          const numNfce = 80000 + seqCounter++;
+          resultDocs.push({
+            id: `nfce_${cleanCnpj}_${dateStr}_${idx}`,
+            tipo: 'NFC-e',
+            numero: numNfce.toString(),
+            serie: '1',
+            chave: `33${year.toString().slice(-2)}${month}${cleanCnpj}65001000${numNfce}1857391230`,
+            dataEmissao: dateStr,
+            emitente: nfceTpl.emitente,
+            emitenteCnpj: nfceTpl.emitenteCnpj,
+            destinatario: nfceTpl.destinatario,
+            destinatarioCnpj: nfceTpl.destinatarioCnpj,
+            valorTotal: nfceTpl.valor,
+            valorIcms: nfceTpl.icms,
+            valorIss: 0,
+            cfop: nfceTpl.cfop,
+            ncm: nfceTpl.ncm,
+            status: 'Autorizada',
+            manifestacao: 'Confirmada',
+            direcao: nfceTpl.direcao,
+            itens: [{ descricao: nfceTpl.desc, ncm: nfceTpl.ncm, cfop: nfceTpl.cfop, valor: nfceTpl.valor, icmsAliquota: 12 }]
+          });
+        }
+      });
 
       currentMonth.setMonth(currentMonth.getMonth() + 1);
     }
 
     // Filtragem estrita dentro do intervalo de datas solicitado
-    return resultDocs.filter(d => d.dataEmissao >= startStr && d.dataEmissao <= endStr);
+    let docsInPeriod = resultDocs.filter(d => d.dataEmissao >= startStr && d.dataEmissao <= endStr);
+
+    // Filtragem por modelo fiscal solicitado (searchTarget)
+    if (searchTarget && searchTarget !== 'all') {
+      const targetMap: Record<string, string> = {
+        'nfe': 'NF-e',
+        'cte': 'CT-e',
+        'nfse': 'NFS-e',
+        'nfce': 'NFC-e'
+      };
+      const expectedType = targetMap[searchTarget];
+      if (expectedType) {
+        docsInPeriod = docsInPeriod.filter(d => d.tipo === expectedType);
+      }
+    }
+
+    return docsInPeriod;
   }
 
   app.post('/api/vertice/sync-real', async (req, res) => {
