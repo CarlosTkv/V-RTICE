@@ -1146,69 +1146,8 @@ async function startServer() {
   }
 
   function getAuthenticClientDocs(cleanCnpj: string, companyName?: string, dataInicio?: string, dataFim?: string) {
-    const compName = companyName || 'EMPRESA CLIENTE LTDA';
-    const compCnpjFormatted = cleanCnpj.length === 14 
-      ? `${cleanCnpj.slice(0, 2)}.${cleanCnpj.slice(2, 5)}.${cleanCnpj.slice(5, 8)}/${cleanCnpj.slice(8, 12)}-${cleanCnpj.slice(12, 14)}`
-      : '00.000.000/0001-00';
-
-    const startStr = dataInicio || '2026-09-01';
-    const endStr = dataFim || '2026-09-24';
-
-    const docs: any[] = [];
-    
-    // Fornecedores Reais de Insumos (Para Notas de Entrada)
-    const vendors = [
-      { nome: 'PETROBRAS S.A. - REFINARIA DUQUE DE CAXIAS', cnpj: '33.000.167/0036-03', tipo: 'NF-e', cfop: '1652', ncm: '27101911' },
-      { nome: 'IPIRANGA PRODUTOS DE PETROLEO S.A.', cnpj: '33.337.122/0001-27', tipo: 'NF-e', cfop: '1652', ncm: '38112100' },
-      { nome: 'COSAN LUBRIFICANTES E ESPECIALIDADES S.A.', cnpj: '33.018.524/0001-10', tipo: 'NF-e', cfop: '1556', ncm: '39233000' },
-      { nome: 'ORSEGUPS MONITORAMENTO ELETRONICO LTDA', cnpj: '08.491.597/0002-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
-      { nome: 'M.R.C. ESCRITORIO CONTABIL LTDA', cnpj: '13.108.153/0001-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
-      { nome: 'JAMEF TRANSPORTES LTDA', cnpj: '20.147.617/0001-35', tipo: 'CT-e', cfop: '1352', ncm: '00000000' }
-    ];
-
-    // Clientes Reais (Para Notas de Saída)
-    const buyers = [
-      { nome: 'AUTO POSTO MARACANÃ LTDA', cnpj: '02.481.932/0001-88', tipo: 'NF-e', cfop: '5652', ncm: '27101911' },
-      { nome: 'TRANSPORTE RIO S.A.', cnpj: '08.921.445/0001-12', tipo: 'NF-e', cfop: '5652', ncm: '27101911' },
-      { nome: 'INDUSTRIA DE ALIMENTOS RIO DOCE LTDA', cnpj: '05.921.844/0001-22', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' }
-    ];
-
-    // Gerar 20 documentos autênticos distribuídos
-    for (let i = 0; i < 20; i++) {
-      const isEntrada = i % 2 === 0;
-      const ref = isEntrada ? vendors[i % vendors.length] : buyers[i % buyers.length];
-      const docDate = new Date(new Date(startStr).getTime() + (i * 24 * 3600 * 1000));
-      const dateStr = docDate.toISOString().split('T')[0];
-      
-      if (dateStr > endStr) continue;
-
-      const num = (10500 + i).toString().padStart(9, '0');
-      const val = 1200 + (Math.random() * 50000);
-
-      docs.push({
-        id: `real_${ref.tipo.toLowerCase()}_${i}_${cleanCnpj}`,
-        tipo: ref.tipo,
-        numero: num,
-        serie: '1',
-        chave: `332609${isEntrada ? ref.cnpj.replace(/\D/g, '') : cleanCnpj}${ref.tipo === 'NF-e' ? '55' : ref.tipo === 'CT-e' ? '57' : '00'}001${num}1857391230`,
-        dataEmissao: dateStr,
-        emitente: isEntrada ? ref.nome : compName,
-        emitenteCnpj: isEntrada ? ref.cnpj : compCnpjFormatted,
-        destinatario: isEntrada ? compName : ref.nome,
-        destinatarioCnpj: isEntrada ? compCnpjFormatted : ref.cnpj,
-        valorTotal: val,
-        valorIcms: ref.tipo !== 'NFS-e' ? val * 0.12 : 0,
-        valorIss: ref.tipo === 'NFS-e' ? val * 0.05 : 0,
-        cfop: ref.cfop,
-        ncm: ref.ncm,
-        status: 'Autorizada',
-        manifestacao: 'Confirmada',
-        direcao: isEntrada ? 'entrada' : 'saida',
-        itens: [{ descricao: `DOC FISCAL REF ${ref.tipo} OPERAÇÃO ${isEntrada ? 'ENTRADA' : 'SAÍDA'}`, ncm: ref.ncm, cfop: ref.cfop, valor: val }]
-      });
-    }
-
-    return docs;
+    // Retorna lista vazia para garantir que apenas documentos OFICIAIS vindos da SEFAZ/Portal Nacional sejam exibidos
+    return [];
   }
 
   function getCompanyDocsForPeriod(cleanCnpj: string, companyName?: string, dataInicio?: string, dataFim?: string, searchTarget?: string) {
@@ -1359,64 +1298,28 @@ async function startServer() {
         
         console.log(`[Vértice ADN-Sync] Consultando NFS-e (ADN) para CNPJ: ${cleanCnpj}...`);
         
-        // Mock de chamada REST mTLS para o ADN (Ambiente de Dados Nacional)
-        // Em um cenário real, aqui seria efetuado um fetch(adnUrl, { agent, method: 'POST', ... })
-        // Como o ADN é novo e muitas cidades ainda estão migrando, simulamos a captura de notas tomadas/prestadas
-        const adnDocs = [
-          {
-            id: `nfse_adn_01_${cleanCnpj}`,
-            tipo: 'NFS-e',
-            numero: '000000451',
-            serie: 'ADN',
-            chave: `332609${cleanCnpj}00100000045118573912`,
-            dataEmissao: '2026-09-23',
-            emitente: 'CONSULTORIA TECNICA ESPECIALIZADA LTDA',
-            emitenteCnpj: '09.123.456/0001-88',
-            destinatario: compName,
-            destinatarioCnpj: compCnpjFormatted,
-            valorTotal: 7500.00,
-            valorIcms: 0,
-            valorIss: 375.00,
-            cfop: '0000',
-            ncm: '00000000',
-            status: 'Autorizada',
-            manifestacao: 'Confirmada',
-            direcao: 'entrada',
-            itens: [{ descricao: 'SERVIÇOS DE AUDITORIA E COMPLIANCE TRIBUTÁRIO (ADN)', ncm: '00000000', cfop: '0000', valor: 7500.00, issAliquota: 5 }]
-          }
-        ];
-        parsedDocs.push(...adnDocs);
+        // Chamada real para o ADN (Ambiente de Dados Nacional) deve ser implementada aqui
+        // Sem mocks conforme solicitação de "Documentos Oficiais"
       } catch (adnErr) {
         console.warn('[Vértice ADN-Sync] Portal Nacional NFS-e (ADN) temporariamente indisponível ou CNPJ não habilitado para emissão nacional.');
       }
 
-      // 3. Sincronização direta das notas fiscais do Portal Contribuinte da empresa para o período
-      let filteredDocs = getCompanyDocsForPeriod(cleanCnpj, compName, dataInicio, dataFim);
-
-      // Filtro de Direção (Entrada / Saída)
+      // Filtro de Direção para os documentos oficiais encontrados
       if (direcaoFilter === 'entrada') {
-        filteredDocs = filteredDocs.filter(d => d.direcao === 'entrada');
+        parsedDocs = parsedDocs.filter((d: any) => d.direcao === 'entrada');
       } else if (direcaoFilter === 'saida') {
-        filteredDocs = filteredDocs.filter(d => d.direcao === 'saida');
-      }
-
-      // Concatenar com documentos adicionais (garantindo unicidade por ID/Chave)
-      const existingIds = new Set(parsedDocs.map((d: any) => d.id));
-      for (const doc of filteredDocs) {
-        if (!existingIds.has(doc.id)) {
-          parsedDocs.push(doc);
-        }
+        parsedDocs = parsedDocs.filter((d: any) => d.direcao === 'saida');
       }
 
       res.json({
         success: true,
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
-          ? `Sincronização realizada com sucesso! ${parsedDocs.length} nota(s) localizada(s) no Portal Contribuinte.`
-          : `Consulta realizada com sucesso: ${lastMotivo}`,
+          ? `Sincronização realizada com sucesso! ${parsedDocs.length} nota(s) oficial(is) localizada(s).`
+          : `Consulta oficial realizada: ${lastMotivo || 'Nenhum documento novo na fila da SEFAZ (cStat 137)'}`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 5).toString(),
-        documents: parsedDocs.sort((a, b) => b.dataEmissao.localeCompare(a.dataEmissao))
+        documents: parsedDocs.sort((a: any, b: any) => b.dataEmissao.localeCompare(a.dataEmissao))
       });
 
     } catch (error: any) {
