@@ -171,7 +171,15 @@ export default function App() {
     }
   }, []);
 
-  const [activeTab, setActiveTab] = useState<AppActiveTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<AppActiveTab>(() => {
+    const saved = localStorage.getItem('sna_active_tab') as AppActiveTab;
+    return saved || 'dashboard';
+  });
+
+  // Salvar activeTab no localStorage
+  useEffect(() => {
+    localStorage.setItem('sna_active_tab', activeTab);
+  }, [activeTab]);
 
   // Toast notification state
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);

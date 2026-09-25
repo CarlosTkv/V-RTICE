@@ -278,36 +278,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                    <span className="hidden xl:inline">Validador Oficial</span>
                  </button>
                )}
-               {isMasterUser && (
-                 <button
-                   onClick={() => setActiveTab && setActiveTab('webmail_umbler')}
-                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-cyan-950/70 hover:bg-cyan-900/70 text-cyan-300 border border-cyan-800/70 transition text-[10px] font-bold cursor-pointer"
-                   title="Central de E-mails Umbler (contato@verticeanalises.com.br)"
-                 >
-                   <Mail className="w-3.5 h-3.5 text-cyan-400" />
-                   <span className="hidden xl:inline">E-mail Umbler</span>
-                 </button>
-               )}
-               {isMasterUser && (
-                 <button
-                   onClick={() => setActiveTab && setActiveTab('gestao_planos')}
-                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-purple-950/70 hover:bg-purple-900/70 text-purple-300 border border-purple-800/70 transition text-[10px] font-bold cursor-pointer"
-                   title="Mapa Global de APIs e Integrações Governamentais (Exclusivo Master/Dev)"
-                 >
-                   <Server className="w-3.5 h-3.5 text-purple-400" />
-                   <span className="hidden xl:inline">Mapa de APIs & Robôs</span>
-                 </button>
-               )}
-               {isMasterUser && (
-                 <button
-                   onClick={() => setActiveTab && setActiveTab('vertice_documentos')}
-                   className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900/70 text-rose-300 border border-rose-800/70 transition text-[10px] font-bold cursor-pointer"
-                   title="Vértice Documentos: Busca, Correção e Download de XMLs (Exclusivo Dev)"
-                 >
-                   <FileCode className="w-3.5 h-3.5 text-rose-400" />
-                   <span className="hidden xl:inline">Vértice Documentos (Dev)</span>
-                 </button>
-               )}
+               <button
+                    onClick={() => setActiveTab && setActiveTab("vertice_documentos")}
+                    className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-800/70 transition text-[10px] font-bold cursor-pointer"
+                    title="Buscador de Notas Fiscais: Entradas, Saídas, XML e DANFE PDF"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="hidden xl:inline">Buscador de Notas (Entradas & Saídas)</span>
+                  </button>
                <button onClick={onOpenNotifications} className="p-2 text-slate-500 hover:text-amber-400 transition relative">
                  <Bell className="w-4 h-4" />
                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-[#0B0F19]" />
@@ -388,6 +366,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="space-y-1.5 w-full">
               {/* Linha 1: 5 Módulos Principais do Sistema (Fator R, Planejamento, Blindagem Societária, Emissor NFS-e, Financeiro) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
+                <NavButton 
+                  id="vertice_documentos" 
+                  label="Buscador & Gestor de Notas" 
+                  icon={FileCode} 
+                  color="emerald" 
+                  pattern="emerald" 
+                  subLabel="Entradas & Saídas • Busca Ilimitada" 
+                />
                 <NavButton 
                   id="auditoria_digital" 
                   label="Fator R & Auditoria" 
@@ -486,6 +472,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
+              <NavButton 
+                id="vertice_documentos" 
+                label="Buscador & Gestor de Notas" 
+                icon={FileCode} 
+                color="emerald" 
+                pattern="emerald" 
+                subLabel="Entradas & Saídas • Busca Ilimitada" 
+              />
               <NavButton 
                 id="emissao_nfse" 
                 label="Emissor Fiscal NFS-e" 
