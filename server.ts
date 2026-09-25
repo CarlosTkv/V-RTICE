@@ -1008,6 +1008,16 @@ async function startServer() {
       }
     }
 
+    // 2. Check for inline <resNFe>, <resEvento>, etc (if not wrapped in docZip)
+    if (docs.length === 0 && (xml.includes('<resNFe') || xml.includes('<resCTe'))) {
+      const resNfeMatches = xml.match(/<(resNFe|resCTe)[^>]*>[^]*?<\/(resNFe|resCTe)>/gi);
+      if (resNfeMatches) {
+        resNfeMatches.forEach((resXml, idx) => {
+          docs.push({ nsu: (parseInt(ultNSU || '0') + idx + 1).toString(), schema: 'summary', xml: resXml });
+        });
+      }
+    }
+
     return { cStat, xMotivo, ultNSU, maxNSU, docs };
   }
 
@@ -1030,25 +1040,28 @@ async function startServer() {
     let ncm = '00000000';
     let status: 'Autorizada' | 'Cancelada' | 'Denegada' = 'Autorizada';
 
-    // Extract Chave
-    const chMatch = xml.match(/<chNFe>([^<]+)<\/chNFe>/) || xml.match(/Id="NFe([^"]+)"/);
-    if (chMatch) chave = chMatch[1];
-
-    if (schema.includes('cte') || xml.includes('cteProc') || xml.includes('resCte')) {
+    // Detect Type and extract Chave
+    const chNfeMatch = xml.match(/<chNFe>([^<]+)<\/chNFe>/) || xml.match(/Id="NFe([^"]+)"/);
+    const chCteMatch = xml.match(/<chCTe>([^<]+)<\/chCTe>/) || xml.match(/Id="CTe([^"]+)"/);
+    
+    if (chCteMatch || schema.includes('cte') || xml.includes('resCTe')) {
       tipo = 'CT-e';
-      const chCteMatch = xml.match(/<chCTe>([^<]+)<\/chCTe>/);
-      if (chCteMatch) chave = chCteMatch[1];
-    } else if (schema.includes('nfse') || xml.includes('EnviarLoteRpsEnvio') || xml.includes('InfRps') || xml.includes('LoteRps')) {
+      chave = chCteMatch ? chCteMatch[1] : '';
+    } else if (schema.includes('nfse') || xml.includes('EnviarLoteRpsEnvio')) {
       tipo = 'NFS-e';
-      const chNfseMatch = xml.match(/<ChaveAcesso>([^<]+)<\/ChaveAcesso>/) || xml.match(/<CodigoVerificacao>([^<]+)<\/CodigoVerificacao>/);
-      if (chNfseMatch) chave = chNfseMatch[1];
+    } else {
+      tipo = 'NF-e';
+      chave = chNfeMatch ? chNfeMatch[1] : '';
     }
 
+    // Extract Numero and Serie
     const nNFMatch = xml.match(/<nNF>([^<]+)<\/nNF>/);
     if (nNFMatch) numero = nNFMatch[1].padStart(9, '0');
-    
+    else if (chave && chave.length === 44) numero = chave.substring(25, 34);
+
     const serieMatch = xml.match(/<serie>([^<]+)<\/serie>/);
     if (serieMatch) serie = serieMatch[1].padStart(3, '0');
+    else if (chave && chave.length === 44) serie = chave.substring(22, 25);
 
     const emitCnpjMatch = xml.match(/<emit>[^]*?<CNPJ>([^<]+)<\/CNPJ>[^]*?<\/emit>/) || xml.match(/<CNPJ>([^<]+)<\/CNPJ>/);
     if (emitCnpjMatch) {
@@ -1068,7 +1081,8 @@ async function startServer() {
     const destNomeMatch = xml.match(/<dest>[^]*?<xNome>([^<]+)<\/xNome>[^]*?<\/dest>/);
     if (destNomeMatch) destinatario = destNomeMatch[1];
 
-    const vNFMatch = xml.match(/<vNF>([^<]+)<\/vNF>/) || xml.match(/<ValorServicos>([^<]+)<\/ValorServicos>/);
+    // Extract Values and Dates
+    const vNFMatch = xml.match(/<vNF>([^<]+)<\/vNF>/) || xml.match(/<vTPrest>([^<]+)<\/vTPrest>/) || xml.match(/<vNF_v1.01>([^<]+)<\/vNF_v1.01>/) || xml.match(/<ValorServicos>([^<]+)<\/ValorServicos>/);
     if (vNFMatch) valorTotal = parseFloat(vNFMatch[1]);
 
     const vICMSMatch = xml.match(/<vICMS>([^<]+)<\/vICMS>/);
@@ -1077,20 +1091,20 @@ async function startServer() {
     const vISSMatch = xml.match(/<ValorIss>([^<]+)<\/ValorIss>/) || xml.match(/<vISS>([^<]+)<\/vISS>/);
     if (vISSMatch) valorIss = parseFloat(vISSMatch[1]);
 
+    const dhEmiMatch = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/) || xml.match(/<dEmi>([^<]+)<\/dEmi>/) || xml.match(/<DataEmissao>([^<]+)<\/DataEmissao>/) || xml.match(/<dhEmi_v1.01>([^<]+)<\/dhEmi_v1.01>/);
+    if (dhEmiMatch) dataEmissao = dhEmiMatch[1].substring(0, 10);
+
     const cfopMatch = xml.match(/<CFOP>([^<]+)<\/CFOP>/);
     if (cfopMatch) cfop = cfopMatch[1];
     
     const ncmMatch = xml.match(/<NCM>([^<]+)<\/NCM>/);
     if (ncmMatch) ncm = ncmMatch[1];
 
-    const dhEmiMatch = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/) || xml.match(/<dEmi>([^<]+)<\/dEmi>/) || xml.match(/<DataEmissao>([^<]+)<\/DataEmissao>/);
-    if (dhEmiMatch) dataEmissao = dhEmiMatch[1].substring(0, 10);
-
-    const cSitMatch = xml.match(/<cSitNFe>([^<]+)<\/cSitNFe>/);
+    // Extract Status
+    const cSitMatch = xml.match(/<cSitNFe>([^<]+)<\/cSitNFe>/) || xml.match(/<cSitCTe>([^<]+)<\/cSitCTe>/) || xml.match(/<cSitNFe_v1.01>([^<]+)<\/cSitNFe_v1.01>/);
     if (cSitMatch) {
       const sit = cSitMatch[1];
       if (sit === '1') status = 'Autorizada';
-      else if (sit === '2') status = 'Denegada';
       else if (sit === '3') status = 'Cancelada';
     }
 
@@ -1232,9 +1246,10 @@ async function startServer() {
       let parsedDocs: any[] = [];
       let currentNSU_Loop = currentNsu;
       let loopCounter = 0;
-      let maxLoops = 10; // Limite de segurança para o ambiente de demonstração/preview
+      let maxLoops = 50; 
       let lastStat = '100';
-      let lastMotivo = '';
+      let lastMotivo = 'Nenhuma consulta realizada';
+      let totalFetched = 0;
 
       // LOOP DE NSU: Varre sequencialmente via "distNSU" até cStat 137 ou limite
       while (loopCounter < maxLoops) {
@@ -1267,11 +1282,12 @@ async function startServer() {
           if (parsed.docs && parsed.docs.length > 0) {
             const batch = parsed.docs.map(doc => normalizeSefazDoc(doc.nsu, doc.schema, doc.xml, cleanCnpj));
             parsedDocs.push(...batch);
+            totalFetched += batch.length;
             
             if (parsed.ultNSU && parsed.ultNSU !== currentNSU_Loop) {
               currentNSU_Loop = parsed.ultNSU;
             } else {
-              break; // Estagnou no mesmo NSU
+              break; 
             }
           }
 
@@ -1316,9 +1332,10 @@ async function startServer() {
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
           ? `Sincronização realizada com sucesso! ${parsedDocs.length} nota(s) oficial(is) localizada(s).`
-          : `Consulta oficial realizada: ${lastMotivo || 'Nenhum documento novo na fila da SEFAZ (cStat 137)'}`,
+          : `Consulta oficial realizada com sucesso. Status SEFAZ: ${lastStat} - ${lastMotivo}. Dica: Se você sabe que existem notas, elas podem estar fora da janela de 15 dias da distribuição da Receita Federal.`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 5).toString(),
+        totalFetched,
         documents: parsedDocs.sort((a: any, b: any) => b.dataEmissao.localeCompare(a.dataEmissao))
       });
 
