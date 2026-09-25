@@ -19,9 +19,13 @@ import PDFDocument from 'pdfkit';
 import { XMLParser } from 'fast-xml-parser';
 import { Pool } from 'pg';
 import { verificarDivergenciaCFOP, avaliarStatusCancelamento, identificarSubstituicaoTributaria, identificarMonofasico } from './src/services/complianceEngine';
+import { encryptCertificateBuffer, decryptCertificateBuffer, encryptPassword, decryptPassword } from './src/services/cryptoService';
+import { notificarCancelamentoNFe, getRecentCancelAlerts } from './src/services/webhookNotifier';
+import { startQueueWorker, getWorkerStatus, executeQueueCycle } from './src/services/sefazQueueWorker';
 
 // Inicia o Worker de Sincronização por NSU em Segundo Plano (node-cron a cada hora)
 sefinCronWorker.startWorker('0 * * * *');
+startQueueWorker(60 * 1000);
 
 const dnsPromises = dns.promises;
 dotenv.config();
@@ -1890,11 +1894,11 @@ async function startServer() {
     }
   });
 
-  // VÉRTICE DOCUMENTOS - EXPORTADOR HISTÓRICO SPED FISCAL (REQUISITO 100 MIL NOTAS)
+  // VÉRTICE DOCUMENTOS - EXPORTADOR HISTÓRICO SPED FISCAL COMPLETO (BLOCOS 0, C, E, 9)
   app.get('/api/v1/exportar/sped', async (req: express.Request, res: express.Response): Promise<any> => {
     const { empresa_id, data_inicio, data_fim, cnpj } = req.query;
     res.setHeader('Content-Type', 'text/plain; charset=iso-8859-1');
-    res.setHeader('Content-Disposition', 'attachment; filename="SPED_FISCAL_BLOCO_C.txt"');
+    res.setHeader('Content-Disposition', 'attachment; filename="SPED_FISCAL_COMPLETO.txt"');
 
     try {
       let notas: any[] = [];
@@ -1907,32 +1911,150 @@ async function startServer() {
         notas = getCompanyFiscalDocuments(fakeComp);
       }
 
-      let buffer = `|0000|018|0|01092026|30092026|EMPRESA MATRIZ LTDA|${((cnpj as string) || '12345678000199').replace(/\D/g, '')}|SP|109876543210|3550308||A|1|\r\n|0001|0|\r\n|C001|0|\r\n`;
+      const cleanCnpj = ((cnpj as string) || '12345678000199').replace(/\D/g, '');
+      let totalLinhasBlocoC = 0;
+      let totalIcmsCredito = 0;
+      let totalIcmsDebito = 0;
 
-      for (const nota of notas) {
-        const indOper = nota.direcao === 'entrada' || nota.direcao === 'ENTRADA' ? '0' : '1';
+      // BLOCO 0: ABERTURA, IDENTIFICAÇÃO E DADOS COMPLEMENTARES
+      let buffer = `|0000|018|0|01092026|30092026|EMPRESA MATRIZ VÉRTICE LTDA|${cleanCnpj}|SP|109876543210|3550308||A|1|\r\n`;
+      buffer += `|0001|0|\r\n`;
+      buffer += `|0005|VÉRTICE FISCAL|01000-000|AV PAULISTA|1000||BELA VISTA|11999999999|fiscal@empresa.com.br|\r\n`;
+      buffer += `|0100|CONTADOR RESPONSÁVEL|12345678909|1SP123456/O-0|${cleanCnpj}|01000-000|AV PAULISTA|1000||BELA VISTA|1133334444|contador@empresa.com.br|3550308|\r\n`;
+      buffer += `|0990|5|\r\n`;
+
+      // BLOCO C: DOCUMENTOS FISCAIS I - MERCADORIAS (ICMS/IPI)
+      buffer += `|C001|0|\r\n`;
+      totalLinhasBlocoC += 2; // C001 e C990
+
+      for (let i = 0; i < notas.length; i++) {
+        const nota = notas[i];
+        const isEntrada = nota.direcao === 'entrada' || nota.direcao === 'ENTRADA';
+        const indOper = isEntrada ? '0' : '1';
         const codSit = nota.status_sefaz === 'CANCELADA' || nota.status === 'Cancelada' ? '01' : '00';
-        const numNota = nota.numero_nota || nota.numero || '1';
+        const numNota = nota.numero_nota || nota.numero || (i + 1).toString();
         const serie = nota.serie || '1';
         const chave = nota.chave_acesso || nota.chave || '';
-        const emitCnpj = (nota.cnpj_emitente || nota.emitenteCnpj || '').replace(/\D/g, '');
+        const emitCnpj = (nota.cnpj_emitente || nota.emitenteCnpj || cleanCnpj).replace(/\D/g, '');
         const dataFormatada = new Date(nota.data_emissao || nota.dataEmissao || Date.now()).toLocaleDateString('pt-BR').replace(/\//g, '');
-        const valTotal = typeof nota.valor_total === 'number' ? nota.valor_total.toFixed(2) : (nota.valorTotal || 0).toFixed(2);
-        const valIcms = typeof nota.valorIcms === 'number' ? nota.valorIcms.toFixed(2) : '0.00';
+        const valTotalNum = typeof nota.valor_total === 'number' ? nota.valor_total : (nota.valorTotal || 0);
+        const valIcmsNum = typeof nota.valorIcms === 'number' ? nota.valorIcms : 0;
+        const valTotal = valTotalNum.toFixed(2);
+        const valIcms = valIcmsNum.toFixed(2);
+        const cfop = nota.cfop || (isEntrada ? '1102' : '5102');
+        const ncm = (nota.ncm || '84713012').replace(/\D/g, '');
 
+        if (isEntrada) totalIcmsCredito += valIcmsNum;
+        else totalIcmsDebito += valIcmsNum;
+
+        // Registro C100: Nota Fiscal Eletrônica
         buffer += `|C100|${indOper}|0|${emitCnpj}|55|${codSit}|${serie}|${numNota}|${chave}|${dataFormatada}||${valTotal}|9|0.00|0.00|${valTotal}|${valTotal}|${valIcms}|0.00|0.00|0.00|\r\n`;
+        totalLinhasBlocoC++;
+
+        // Registro C170: Itens do Documento (Detalhamento)
+        buffer += `|C170|1|ITEM-001|MERCADORIA INDUSTRIALIZADA|1.0000|UN|${valTotal}|0.00|0|000|${cfop}|COMPRA/VENDA|${valTotal}|18.00|${valIcms}|0.00|0.00|0.00|0.00|0|01|${valTotal}|1.65|${(valTotalNum * 0.0165).toFixed(2)}|01|${valTotal}|7.60|${(valTotalNum * 0.076).toFixed(2)}|0|\r\n`;
+        totalLinhasBlocoC++;
+
+        // Registro C190: Registro Analítico da NF (Consolidação por CST/CFOP/Alíquota)
+        buffer += `|C190|000|${cfop}|18.00|${valTotal}|${valTotal}|${valIcms}|0.00|0.00|0.00|0.00|\r\n`;
+        totalLinhasBlocoC++;
 
         if (buffer.length > 64 * 1024) {
           res.write(buffer, 'binary');
           buffer = '';
         }
       }
-      buffer += `|C990|${notas.length + 3}|\r\n|9001|0|\r\n|9999|${notas.length + 6}|\r\n`;
+
+      // Registro C990: Encerramento do Bloco C
+      buffer += `|C990|${totalLinhasBlocoC}|\r\n`;
+
+      // BLOCO E: APURAÇÃO DO ICMS PRÓPRIO
+      const saldoApurado = totalIcmsDebito - totalIcmsCredito;
+      buffer += `|E001|0|\r\n`;
+      buffer += `|E100|01092026|30092026|\r\n`;
+      buffer += `|E110|${totalIcmsDebito.toFixed(2)}|0.00|0.00|0.00|${totalIcmsCredito.toFixed(2)}|0.00|0.00|0.00|${Math.max(0, saldoApurado).toFixed(2)}|0.00|0.00|${Math.max(0, saldoApurado).toFixed(2)}|0.00|${Math.max(0, -saldoApurado).toFixed(2)}|\r\n`;
+      buffer += `|E990|4|\r\n`;
+
+      // BLOCO 9: CONTROLE E ENCERRAMENTO DO ARQUIVO DIGITAL
+      buffer += `|9001|0|\r\n`;
+      buffer += `|9900|0000|1|\r\n|9900|0001|1|\r\n|9900|0005|1|\r\n|9900|0100|1|\r\n|9900|0990|1|\r\n`;
+      buffer += `|9900|C001|1|\r\n|9900|C100|${notas.length}|\r\n|9900|C170|${notas.length}|\r\n|9900|C190|${notas.length}|\r\n|9900|C990|1|\r\n`;
+      buffer += `|9900|E001|1|\r\n|9900|E100|1|\r\n|9900|E110|1|\r\n|9900|E990|1|\r\n`;
+      buffer += `|9900|9001|1|\r\n|9900|9900|16|\r\n|9900|9990|1|\r\n|9900|9999|1|\r\n`;
+      buffer += `|9990|19|\r\n`;
+      buffer += `|9999|${totalLinhasBlocoC + 35}|\r\n`;
+
       res.write(buffer, 'binary');
       res.end();
     } catch (err) {
       console.error('[API v1 SPED Error]:', err);
       res.end();
+    }
+  });
+
+  // VÉRTICE DOCUMENTOS - STATUS & CONTROLE DO BACKGROUND QUEUE WORKER
+  app.get('/api/v1/fila/status', (req, res) => {
+    res.json({
+      success: true,
+      worker: getWorkerStatus()
+    });
+  });
+
+  app.post('/api/v1/fila/processar', async (req, res) => {
+    try {
+      const result = await executeQueueCycle();
+      res.json({
+        success: true,
+        message: 'Ciclo da fila SEFAZ executado com sucesso.',
+        result
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // VÉRTICE DOCUMENTOS - ALERTAS E WEBHOOK DE CANCELAMENTO
+  app.get('/api/v1/alertas/cancelamento', (req, res) => {
+    res.json({
+      success: true,
+      alerts: getRecentCancelAlerts()
+    });
+  });
+
+  app.post('/api/v1/alertas/cancelamento', async (req, res) => {
+    try {
+      const { payload, webhookConfig } = req.body;
+      const result = await notificarCancelamentoNFe(payload, webhookConfig);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // VÉRTICE DOCUMENTOS - CRIPTOGRAFIA AES-256 DO CERTIFICADO DIGITAL
+  app.post('/api/v1/certificado/proteger', (req, res) => {
+    try {
+      const { pfxBase64, password } = req.body;
+      if (!pfxBase64 || !password) {
+        return res.status(400).json({ error: 'pfxBase64 e password são obrigatórios' });
+      }
+
+      const pfxBuffer = Buffer.from(pfxBase64, 'base64');
+      const encCert = encryptCertificateBuffer(pfxBuffer);
+      const encPass = encryptPassword(password);
+
+      res.json({
+        success: true,
+        message: 'Certificado e senha criptografados com sucesso via AES-256-GCM.',
+        encryptedCert: {
+          encryptedDataBase64: encCert.encryptedData.toString('base64'),
+          iv: encCert.iv,
+          authTag: encCert.authTag
+        },
+        encryptedPassword: encPass
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
