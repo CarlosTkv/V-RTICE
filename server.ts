@@ -1567,8 +1567,8 @@ async function startServer() {
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
         keepAlive: true,
-        ciphers: 'ALL:@SECLEVEL=0',
-        minVersion: 'TLSv1.2'
+        secureProtocol: 'TLSv1_2_method',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
       };
 
       if (creds.key && creds.cert) {
@@ -1676,8 +1676,8 @@ async function startServer() {
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
         keepAlive: true,
-        ciphers: 'ALL:@SECLEVEL=0',
-        minVersion: 'TLSv1.2'
+        secureProtocol: 'TLSv1_2_method',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
       };
 
       if (creds.key && creds.cert) {
@@ -1969,8 +1969,8 @@ async function startServer() {
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
         keepAlive: true,
-        ciphers: 'ALL:@SECLEVEL=0',
-        minVersion: 'TLSv1.2'
+        secureProtocol: 'TLSv1_2_method',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
       };
 
       if (creds.key && creds.cert) {
