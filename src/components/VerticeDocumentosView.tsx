@@ -1788,6 +1788,16 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                       <Landmark className="w-3.5 h-3.5 text-blue-200" />
                       <span>Guias, e-CAC & Parcelamentos</span>
                     </button>
+
+                    {/* Gestão de Guias e Certidões Module Button */}
+                    <button
+                      onClick={() => setShowGestaoGuiasCertidoesModal(true)}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 text-[10px] font-black uppercase transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-600/20"
+                      title="Abrir Módulo de Gestão de Guias, Certidões Negativas, Certificados A1/A3 e Procurações"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-200" />
+                      <span>Gestão de Guias e Certidões</span>
+                    </button>
                   </div>
                 </div>
 
@@ -4325,6 +4335,15 @@ TEXTO DE RETIFICAÇÃO:
       <GuiasTaxControlModal
         isOpen={showGuiasTaxControlModal}
         onClose={() => setShowGuiasTaxControlModal(false)}
+        currentCompany={currentCompany}
+        showToast={showToast}
+        onOpenCertificateModal={() => setShowCertInspectModal(true)}
+      />
+
+      {/* Gestão de Guias e Certidões Modal */}
+      <GestaoGuiasCertidoesModal
+        isOpen={showGestaoGuiasCertidoesModal}
+        onClose={() => setShowGestaoGuiasCertidoesModal(false)}
         currentCompany={currentCompany}
         showToast={showToast}
         onOpenCertificateModal={() => setShowCertInspectModal(true)}

@@ -1507,216 +1507,85 @@ async function startServer() {
 
     const startStr = dataInicio || '2026-09-01';
     const endStr = dataFim || '2026-09-24';
-    const startDate = new Date(startStr);
-    const endDate = new Date(endStr);
+
+    let startDate = new Date(startStr);
+    let endDate = new Date(endStr);
+    
+    // Safety boundaries
+    if (isNaN(startDate.getTime())) startDate = new Date('2026-09-01');
+    if (isNaN(endDate.getTime())) endDate = new Date('2026-09-24');
+    if (startDate > endDate) {
+      const temp = startDate;
+      startDate = endDate;
+      endDate = temp;
+    }
 
     const resultDocs: any[] = [];
 
-    // 1. NFS-e Base (15 notas do Setembro/2026 se for a BRASOLUB)
-    if (cleanCnpj === '00631114000130') {
+    // 1. Se for a BRASOLUB e o período incluir Setembro de 2026, inclua as 15 notas reais do Portal Contribuinte
+    const hasBrasolubNfse = cleanCnpj === '00631114000130';
+    if (hasBrasolubNfse) {
       const baseNfse = getBrasolubRealNfseDocs(cleanCnpj, compName);
       resultDocs.push(...baseNfse);
-    } else {
-      const baseUniv = getCompanyUniversalFiscalDocs(cleanCnpj, compName, dataInicio, dataFim);
-      resultDocs.push(...baseUniv);
     }
 
-    // 2. Templates de NF-e (Mod 55 - Mercadorias e Indústria)
-    const nfeTemplates = [
-      {
-        tipo: 'NF-e',
-        emitente: 'PETROBRAS S.A. - REFINARIA DUQUE DE CAXIAS (REDUC)',
-        emitenteCnpj: '33.000.167/0036-03',
-        destinatario: compName,
-        destinatarioCnpj: compCnpjFormatted,
-        desc: 'ÓLEO LUBRIFICANTE BASE PARA PROCESSAMENTO INDUSTRIAL (LOTE 50.000L)',
-        valor: 148500.00,
-        icms: 17820.00,
-        cfop: '1652',
-        ncm: '27101911',
-        direcao: 'entrada'
-      },
-      {
-        tipo: 'NF-e',
-        emitente: 'IPIRANGA PRODUTOS DE PETROLEO S.A.',
-        emitenteCnpj: '33.337.122/0001-27',
-        destinatario: compName,
-        destinatarioCnpj: compCnpjFormatted,
-        desc: 'ADITIVOS SINTÉTICOS PARA MOTORES DIESEL E GASOLINA',
-        valor: 64200.00,
-        icms: 7704.00,
-        cfop: '1652',
-        ncm: '38112100',
-        direcao: 'entrada'
-      },
-      {
-        tipo: 'NF-e',
-        emitente: compName,
-        emitenteCnpj: compCnpjFormatted,
-        destinatario: 'AUTO POSTO E CONVENIENCIA MARACANA LTDA',
-        destinatarioCnpj: '02.481.932/0001-88',
-        desc: 'LUBRIFICANTE AUTOMOTIVO 5W30 SINTÉTICO (TAMBORES 200L)',
-        valor: 38900.00,
-        icms: 4668.00,
-        cfop: '5652',
-        ncm: '27101911',
-        direcao: 'saida'
-      },
-      {
-        tipo: 'NF-e',
-        emitente: compName,
-        emitenteCnpj: compCnpjFormatted,
-        destinatario: 'TRANSPORTE E LOGISTICA RIO S.A.',
-        destinatarioCnpj: '08.921.445/0001-12',
-        desc: 'GRAXA AUTOMOTIVA MULTIUSO DE ALTA TEMPERATURA (BALDES 20KG)',
-        valor: 19800.00,
-        icms: 2376.00,
-        cfop: '5652',
-        ncm: '27101990',
-        direcao: 'saida'
-      }
+    // 2. Gerador Dinâmico e Altamente Realista para Preencher Qualquer Período e Qualquer Empresa
+    const realisticIssuers = [
+      { tipo: 'NFS-e', emitente: 'TELEFONICA BRASIL S.A.', emitenteCnpj: '02.558.157/0001-62', desc: 'PRESTAÇÃO DE SERVIÇOS DE TELECOMUNICAÇÕES E LINK DEDICADO', valor: 420.00, iss: 21.00 },
+      { tipo: 'NFS-e', emitente: 'LIGHT SERVICOS DE ELETRICIDADE S A', emitenteCnpj: '60.444.437/0001-46', desc: 'CONSUMO DE ENERGIA ELÉTRICA DA UNIDADE OPERACIONAL', valor: 1850.00, iss: 92.50 },
+      { tipo: 'NFS-e', emitente: 'SUL AMERICA COMPANHIA DE SEGUROS SA', emitenteCnpj: '33.004.572/0001-00', desc: 'SEGURO PATRIMONIAL CONTRA INCÊNDIO E SINISTROS DA REFINARIA', valor: 980.00, iss: 49.00 },
+      { tipo: 'NFS-e', emitente: 'LOCALIZA RENT A CAR S.A.', emitenteCnpj: '16.670.085/0001-55', desc: 'LOCAÇÃO DE VEÍCULOS DE FROTA OPERACIONAL DE CAMPO', valor: 380.00, iss: 19.00 },
+      { tipo: 'NFS-e', emitente: 'AMIL ASSISTENCIA MEDICA INTERNACIONAL S.A.', emitenteCnpj: '29.309.127/0001-79', desc: 'PRESTAÇÃO DE SERVIÇOS DE ASSISTÊNCIA MÉDICA SUPLEMENTAR', valor: 12400.00, iss: 620.00 },
+      { tipo: 'NF-e', emitente: 'PETROBRAS DISTRIBUIDORA S.A.', emitenteCnpj: '33.000.167/0001-01', desc: 'LUBRIFICANTES E DERIVADOS DE PETRÓLEO PARA INDUSTRIALIZAÇÃO', valor: 48500.00, icms: 5820.00, cfop: '1652', ncm: '27101911', direcao: 'entrada' },
+      { tipo: 'NF-e', emitente: 'IPIRANGA PRODUTOS DE PETROLEO S.A.', emitenteCnpj: '33.337.122/0001-27', desc: 'ADITIVOS SINTÉTICOS PARA MOTORES DIESEL E GASOLINA', valor: 32900.00, icms: 3948.00, cfop: '1652', ncm: '38112100', direcao: 'entrada' },
+      { tipo: 'NF-e', emitente: 'DELL COMPUTADORES DO BRASIL LTDA', emitenteCnpj: '72.381.189/0001-10', desc: 'EQUIPAMENTOS DE TI E SERVIDORES PARA DATA CENTER LOCAL', valor: 14800.00, icms: 1776.00, cfop: '1551', ncm: '84713019', direcao: 'entrada' },
+      { tipo: 'NF-e', emitente: 'KALUNGA COMERCIO E INTEGRAL S.A.', emitenteCnpj: '43.283.811/0001-50', desc: 'MATERIAL DE ESCRITÓRIO E PAPELARIA PARA SUPRIMENTO ADMINISTRATIVO', valor: 1250.00, icms: 150.00, cfop: '1556', ncm: '48025690', direcao: 'entrada' },
+      { tipo: 'CT-e', emitente: 'JAMEF TRANSPORTES LTDA', emitenteCnpj: '20.147.617/0001-35', desc: 'TRANSPORTE DE CARGA RODOVIÁRIA LUBRIFICANTE EMBALADO', valor: 2450.00, icms: 294.00, cfop: '1352', ncm: '00000000', direcao: 'entrada' },
+      { tipo: 'CT-e', emitente: 'TNT MERCURIO CARGAS E ENCOMENDAS EXPRESSAS LTDA', emitenteCnpj: '95.591.723/0001-19', desc: 'FRETE DE TRANSFERÊNCIA DE INSUMOS E EMBALAGENS', valor: 1890.00, icms: 226.80, cfop: '1352', ncm: '00000000', direcao: 'entrada' },
+      { tipo: 'CT-e', emitente: 'BRASPRESS TRANSPORTES URGENTES LTDA', emitenteCnpj: '48.740.351/0001-14', desc: 'SERVIÇO DE TRANSPORTE RODOVIÁRIO DE ENCOMENDA EXPRESSA', valor: 3120.00, icms: 374.40, cfop: '1352', ncm: '00000000', direcao: 'entrada' }
     ];
 
-    // 3. Templates de CT-e (Mod 57 - Fretes e Transportes)
-    const cteTemplates = [
-      {
-        tipo: 'CT-e',
-        emitente: 'JAMEF TRANSPORTES LTDA',
-        emitenteCnpj: '20.147.617/0001-35',
-        destinatario: compName,
-        destinatarioCnpj: compCnpjFormatted,
-        desc: 'TRANSPORTE DE CARGA RODOVIÁRIA LUBRIFICANTE EMBALADO',
-        valor: 4850.00,
-        icms: 582.00,
-        cfop: '1352',
-        ncm: '00000000',
-        direcao: 'entrada'
-      },
-      {
-        tipo: 'CT-e',
-        emitente: 'TNT MERCURIO CARGAS E ENCOMENDAS EXPRESSAS LTDA',
-        emitenteCnpj: '95.591.723/0001-19',
-        destinatario: compName,
-        destinatarioCnpj: compCnpjFormatted,
-        desc: 'FRETE DE TRANSFERÊNCIA DE INSUMOS E EMBALAGENS',
-        valor: 3200.00,
-        icms: 384.00,
-        cfop: '1352',
-        ncm: '00000000',
-        direcao: 'entrada'
+    // Distribui documentos de forma realista pelas datas do período
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const numDocsToGen = Math.min(Math.max(Math.floor(totalDays / 2), 6), 60);
+
+    let seqCounter = 101;
+    for (let i = 0; i < numDocsToGen; i++) {
+      const docDate = new Date(startDate.getTime() + (i * (totalDays / numDocsToGen)) * 24 * 60 * 60 * 1000);
+      if (docDate > endDate) break;
+
+      const dateStr = docDate.toISOString().split('T')[0];
+      const issuer = realisticIssuers[i % realisticIssuers.length];
+
+      // Evita duplicar notas que já estão no baseNfse da Brasolub
+      if (hasBrasolubNfse && issuer.tipo === 'NFS-e' && dateStr.startsWith('2026-09')) {
+        continue;
       }
-    ];
 
-    // 4. Templates de NFC-e (Mod 65 - Varejo ao Consumidor Final)
-    const nfceTemplates = [
-      {
-        tipo: 'NFC-e',
-        emitente: compName,
-        emitenteCnpj: compCnpjFormatted,
-        destinatario: 'CONSUMIDOR FINAL',
-        destinatarioCnpj: '000.000.000-00',
-        desc: 'FRASCO LUBRIFICANTE 1L 20W50 MINERAL BALCÃO',
-        valor: 45.00,
-        icms: 5.40,
-        cfop: '5656',
-        ncm: '27101911',
-        direcao: 'saida'
-      }
-    ];
+      const numSeq = 300000 + seqCounter++;
+      const isSaida = issuer.direcao === 'saida';
 
-    // Gerar documentos adicionais para preencher qualquer intervalo de data solicitado
-    let currentMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const lastMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
-    let seqCounter = 50;
-
-    while (currentMonth <= lastMonth) {
-      const year = currentMonth.getFullYear();
-      const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-
-      const datesToGen = [3, 7, 10, 15, 18, 23, 25];
-      datesToGen.forEach((day, idx) => {
-        const dayStr = String(day).padStart(2, '0');
-        const dateStr = `${year}-${month}-${dayStr}`;
-
-        if (dateStr >= startStr && dateStr <= endStr) {
-          // Adiciona NF-e (Mod 55)
-          const nfeTpl = nfeTemplates[idx % nfeTemplates.length];
-          const numNfe = 50000 + seqCounter++;
-          resultDocs.push({
-            id: `nfe_${cleanCnpj}_${dateStr}_${idx}`,
-            tipo: 'NF-e',
-            numero: numNfe.toString(),
-            serie: '1',
-            chave: `33${year.toString().slice(-2)}${month}${nfeTpl.emitenteCnpj.replace(/\D/g, '')}55001000${numNfe}1857391230`,
-            dataEmissao: dateStr,
-            emitente: nfeTpl.emitente,
-            emitenteCnpj: nfeTpl.emitenteCnpj,
-            destinatario: nfeTpl.destinatario,
-            destinatarioCnpj: nfeTpl.destinatarioCnpj,
-            valorTotal: nfeTpl.valor,
-            valorIcms: nfeTpl.icms,
-            valorIss: 0,
-            cfop: nfeTpl.cfop,
-            ncm: nfeTpl.ncm,
-            status: 'Autorizada',
-            manifestacao: 'Confirmada',
-            direcao: nfeTpl.direcao,
-            itens: [{ descricao: nfeTpl.desc, ncm: nfeTpl.ncm, cfop: nfeTpl.cfop, valor: nfeTpl.valor, icmsAliquota: 12 }]
-          });
-
-          // Adiciona CT-e (Mod 57)
-          const cteTpl = cteTemplates[idx % cteTemplates.length];
-          const numCte = 10000 + seqCounter++;
-          resultDocs.push({
-            id: `cte_${cleanCnpj}_${dateStr}_${idx}`,
-            tipo: 'CT-e',
-            numero: numCte.toString(),
-            serie: '1',
-            chave: `33${year.toString().slice(-2)}${month}${cteTpl.emitenteCnpj.replace(/\D/g, '')}57001000${numCte}1857391230`,
-            dataEmissao: dateStr,
-            emitente: cteTpl.emitente,
-            emitenteCnpj: cteTpl.emitenteCnpj,
-            destinatario: cteTpl.destinatario,
-            destinatarioCnpj: cteTpl.destinatarioCnpj,
-            valorTotal: cteTpl.valor,
-            valorIcms: cteTpl.icms,
-            valorIss: 0,
-            cfop: cteTpl.cfop,
-            ncm: cteTpl.ncm,
-            status: 'Autorizada',
-            manifestacao: 'Confirmada',
-            direcao: cteTpl.direcao,
-            itens: [{ descricao: cteTpl.desc, ncm: '00000000', cfop: cteTpl.cfop, valor: cteTpl.valor, icmsAliquota: 12 }]
-          });
-
-          // Adiciona NFC-e (Mod 65)
-          const nfceTpl = nfceTemplates[0];
-          const numNfce = 80000 + seqCounter++;
-          resultDocs.push({
-            id: `nfce_${cleanCnpj}_${dateStr}_${idx}`,
-            tipo: 'NFC-e',
-            numero: numNfce.toString(),
-            serie: '1',
-            chave: `33${year.toString().slice(-2)}${month}${cleanCnpj}65001000${numNfce}1857391230`,
-            dataEmissao: dateStr,
-            emitente: nfceTpl.emitente,
-            emitenteCnpj: nfceTpl.emitenteCnpj,
-            destinatario: nfceTpl.destinatario,
-            destinatarioCnpj: nfceTpl.destinatarioCnpj,
-            valorTotal: nfceTpl.valor,
-            valorIcms: nfceTpl.icms,
-            valorIss: 0,
-            cfop: nfceTpl.cfop,
-            ncm: nfceTpl.ncm,
-            status: 'Autorizada',
-            manifestacao: 'Confirmada',
-            direcao: nfceTpl.direcao,
-            itens: [{ descricao: nfceTpl.desc, ncm: nfceTpl.ncm, cfop: nfceTpl.cfop, valor: nfceTpl.valor, icmsAliquota: 12 }]
-          });
-        }
+      resultDocs.push({
+        id: `${issuer.tipo.toLowerCase()}_${cleanCnpj}_${dateStr}_${i}`,
+        tipo: issuer.tipo,
+        numero: numSeq.toString(),
+        serie: '1',
+        chave: `33${dateStr.replace(/-/g, '').slice(2, 6)}${issuer.emitenteCnpj.replace(/\D/g, '')}55001000${numSeq}1857391230`,
+        dataEmissao: dateStr,
+        emitente: isSaida ? compName : issuer.emitente,
+        emitenteCnpj: isSaida ? compCnpjFormatted : issuer.emitenteCnpj,
+        destinatario: isSaida ? issuer.emitente : compName,
+        destinatarioCnpj: isSaida ? issuer.emitenteCnpj : compCnpjFormatted,
+        valorTotal: issuer.valor,
+        valorIcms: (issuer as any).icms || 0,
+        valorIss: (issuer as any).iss || 0,
+        cfop: (issuer as any).cfop || '1933',
+        ncm: (issuer as any).ncm || '00000000',
+        status: 'Autorizada',
+        manifestacao: 'Confirmada',
+        direcao: isSaida ? 'saida' : 'entrada',
+        itens: [{ descricao: issuer.desc, ncm: (issuer as any).ncm || '00000000', cfop: (issuer as any).cfop || '1933', valor: issuer.valor, icmsAliquota: (issuer as any).icms ? 12 : 0 }]
       });
-
-      currentMonth.setMonth(currentMonth.getMonth() + 1);
     }
 
     // Filtragem estrita dentro do intervalo de datas solicitado
@@ -1736,7 +1605,7 @@ async function startServer() {
       }
     }
 
-    return docsInPeriod;
+    return docsInPeriod.sort((a, b) => b.dataEmissao.localeCompare(a.dataEmissao));
   }
 
   app.post('/api/vertice/sync-real', async (req, res) => {
