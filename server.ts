@@ -1072,14 +1072,24 @@ async function startServer() {
     const emitNomeMatch = xml.match(/<emit>[^]*?<xNome>([^<]+)<\/xNome>[^]*?<\/emit>/) || xml.match(/<xNome>([^<]+)<\/xNome>/);
     if (emitNomeMatch) emitente = emitNomeMatch[1];
 
-    const destCnpjMatch = xml.match(/<dest>[^]*?<CNPJ>([^<]+)<\/CNPJ>[^]*?<\/dest>/);
+    const destCnpjMatch = xml.match(/<dest>[^]*?<CNPJ>([^<]+)<\/CNPJ>[^]*?<\/dest>/) || xml.match(/<CPF>([^<]+)<\/CPF>/);
     if (destCnpjMatch) {
       const clean = destCnpjMatch[1].replace(/\D/g, '');
+      destinatarioCnpj = clean.length === 11 
+        ? `${clean.substring(0, 3)}.${clean.substring(3, 6)}.${clean.substring(6, 9)}-${clean.substring(9, 11)}`
+        : `${clean.substring(0, 2)}.${clean.substring(2, 5)}.${clean.substring(5, 8)}/${clean.substring(8, 12)}-${clean.substring(12, 14)}`;
+    } else if (clientCnpj) {
+      // In Summaries (resNFe), the recipient is always the consultor
+      const clean = clientCnpj.replace(/\D/g, '');
       destinatarioCnpj = `${clean.substring(0, 2)}.${clean.substring(2, 5)}.${clean.substring(5, 8)}/${clean.substring(8, 12)}-${clean.substring(12, 14)}`;
     }
     
     const destNomeMatch = xml.match(/<dest>[^]*?<xNome>([^<]+)<\/xNome>[^]*?<\/dest>/);
-    if (destNomeMatch) destinatario = destNomeMatch[1];
+    if (destNomeMatch) {
+      destinatario = destNomeMatch[1];
+    } else if (clientCnpj) {
+      destinatario = 'EMPRESA CONSULTADA';
+    }
 
     // Extract Values and Dates
     const vNFMatch = xml.match(/<vNF>([^<]+)<\/vNF>/) || xml.match(/<vTPrest>([^<]+)<\/vTPrest>/) || xml.match(/<vNF_v1.01>([^<]+)<\/vNF_v1.01>/) || xml.match(/<ValorServicos>([^<]+)<\/ValorServicos>/);
@@ -1222,7 +1232,8 @@ async function startServer() {
         rejectUnauthorized: false,
         keepAlive: true,
         secureProtocol: 'TLSv1_2_method',
-        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
+        minVersion: 'TLSv1.2',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384'
       };
 
       if (creds.key && creds.cert) {
@@ -1256,6 +1267,7 @@ async function startServer() {
         const formattedNsu = currentNSU_Loop.padStart(15, '0');
         const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Header/>
   <soap12:Body>
     <nfeDistDFeInteresse xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe">
       <nfeDadosMsg>
@@ -1332,7 +1344,9 @@ async function startServer() {
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
           ? `Sincronização realizada com sucesso! ${parsedDocs.length} nota(s) oficial(is) localizada(s).`
-          : `Consulta oficial realizada com sucesso. Status SEFAZ: ${lastStat} - ${lastMotivo}. Dica: Se você sabe que existem notas, elas podem estar fora da janela de 15 dias da distribuição da Receita Federal.`,
+          : `Consulta oficial realizada com sucesso. Status SEFAZ: ${lastStat} - ${lastMotivo}. 
+             Nota Importante: O serviço DistribuicaoDFe da SEFAZ retorna apenas notas de ENTRADA (onde você é o destinatário). 
+             Notas de SAÍDA (emitidas por você) não são retornadas por este WebService nacional.`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 5).toString(),
         totalFetched,
@@ -1376,7 +1390,8 @@ async function startServer() {
         rejectUnauthorized: false,
         keepAlive: true,
         secureProtocol: 'TLSv1_2_method',
-        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
+        minVersion: 'TLSv1.2',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384'
       };
 
       if (creds.key && creds.cert) {
