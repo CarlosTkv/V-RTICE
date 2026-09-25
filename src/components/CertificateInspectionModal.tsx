@@ -144,8 +144,18 @@ export const CertificateInspectionModal: React.FC<CertificateInspectionModalProp
       certExpiryDate: inspectionResult?.validTo?.split('T')[0] || currentCompany.certExpiryDate
     };
 
+    if (inspectionResult?.extractedCnpj) {
+      updated.cnpj = inspectionResult.extractedCnpj;
+    }
+    if (inspectionResult?.commonName) {
+      const cleanName = inspectionResult.commonName.split(':')[0].trim();
+      if (cleanName && cleanName.length > 3) {
+        updated.name = cleanName;
+      }
+    }
+
     onUpdateCompany(updated);
-    showToast(`Certificado A1 vinculado à empresa ${currentCompany.name} com sucesso!`, 'success');
+    showToast(`Certificado A1 vinculado à empresa ${updated.name} (CNPJ: ${updated.cnpj}) com sucesso!`, 'success');
     onClose();
   };
 

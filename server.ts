@@ -874,11 +874,23 @@ async function startServer() {
       }
 
       if (keyPem && certPem) {
+        let extractedCnpj = '';
+        const cnpjMatch = String(commonName).match(/(\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/);
+        if (cnpjMatch) {
+          const raw = cnpjMatch[1].replace(/\D/g, '');
+          if (raw.length === 14) extractedCnpj = raw;
+        }
+
+        const fullCertChain = certPem + (caPems.length > 0 ? '\n' + caPems.join('\n') : '');
+
         return {
           key: keyPem,
-          cert: certPem,
+          cert: fullCertChain,
           commonName,
-          ca: caPems.length > 0 ? caPems : undefined
+          extractedCnpj,
+          ca: caPems.length > 0 ? caPems : undefined,
+          pfx: pfxBuffer,
+          passphrase: passphrase
         };
       }
     } catch (forgeErr: any) {
@@ -1094,8 +1106,8 @@ async function startServer() {
       if (det) {
         if (Array.isArray(det)) det = det[0];
         const prod = det.prod || det.Prod;
-        cfop = prod?.CFOP?.toString();
-        ncm = prod?.NCM?.toString();
+        cfop = prod?.CFOP?.toString() || '5102';
+        ncm = prod?.NCM?.toString() || '00000000';
       }
     } else if (resCTe || cteProc) {
       tipo = 'CT-e';
@@ -1120,6 +1132,11 @@ async function startServer() {
       dataEmissao = (ide?.dhEmi || target.dhEmi || target.dEmi)?.substring(0, 10);
     }
 
+    // Protocolo de Autorização oficial
+    const protNFe = obj.nfeProc?.protNFe || obj.protNFe || nfeProc?.protNFe;
+    const protocoloAutorizacao = protNFe?.infProt?.nProt || xml.match(/<nProt>(\d+)<\/nProt>/)?.[1] || '';
+    const dhAutorizacao = protNFe?.infProt?.dhRecbto || xml.match(/<dhRecbto>([^<]+)<\/dhRecbto>/)?.[1] || '';
+
     // Formatação final de CNPJ/CPF
     const formatCnpj = (v: any) => {
       if (!v) return '';
@@ -1132,16 +1149,41 @@ async function startServer() {
     emitenteCnpj = formatCnpj(emitenteCnpj);
     destinatarioCnpj = formatCnpj(destinatarioCnpj);
 
-    const itens = [
-      {
-        descricao: tipo === 'NFS-e' ? 'SERVIÇOS PRESTADOS' : `MERCADORIA REF NCM ${ncm}`,
-        ncm,
-        cfop,
-        valor: valorTotal,
-        icmsAliquota: valorTotal > 0 ? Math.round((valorIcms / valorTotal) * 100) : 0,
-        issAliquota: 0
-      }
-    ];
+    // Parse de itens reais
+    let itens: any[] = [];
+    const infNFeDet = (nfeProc?.infNFe || nfeProc?.InfNFe || nfeProc)?.det;
+    if (infNFeDet) {
+      const detList = Array.isArray(infNFeDet) ? infNFeDet : [infNFeDet];
+      itens = detList.map((d: any) => {
+        const prod = d.prod || d.Prod;
+        const vProd = parseFloat(prod?.vProd || '0');
+        return {
+          descricao: prod?.xProd || `MERCADORIA REF NCM ${prod?.NCM || ncm}`,
+          ncm: (prod?.NCM || ncm || '00000000').toString(),
+          cfop: (prod?.CFOP || cfop || '5102').toString(),
+          valor: vProd || (valorTotal / (detList.length || 1)),
+          quantidade: parseFloat(prod?.qCom || '1'),
+          valorUnitario: parseFloat(prod?.vUnCom || '0') || vProd,
+          icmsAliquota: valorTotal > 0 ? Math.round((valorIcms / valorTotal) * 100) : 0,
+          issAliquota: 0
+        };
+      });
+    }
+
+    if (itens.length === 0) {
+      itens = [
+        {
+          descricao: (tipo as string) === 'NFS-e' ? 'SERVIÇOS PRESTADOS' : `MERCADORIA REF NCM ${ncm}`,
+          ncm,
+          cfop,
+          valor: valorTotal,
+          quantidade: 1,
+          valorUnitario: valorTotal,
+          icmsAliquota: valorTotal > 0 ? Math.round((valorIcms / valorTotal) * 100) : 0,
+          issAliquota: 0
+        }
+      ];
+    }
 
     // Determine direction
     let direcao: 'entrada' | 'saida' = 'entrada';
@@ -1170,6 +1212,8 @@ async function startServer() {
       status,
       direcao,
       itens,
+      protocoloAutorizacao,
+      dhAutorizacao,
       xmlOriginal: xml
     };
   }
@@ -1267,6 +1311,13 @@ async function startServer() {
       });
     }
 
+    if (!pfxBase64 || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Para realizar a busca oficial de NF-e e CT-e na SEFAZ (Receita Federal), é obrigatório carregar o Certificado Digital A1 (.pfx) da empresa e informar a senha.'
+      });
+    }
+
     const cleanCnpj = cnpj.replace(/\D/g, '');
     const compNameRequest = req.body.name || 'N/A';
     console.log(`[Vértice Real-Sync] REQUISIÇÃO RECEBIDA - CNPJ: ${cleanCnpj}, Nome enviado: ${compNameRequest}`);
@@ -1279,14 +1330,22 @@ async function startServer() {
       ? 'https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx'
       : 'https://hom1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx';
 
-    console.log(`[Vértice Real-Sync] Conexão mTLS com SEFAZ AN & Portal Contribuinte NFS-e. CNPJ: ${cleanCnpj}, Período: ${dataInicio || '01/09/2026'} até ${dataFim || '24/09/2026'}`);
-
     try {
-      let creds: any = { commonName: req.body.name || 'EMPRESA CLIENTE' };
-      if (pfxBase64 && password) {
-        const extracted = extractPfxCredentials(pfxBase64, password);
-        if (!extracted.error) {
-          creds = extracted;
+      const extracted = extractPfxCredentials(pfxBase64, password);
+      if (extracted.error) {
+        return res.status(400).json({
+          success: false,
+          error: extracted.error
+        });
+      }
+
+      const creds = extracted;
+      let effectiveCnpj = cleanCnpj;
+      if (extracted.extractedCnpj && extracted.extractedCnpj.replace(/\D/g, '').length === 14) {
+        const certCnpjRaw = extracted.extractedCnpj.replace(/\D/g, '');
+        if (cleanCnpj !== certCnpjRaw) {
+          console.log(`[Vértice Real-Sync] Alinhando CNPJ da consulta (${cleanCnpj}) com o CNPJ do Certificado A1 (${certCnpjRaw}) para autorização mTLS na SEFAZ.`);
+          effectiveCnpj = certCnpjRaw;
         }
       }
 
@@ -1294,7 +1353,7 @@ async function startServer() {
         rejectUnauthorized: false,
         keepAlive: true,
         secureProtocol: 'TLSv1_2_method',
-        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:DEFAULT'
       };
 
       if (creds.key && creds.cert) {
@@ -1310,11 +1369,6 @@ async function startServer() {
 
       const agent = new https.Agent(agentOptions);
       
-      const compName = creds.commonName || req.body.name || 'EMPRESA CONSULTADA LTDA';
-      const compCnpjFormatted = cleanCnpj.length === 14 
-        ? `${cleanCnpj.slice(0, 2)}.${cleanCnpj.slice(2, 5)}.${cleanCnpj.slice(5, 8)}/${cleanCnpj.slice(8, 12)}-${cleanCnpj.slice(12, 14)}`
-        : cnpj;
-
       let parsedDocs: any[] = [];
       let currentNSU_Loop = currentNsu;
       let loopCounter = 0;
@@ -1323,7 +1377,7 @@ async function startServer() {
       let lastMotivo = 'Nenhuma consulta realizada';
       let totalFetched = 0;
 
-      // LOOP DE NSU: Varre sequencialmente via "distNSU" até cStat 137 ou limite
+      // 1. LOOP DE NSU: Varre sequencialmente via "distNSU" no Ambiente Nacional
       while (loopCounter < maxLoops) {
         const formattedNsu = currentNSU_Loop.padStart(15, '0');
         
@@ -1331,7 +1385,6 @@ async function startServer() {
         if (req.body.searchMode === 'chave' && req.body.chaveAcesso) {
           const cleanChave = req.body.chaveAcesso.replace(/\D/g, '');
           queryTypeXml = `<consChNFe><chNFe>${cleanChave}</chNFe></consChNFe>`;
-          // Se for busca por chave, não faz loop
           maxLoops = 1;
         } else {
           queryTypeXml = `<distNSU><ultNSU>${formattedNsu}</ultNSU></distNSU>`;
@@ -1346,7 +1399,7 @@ async function startServer() {
         <distDFeInt xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01">
           <tpAmb>${environment}</tpAmb>
           <cUFAutor>91</cUFAutor>
-          <CNPJ>${cleanCnpj}</CNPJ>
+          <CNPJ>${effectiveCnpj}</CNPJ>
           ${queryTypeXml}
         </distDFeInt>
       </nfeDadosMsg>
@@ -1354,52 +1407,164 @@ async function startServer() {
   </soap12:Body>
 </soap12:Envelope>`;
 
-        try {
-          const responseSoap = await callSefazWS(url, xmlPayload, agent);
-          const parsed = parseSefazResponse(responseSoap);
-          
-          lastStat = parsed.cStat;
-          lastMotivo = parsed.xMotivo;
-
-          if (parsed.docs && parsed.docs.length > 0) {
-            const batch = parsed.docs.map(doc => normalizeSefazDoc(doc.nsu, doc.schema, doc.xml, cleanCnpj));
-            parsedDocs.push(...batch);
-            totalFetched += batch.length;
+        let retryCount = 0;
+        let success = false;
+        
+        while (retryCount < 2 && !success) {
+          try {
+            const responseSoap = await callSefazWS(url, xmlPayload, agent);
+            const parsed = parseSefazResponse(responseSoap);
             
-            if (parsed.ultNSU && parsed.ultNSU !== currentNSU_Loop) {
-              currentNSU_Loop = parsed.ultNSU;
-            } else {
-              break; 
+            lastStat = parsed.cStat;
+            lastMotivo = parsed.xMotivo;
+
+            if (parsed.docs && parsed.docs.length > 0) {
+              const batch = parsed.docs.map(doc => normalizeSefazDoc(doc.nsu, doc.schema, doc.xml, effectiveCnpj));
+              parsedDocs.push(...batch);
+              totalFetched += batch.length;
+
+              // Disparar Ciência da Operação em background para resumos resNFe (libera o XML completo procNFe na fila)
+              for (const docItem of parsed.docs) {
+                if (docItem.schema?.includes('resNFe') || docItem.xml?.includes('<resNFe')) {
+                  const chMatch = docItem.xml.match(/<chNFe>(\d{44})<\/chNFe>/);
+                  if (chMatch && chMatch[1]) {
+                    const chaveRes = chMatch[1];
+                    const eventoPayload = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Header/>
+  <soap12:Body>
+    <nfeRecepcaoEvento xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">
+      <nfeDadosMsg>
+        <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
+          <idLote>1</idLote>
+          <evento versao="1.00">
+            <infEvento Id="ID210210${chaveRes}01">
+              <cOrgao>91</cOrgao>
+              <tpAmb>${environment}</tpAmb>
+              <CNPJ>${effectiveCnpj}</CNPJ>
+              <chNFe>${chaveRes}</chNFe>
+              <dhEvento>${new Date().toISOString()}</dhEvento>
+              <tpEvento>210210</tpEvento>
+              <nSeqEvento>1</nSeqEvento>
+              <verEvento>1.00</verEvento>
+              <detEvento versao="1.00">
+                <descEvento>Ciencia da Operacao</descEvento>
+              </detEvento>
+            </infEvento>
+          </evento>
+        </envEvento>
+      </nfeDadosMsg>
+    </nfeRecepcaoEvento>
+  </soap12:Body>
+</soap12:Envelope>`;
+                    const urlEvento = environment === '1'
+                      ? 'https://www1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx'
+                      : 'https://hom1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx';
+                    callSefazWS(urlEvento, eventoPayload, agent).catch(() => {});
+                  }
+                }
+              }
+              
+              if (parsed.ultNSU && parsed.ultNSU !== currentNSU_Loop && parsed.ultNSU !== '0') {
+                currentNSU_Loop = parsed.ultNSU;
+              } else {
+                success = true;
+                break; 
+              }
             }
+
+            if (parsed.cStat === '137') {
+              success = true;
+              break;
+            }
+            
+            if (!parsed.docs || parsed.docs.length === 0) {
+              success = true;
+              break;
+            }
+
+            success = true;
+          } catch (wsErr) {
+            retryCount++;
+            console.warn(`[Vértice Real-Sync] Falha na tentativa ${retryCount} do Loop NSU:`, (wsErr as any).message);
+            if (retryCount >= 2) break;
+            await new Promise(r => setTimeout(r, 1000));
           }
-
-          // cStat 137: Nenhum documento localizado (fim da fila)
-          if (parsed.cStat === '137') break;
-          
-          // Se não retornou docs e não é 137, algo parou a fila
-          if (!parsed.docs || parsed.docs.length === 0) break;
-
-        } catch (wsErr) {
-          console.warn('[Vértice Real-Sync] Falha na iteração do Loop de NSU:', (wsErr as any).message);
-          break;
         }
 
+        if (!success) break;
         loopCounter++;
       }
 
       // 2. BUSCA NFS-e (Portal Nacional / ADN REST)
-      // Cenário A: Municípios aderentes ao Padrão Nacional
+      // O Ambiente de Dados Nacional (ADN) permite consultar notas emitidas e recebidas
       try {
-        const adnUrl = environment === '1'
-          ? 'https://sefin.nfse.gov.br/SefinNacional/nfse/consultar'
-          : 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional/nfse/consultar';
+        const adnBaseUrl = environment === '1'
+          ? 'https://sefin.nfse.gov.br/SefinNacional'
+          : 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional';
         
-        console.log(`[Vértice ADN-Sync] Consultando NFS-e (ADN) para CNPJ: ${cleanCnpj}...`);
-        
-        // Chamada real para o ADN (Ambiente de Dados Nacional) deve ser implementada aqui
-        // Sem mocks conforme solicitação de "Documentos Oficiais"
+        console.log(`[Vértice ADN-Sync] Consultando NFS-e (ADN) para CNPJ: ${effectiveCnpj}...`);
+
+        const queries = [
+          { role: 'prestador', param: 'documentoPrestador' },
+          { role: 'tomador', param: 'documentoTomador' }
+        ];
+
+        for (const query of queries) {
+          if (direcaoFilter !== 'todas' && ((query.role === 'prestador' && direcaoFilter !== 'saida') || (query.role === 'tomador' && direcaoFilter !== 'entrada'))) {
+            continue;
+          }
+
+          const adnEndpoint = `${adnBaseUrl}/nfse?${query.param}=${effectiveCnpj}&dataEmissaoInicial=${dataInicio || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]}&dataEmissaoFinal=${dataFim || new Date().toISOString().split('T')[0]}`;
+          
+          try {
+            const adnResponse = await new Promise<string>((resolve, reject) => {
+              const u = new URL(adnEndpoint);
+              const reqOpts: https.RequestOptions = {
+                hostname: u.hostname,
+                port: u.port || 443,
+                path: u.pathname + u.search,
+                method: 'GET',
+                agent: agent,
+                headers: { 'Accept': 'application/json' }
+              };
+              const reqHttp = https.request(reqOpts, (resHttp) => {
+                let data = '';
+                resHttp.on('data', (chunk) => { data += chunk; });
+                resHttp.on('end', () => resolve(data));
+              });
+              reqHttp.on('error', (e) => reject(e));
+              reqHttp.end();
+            });
+
+            const adnResult = JSON.parse(adnResponse);
+            if (adnResult && Array.isArray(adnResult.notas)) {
+              const adnDocs = adnResult.notas.map((n: any) => ({
+                id: `adn_${n.chaveAcesso}`,
+                tipo: 'NFS-e',
+                numero: n.numeroNfse,
+                serie: n.serieNfse || '000',
+                chave: n.chaveAcesso,
+                dataEmissao: n.dataHoraEmissao?.substring(0, 10),
+                emitente: n.prestador?.razaoSocial || 'PRESTADOR ADN',
+                emitenteCnpj: n.prestador?.cnpj || n.prestador?.cpf,
+                destinatario: n.tomador?.razaoSocial || 'TOMADOR ADN',
+                destinatarioCnpj: n.tomador?.cnpj || n.tomador?.cpf,
+                valorTotal: parseFloat(n.valorServico || '0'),
+                status: n.status === 'C' ? 'Cancelada' : 'Autorizada',
+                direcao: query.role === 'prestador' ? 'saida' : 'entrada',
+                xmlOriginal: n.xmlNfse,
+                danfseUrl: `https://www.nfse.gov.br/DANFSE/${n.chaveAcesso}`
+              }));
+              parsedDocs.push(...adnDocs);
+              totalFetched += adnDocs.length;
+            }
+          } catch (e) {
+            console.warn(`[Vértice ADN-Sync] Erro ao consultar NFS-e como ${query.role}:`, (e as any).message);
+          }
+        }
       } catch (adnErr) {
-        console.warn('[Vértice ADN-Sync] Portal Nacional NFS-e (ADN) temporariamente indisponível ou CNPJ não habilitado para emissão nacional.');
+        console.warn('[Vértice ADN-Sync] Falha crítica no Portal Nacional NFS-e (ADN):', (adnErr as any).message);
       }
 
       // Filtro de Direção final
@@ -1413,8 +1578,8 @@ async function startServer() {
         success: true,
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
-          ? `Sincronização realizada com sucesso! Foram localizados ${parsedDocs.length} documentos oficiais para o CNPJ ${cleanCnpj}. Dica: Alguns documentos podem vir como resumo (resNFe). Para baixar o XML completo, realize a Manifestação do Destinatário.`
-          : `Consulta oficial realizada com sucesso para o CNPJ ${cleanCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}. Dica: Se você sabe que existem notas mas elas não apareceram, tente clicar em 'Reiniciar NSU' para buscar todo o histórico de 15 dias.`,
+          ? `Sincronização realizada com sucesso! Foram localizados ${parsedDocs.length} documentos oficiais para o CNPJ ${effectiveCnpj}.`
+          : `Consulta oficial realizada com sucesso para o CNPJ ${effectiveCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}.`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 10).toString(),
         totalFetched,
@@ -1427,6 +1592,117 @@ async function startServer() {
         success: false,
         error: `Falha de mTLS: ${error.message}. Certifique-se de que a senha está correta e o certificado está dentro do prazo de validade.`
       });
+    }
+  });
+
+  // Consulta de NF-e por Chave de Acesso no WebService Oficial NfeConsultaProtocolo4
+  app.post('/api/vertice/sefaz/consult-key', async (req, res) => {
+    const { chaveAcesso, pfxBase64, password, tpAmb } = req.body;
+    if (!chaveAcesso || !pfxBase64 || !password) {
+      return res.status(400).json({ success: false, error: 'Chave de acesso, certificado A1 e senha são obrigatórios.' });
+    }
+    const cleanChave = chaveAcesso.replace(/\D/g, '');
+    if (cleanChave.length !== 44) {
+      return res.status(400).json({ success: false, error: 'A chave de acesso da NF-e/CT-e deve possuir exatamente 44 dígitos.' });
+    }
+    const creds = extractPfxCredentials(pfxBase64, password);
+    if (creds.error) {
+      return res.status(400).json({ success: false, error: creds.error });
+    }
+
+    const cUF = cleanChave.substring(0, 2);
+    const environment = tpAmb || '1';
+    
+    // WebServices de Consulta Protocolo por UF / SVRS
+    const urlMap: Record<string, string> = {
+      '35': environment === '1' ? 'https://nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx' : 'https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx',
+      '31': environment === '1' ? 'https://nfe.fazenda.mg.gov.br/nfe2/services/NFeConsultaProtocolo4' : 'https://hnfe.fazenda.mg.gov.br/nfe2/services/NFeConsultaProtocolo4',
+      '41': environment === '1' ? 'https://nfe.fazenda.pr.gov.br/nfe/NFeConsultaProtocolo4' : 'https://homologacao.nfe.fazenda.pr.gov.br/nfe/NFeConsultaProtocolo4',
+      '43': environment === '1' ? 'https://nfe.sefaz.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx' : 'https://nfe-homologacao.sefaz.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx',
+    };
+    const url = urlMap[cUF] || (environment === '1' 
+      ? 'https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx' 
+      : 'https://nfe-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx');
+
+    const agentOptions: https.AgentOptions = {
+      rejectUnauthorized: false,
+      keepAlive: true,
+      secureProtocol: 'TLSv1_2_method',
+      ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:DEFAULT'
+    };
+    if (creds.key && creds.cert) {
+      agentOptions.key = creds.key;
+      agentOptions.cert = creds.cert;
+      if (creds.ca) agentOptions.ca = creds.ca;
+    } else if (creds.pfx) {
+      agentOptions.pfx = creds.pfx;
+      agentOptions.passphrase = creds.passphrase;
+    }
+    const agent = new https.Agent(agentOptions);
+
+    const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Header/>
+  <soap12:Body>
+    <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeConsultaProtocolo4">
+      <consSitNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
+        <tpAmb>${environment}</tpAmb>
+        <xServ>CONSULTAR</xServ>
+        <chNFe>${cleanChave}</chNFe>
+      </consSitNFe>
+    </nfeDadosMsg>
+  </soap12:Body>
+</soap12:Envelope>`;
+
+    try {
+      const responseSoap = await callSefazWS(url, xmlPayload, agent);
+      const cStatMatch = responseSoap.match(/<cStat>(\d+)<\/cStat>/);
+      const xMotivoMatch = responseSoap.match(/<xMotivo>([^<]+)<\/xMotivo>/);
+      const nProtMatch = responseSoap.match(/<nProt>(\d+)<\/nProt>/);
+      const dhRecbtoMatch = responseSoap.match(/<dhRecbto>([^<]+)<\/dhRecbto>/);
+      
+      const cStat = cStatMatch ? cStatMatch[1] : '999';
+      const xMotivo = xMotivoMatch ? xMotivoMatch[1] : 'Resposta recebida da SEFAZ';
+      const nProt = nProtMatch ? nProtMatch[1] : '';
+      const dhRecbto = dhRecbtoMatch ? dhRecbtoMatch[1] : '';
+
+      res.json({
+        success: true,
+        cStat,
+        xMotivo,
+        nProt,
+        dhRecbto,
+        chave: cleanChave,
+        rawResponse: responseSoap
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Importação e normalização em lote de arquivos XML oficiais (ex: pasta de emissões de saída do ERP com 75 notas)
+  app.post('/api/vertice/sefaz/import-xml-files', async (req, res) => {
+    const { xmls, clientCnpj } = req.body;
+    if (!xmls || !Array.isArray(xmls) || xmls.length === 0) {
+      return res.status(400).json({ success: false, error: 'Lista de XMLs não informada ou vazia.' });
+    }
+
+    try {
+      const normalizedDocs = xmls.map((xmlContent: string, index: number) => {
+        let cleanXml = xmlContent;
+        if (cleanXml.startsWith('data:') && cleanXml.includes('base64,')) {
+          cleanXml = Buffer.from(cleanXml.split('base64,')[1], 'base64').toString('utf-8');
+        }
+        return normalizeSefazDoc(String(index + 1), 'upload_oficial', cleanXml, clientCnpj);
+      });
+
+      res.json({
+        success: true,
+        total: normalizedDocs.length,
+        documents: normalizedDocs
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: `Erro ao processar lote de XMLs: ${err.message}` });
     }
   });
 
@@ -1925,15 +2201,75 @@ async function startServer() {
 
     const cleanCnpj = cnpj.replace(/\D/g, '');
     const currentNsu = ultNSU || '0';
+    const environment = tpAmb || '1';
 
-    res.json({
-      success: true,
-      cStat: '137',
-      xMotivo: 'Sincronização de Distribuição DF-e concluída sem novas notas pendentes para o NSU',
-      ultNSU: currentNsu,
-      maxNSU: currentNsu,
-      documents: []
-    });
+    try {
+      const creds = extractPfxCredentials(pfxBase64, password);
+      if (creds.error) return res.status(400).json({ success: false, error: creds.error });
+
+      const agentOptions: https.AgentOptions = {
+        rejectUnauthorized: false,
+        keepAlive: true,
+        secureProtocol: 'TLSv1_2_method',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
+      };
+      if (creds.key && creds.cert) {
+        agentOptions.key = creds.key;
+        agentOptions.cert = creds.cert;
+      } else if (creds.pfx) {
+        agentOptions.pfx = creds.pfx;
+        agentOptions.passphrase = creds.passphrase;
+      }
+      const agent = new https.Agent(agentOptions);
+
+      const adnBaseUrl = environment === '1'
+        ? 'https://sefin.nfse.gov.br/SefinNacional'
+        : 'https://sefin.producaorestrita.nfse.gov.br/API/SefinNacional';
+      
+      const adnEndpoint = `${adnBaseUrl}/nfse/distribuicao?nsu=${currentNsu}`;
+
+      console.log(`[SefinNacional mTLS] Sincronizando NFS-e por NSU: ${currentNsu} para CNPJ ${cleanCnpj}...`);
+
+      const adnResponse = await new Promise<string>((resolve, reject) => {
+        const u = new URL(adnEndpoint);
+        const reqOpts: https.RequestOptions = {
+          hostname: u.hostname,
+          port: u.port || 443,
+          path: u.pathname + u.search,
+          method: 'GET',
+          agent: agent,
+          headers: { 'Accept': 'application/json' }
+        };
+        const reqHttp = https.request(reqOpts, (resHttp) => {
+          let data = '';
+          resHttp.on('data', (chunk) => { data += chunk; });
+          resHttp.on('end', () => resolve(data));
+        });
+        reqHttp.on('error', (e) => reject(e));
+        reqHttp.end();
+      });
+
+      const adnResult = JSON.parse(adnResponse);
+      const docs = (adnResult.listaDoc || []).map((doc: any) => ({
+        nsu: doc.nsu,
+        tipo: 'NFS-e',
+        xml: doc.xmlNfse,
+        chave: doc.chaveAcesso
+      }));
+
+      res.json({
+        success: true,
+        cStat: adnResult.listaDoc && adnResult.listaDoc.length > 0 ? '138' : '137',
+        xMotivo: adnResult.listaDoc && adnResult.listaDoc.length > 0 ? 'Documentos localizados' : 'Nenhum documento localizado',
+        ultNSU: adnResult.ultNSU || currentNsu,
+        maxNSU: adnResult.maxNSU || currentNsu,
+        documents: docs
+      });
+
+    } catch (err: any) {
+      console.error('[SefinNacional Distribuicao] Erro mTLS:', err.message);
+      res.status(500).json({ success: false, error: `Erro mTLS ADN: ${err.message}` });
+    }
   });
 
   // Endpoint de Sincronização Inteligente e Conciliação Rígida por NSU

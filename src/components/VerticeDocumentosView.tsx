@@ -77,6 +77,8 @@ import { SefinNfseManagerModal } from './SefinNfseManagerModal';
 import { GuiasTaxControlModal } from './GuiasTaxControlModal';
 import { GestaoGuiasCertidoesModal } from './GestaoGuiasCertidoesModal';
 import { parseFiscalXmlString } from '../utils/xmlDocumentParser';
+import { downloadDanfePdf, downloadFiscalXml, downloadBatchZip } from '../utils/danfePdfGenerator';
+import JSZip from 'jszip';
 
 interface VerticeDocumentosViewProps {
   currentCompany: CompanyData;
@@ -1206,82 +1208,155 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
     showToast(`Relatório Fiscal SPED exportado com sucesso (${docsToExport.length} documentos)!`, 'success');
   };
 
-  // Download XMLs in Batch
-  const handleDownloadBatchXmls = () => {
+  // Download XMLs in Batch (Arquivo ZIP oficial contendo todos os XMLs e PDFs)
+  const handleDownloadBatchXmls = async () => {
     const docsToExport = selectedDocIds.length > 0
       ? documents.filter(d => selectedDocIds.includes(d.id))
       : documents;
 
-    const xmlBundle = `<?xml version="1.0" encoding="UTF-8"?>\n<verticePacoteDFe total="${docsToExport.length}" geradoEm="${new Date().toISOString()}">\n` +
-      docsToExport.map(d => `  <documento id="${d.id}" tipo="${d.tipo}" numero="${d.numero}" chave="${d.chave}">\n${d.xmlCorrigido || d.xmlOriginal}\n  </documento>`).join('\n') +
-      `\n</verticePacoteDFe>`;
+    if (docsToExport.length === 0) {
+      showToast('Nenhum documento disponível para exportação.', 'info');
+      return;
+    }
 
-    const element = document.createElement('a');
-    const file = new Blob([xmlBundle], { type: 'application/xml' });
-    element.href = URL.createObjectURL(file);
-    element.download = `vertice_pacote_xmls_${docsToExport.length}_notas_${new Date().toISOString().split('T')[0]}.xml`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
-
-    showToast(`Pacote com ${docsToExport.length} XMLs baixado com sucesso!`, 'success');
+    try {
+      showToast(`Gerando pacote ZIP oficial com ${docsToExport.length} XMLs e DANFEs...`, 'info');
+      await downloadBatchZip(docsToExport, `vertice_pacote_${docsToExport.length}_notas`);
+      showToast(`Pacote ZIP oficial com ${docsToExport.length} documentos baixado com sucesso!`, 'success');
+    } catch (err: any) {
+      showToast(`Erro ao gerar pacote ZIP: ${err.message}`, 'error');
+    }
   };
 
-  // Quick XML Upload & Parser
-  const handleQuickXmlUpload = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+  // Download DANFEs em PDF em lote
+  const handleDownloadBatchDanfes = async () => {
+    const docsToExport = selectedDocIds.length > 0
+      ? documents.filter(d => selectedDocIds.includes(d.id))
+      : documents;
+
+    if (docsToExport.length === 0) {
+      showToast('Nenhum documento disponível para exportação.', 'info');
+      return;
+    }
+
+    try {
+      showToast(`Gerando pacote de DANFEs em PDF para ${docsToExport.length} notas...`, 'info');
+      await downloadBatchZip(docsToExport, `vertice_danfes_pdf_${docsToExport.length}_notas`);
+      showToast(`Pacote com ${docsToExport.length} DANFEs em PDF baixado com sucesso!`, 'success');
+    } catch (err: any) {
+      showToast(`Erro ao gerar DANFEs em lote: ${err.message}`, 'error');
+    }
+  };
+
+  // Quick XML & ZIP Upload & Parser (Lote de arquivos ou pasta do emissor)
+  const handleQuickXmlUpload = async (files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return;
+
+    const fileArray = Array.from(files);
+    showToast(`Processando ${fileArray.length} arquivo(s) oficial(is)...`, 'info');
+
+    const importedList: DocFiscal[] = [];
+    const errorsList: string[] = [];
+
+    for (const file of fileArray) {
       try {
-        const text = e.target?.result as string;
-        const nNFMatch = text.match(/<nNF>(\d+)<\/nNF>/);
-        const chNFMatch = text.match(/<chNFe>(\d+)<\/chNFe>/) || text.match(/Id="NFe(\d+)"/);
-        const xNomeMatch = text.match(/<xNome>([^<]+)<\/xNome>/);
-        const vNFMatch = text.match(/<vNF>([\d.]+)<\/vNF>/);
-        const vICMSMatch = text.match(/<vICMS>([\d.]+)<\/vICMS>/);
-        const cfopMatch = text.match(/<CFOP>(\d+)<\/CFOP>/);
-        const ncmMatch = text.match(/<NCM>(\d+)<\/NCM>/);
+        if (file.name.toLowerCase().endsWith('.zip')) {
+          const zip = new JSZip();
+          const zipContent = await zip.loadAsync(file);
+          const filenames = Object.keys(zipContent.files);
 
-        const newDoc: DocFiscal = {
-          id: `doc_imported_${Date.now()}`,
-          tipo: text.includes('nfeProc') || text.includes('NFe') ? 'NF-e' : text.includes('cteProc') || text.includes('CTe') ? 'CT-e' : 'NFS-e',
-          numero: nNFMatch ? nNFMatch[1] : Math.floor(100000 + Math.random() * 900000).toString(),
-          serie: '001',
-          chave: chNFMatch ? chNFMatch[1] : `332609${currentCompany?.cnpj?.replace(/\D/g, '') || '98765432000110'}55001${Date.now()}1857391234`.substring(0, 44),
-          dataEmissao: new Date().toISOString().split('T')[0],
-          emitente: xNomeMatch ? xNomeMatch[1] : 'Fornecedor Identificado no XML',
-          emitenteCnpj: '00.000.000/0001-00',
-          destinatario: currentCompany?.name || 'Sua Empresa S/A',
-          destinatarioCnpj: currentCompany?.cnpj || '98.765.432/0001-10',
-          valorTotal: vNFMatch ? parseFloat(vNFMatch[1]) : 1250.00,
-          valorIcms: vICMSMatch ? parseFloat(vICMSMatch[1]) : 0,
-          valorIss: 0,
-          cfop: cfopMatch ? cfopMatch[1] : '5102',
-          ncm: ncmMatch ? ncmMatch[1] : '1006.10.91',
-          status: 'Autorizada',
-          manifestacao: 'Confirmada',
-          direcao: 'entrada',
-          xmlOriginal: text,
-          itens: [
-            {
-              descricao: 'ITEM IMPORTADO VIA ARQUIVO XML EXTERNO',
-              ncm: ncmMatch ? ncmMatch[1] : '1006.10.91',
-              cfop: cfopMatch ? cfopMatch[1] : '5102',
-              valor: vNFMatch ? parseFloat(vNFMatch[1]) : 1250.00,
-              icmsAliquota: 18
+          for (const fn of filenames) {
+            if (fn.toLowerCase().endsWith('.xml') && !fn.startsWith('__MACOSX/')) {
+              try {
+                const xmlText = await zipContent.files[fn].async('string');
+                const parsed = parseFiscalXmlString(xmlText, currentCompany?.cnpj);
+                importedList.push({
+                  id: parsed.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                  tipo: parsed.tipo,
+                  numero: parsed.numero,
+                  serie: parsed.serie,
+                  chave: parsed.chave,
+                  dataEmissao: parsed.dataEmissao,
+                  emitente: parsed.emitente,
+                  emitenteCnpj: parsed.emitenteCnpj,
+                  destinatario: parsed.destinatario,
+                  destinatarioCnpj: parsed.destinatarioCnpj,
+                  valorTotal: parsed.valorTotal,
+                  valorIcms: parsed.valorIcms,
+                  valorIss: parsed.valorIss,
+                  cfop: parsed.cfopPrincipal || '5102',
+                  ncm: parsed.ncmPrincipal || '00000000',
+                  status: parsed.status,
+                  manifestacao: parsed.manifestacao || 'Confirmada',
+                  direcao: parsed.direcao || 'entrada',
+                  xmlOriginal: xmlText,
+                  protocoloAutorizacao: parsed.protocoloAutorizacao,
+                  itens: parsed.itens.map(it => ({
+                    descricao: it.descricao,
+                    ncm: it.ncm,
+                    cfop: it.cfop,
+                    valor: it.valorTotal,
+                    icmsAliquota: it.aliquotaIcms,
+                    issAliquota: it.aliquotaIss
+                  }))
+                });
+              } catch (e: any) {
+                errorsList.push(`${fn}: ${e.message}`);
+              }
             }
-          ]
-        };
-
-        setDocuments(prev => [newDoc, ...prev]);
-        setActiveDocId(newDoc.id);
-        setViewMode('danfe');
-        showToast(`Arquivo XML "${file.name}" importado e auditado com sucesso!`, 'success');
-        setShowQuickXmlUpload(false);
-      } catch (err) {
-        showToast(`Erro ao processar arquivo XML: ${err}`, 'error');
+          }
+        } else if (file.name.toLowerCase().endsWith('.xml')) {
+          const xmlText = await file.text();
+          const parsed = parseFiscalXmlString(xmlText, currentCompany?.cnpj);
+          importedList.push({
+            id: parsed.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            tipo: parsed.tipo,
+            numero: parsed.numero,
+            serie: parsed.serie,
+            chave: parsed.chave,
+            dataEmissao: parsed.dataEmissao,
+            emitente: parsed.emitente,
+            emitenteCnpj: parsed.emitenteCnpj,
+            destinatario: parsed.destinatario,
+            destinatarioCnpj: parsed.destinatarioCnpj,
+            valorTotal: parsed.valorTotal,
+            valorIcms: parsed.valorIcms,
+            valorIss: parsed.valorIss,
+            cfop: parsed.cfopPrincipal || '5102',
+            ncm: parsed.ncmPrincipal || '00000000',
+            status: parsed.status,
+            manifestacao: parsed.manifestacao || 'Confirmada',
+            direcao: parsed.direcao || 'entrada',
+            xmlOriginal: xmlText,
+            protocoloAutorizacao: parsed.protocoloAutorizacao,
+            itens: parsed.itens.map(it => ({
+              descricao: it.descricao,
+              ncm: it.ncm,
+              cfop: it.cfop,
+              valor: it.valorTotal,
+              icmsAliquota: it.aliquotaIcms,
+              issAliquota: it.aliquotaIss
+            }))
+          });
+        }
+      } catch (err: any) {
+        errorsList.push(`${file.name}: ${err.message}`);
       }
-    };
-    reader.readAsText(file);
+    }
+
+    if (importedList.length > 0) {
+      setDocuments(prev => {
+        const existingIds = new Set(prev.map(d => d.chave || d.id));
+        const newOnes = importedList.filter(d => !existingIds.has(d.chave || d.id));
+        return [...newOnes, ...prev];
+      });
+      setActiveDocId(importedList[0].id);
+      setViewMode('danfe');
+      showToast(`${importedList.length} notas fiscais oficiais importadas com sucesso!`, 'success');
+      setShowQuickXmlUpload(false);
+    } else {
+      showToast('Nenhum arquivo XML válido encontrado para importação.', 'error');
+    }
   };
 
   // Run full fiscal calculations and write directly into the document's XML file (regenerating XML with tax nodes)
@@ -2432,13 +2507,32 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                                   <Edit3 className="w-4 h-4" />
                                 </button>
 
-                                {/* Download */}
+                                {/* Download XML Oficial */}
                                 <button
-                                  onClick={() => handleDownloadXml(doc)}
-                                  className="p-2 rounded-lg bg-rose-950 text-rose-400 hover:bg-rose-600 hover:text-white transition"
-                                  title="Baixar XML corrigido"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadFiscalXml(doc);
+                                    showToast(`Download do XML oficial da nota ${doc.numero} iniciado!`, 'success');
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 transition flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                                  title="Baixar Arquivo XML Original (.xml)"
                                 >
-                                  <Download className="w-4 h-4" />
+                                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>XML</span>
+                                </button>
+
+                                {/* Download DANFE PDF */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadDanfePdf(doc);
+                                    showToast(`Gerando e baixando DANFE em PDF da nota ${doc.numero}...`, 'success');
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 transition flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                                  title="Baixar DANFE Oficial em PDF (.pdf)"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-rose-400" />
+                                  <span>PDF</span>
                                 </button>
                               </div>
                             </div>
@@ -2987,52 +3081,91 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                     </h3>
                   </div>
 
-                  <div className="flex flex-wrap bg-[#0B0F19] p-1 rounded-xl border border-slate-800 self-stretch sm:self-auto gap-1">
-                    <button
-                      onClick={() => setViewMode('danfe')}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 ${
-                        viewMode === 'danfe' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      DANFE / DACTE
-                    </button>
-                    <button
-                      onClick={() => setViewMode('xml')}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 ${
-                        viewMode === 'xml' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <FileCode className="w-3.5 h-3.5" />
-                      Código XML
-                    </button>
-                    <button
-                      onClick={() => setViewMode('reforma')}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 ${
-                        viewMode === 'reforma' ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Reforma IBS/CBS
-                    </button>
-                    <button
-                      onClick={() => setViewMode('auditoria')}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 ${
-                        viewMode === 'auditoria' ? 'bg-amber-600 text-slate-950 font-black shadow' : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      Auditoria & CC-e
-                    </button>
-                    <button
-                      onClick={() => handleOpenEditor(selectedDoc)}
-                      className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 ${
-                        viewMode === 'editor' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      Corrigir XML
-                    </button>
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                    <div className="flex flex-wrap bg-[#0B0F19] p-1 rounded-xl border border-slate-800 self-stretch sm:self-auto gap-1">
+                      <button
+                        onClick={() => setViewMode('danfe')}
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          viewMode === 'danfe' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        DANFE / DACTE
+                      </button>
+                      <button
+                        onClick={() => setViewMode('xml')}
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          viewMode === 'xml' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <FileCode className="w-3.5 h-3.5" />
+                        Código XML
+                      </button>
+                      <button
+                        onClick={() => setViewMode('reforma')}
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          viewMode === 'reforma' ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Reforma IBS/CBS
+                      </button>
+                      <button
+                        onClick={() => setViewMode('auditoria')}
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          viewMode === 'auditoria' ? 'bg-amber-600 text-slate-950 font-black shadow' : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        Auditoria & CC-e
+                      </button>
+                      <button
+                        onClick={() => handleOpenEditor(selectedDoc)}
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          viewMode === 'editor' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Corrigir XML
+                      </button>
+                    </div>
+
+                    {/* Botões de Ação Direta: Baixar XML Oficial e Baixar PDF DANFE */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          downloadFiscalXml(selectedDoc);
+                          showToast(`Download do arquivo XML oficial da nota ${selectedDoc.numero} iniciado!`, 'success');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                        title="Baixar Arquivo XML Original (.xml)"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Baixar XML Oficial</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          downloadDanfePdf(selectedDoc);
+                          showToast(`Gerando e baixando DANFE em PDF da nota ${selectedDoc.numero}...`, 'success');
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                        title="Baixar DANFE Oficial em PDF (.pdf)"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>Baixar DANFE (PDF)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          window.print();
+                        }}
+                        className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition flex items-center justify-center cursor-pointer"
+                        title="Imprimir DANFE"
+                      >
+                        <Printer className="w-4 h-4 text-slate-300" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 

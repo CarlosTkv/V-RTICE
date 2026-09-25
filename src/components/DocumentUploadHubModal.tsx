@@ -81,24 +81,9 @@ export const DocumentUploadHubModal: React.FC<DocumentUploadHubModalProps> = ({
           const doc = parseFiscalXmlString(xmlText, currentCompany?.cnpj);
           extractedDocs.push(doc);
         } else if (file.name.toLowerCase().endsWith('.pdf')) {
-          // Simulação de parsing de PDF DANFE/DACTE
-          // Gera um documento fiscal estruturado correspondente
-          const mockXml = `<?xml version="1.0" encoding="UTF-8"?>
-          <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">
-            <NFe>
-              <infNFe Id="NFe332609${currentCompany?.cnpj?.replace(/\D/g, '') || '04921832000199'}550010000000011857391234">
-                <ide><nNF>${Math.floor(10000 + Math.random() * 90000)}</nNF><serie>001</serie><dhEmi>${new Date().toISOString()}</dhEmi><natOp>Venda extraída de PDF DANFE</natOp></ide>
-                <emit><CNPJ>10.203.405/0001-99</CNPJ><xNome>Fornecedor Extraído do DANFE PDF</xNome><enderEmit><UF>RJ</UF><xMun>Rio de Janeiro</xMun></enderEmit></emit>
-                <dest><CNPJ>${currentCompany?.cnpj || '04.921.832/0001-99'}</CNPJ><xNome>${currentCompany?.name || 'Sua Empresa'}</xNome><enderDest><UF>RJ</UF><xMun>Rio de Janeiro</xMun></enderDest></dest>
-                <total><ICMSTot><vNF>3450.00</vNF><vICMS>621.00</vICMS></ICMSTot></total>
-                <det nItem="1"><prod><cProd>PDF-01</cProd><xProd>MERCADORIA EXTRAIDA DE DANFE PDF</xProd><NCM>2202.10.00</NCM><CFOP>5405</CFOP><uCom>UN</uCom><qCom>100</qCom><vUnCom>34.50</vUnCom><vProd>3450.00</vProd></prod><imposto><vBC>3450.00</vBC><pICMS>18.00</pICMS><vICMS>621.00</vICMS></imposto></det>
-              </infNFe>
-            </NFe>
-          </nfeProc>`;
-          const doc = parseFiscalXmlString(mockXml, currentCompany?.cnpj);
-          extractedDocs.push(doc);
+          errors.push(`Arquivo "${file.name}": O formato oficial para escrituração e importação fiscal é o XML assinado pela SEFAZ. Por favor, faça o upload dos arquivos .XML ou .ZIP do mês.`);
         } else {
-          errors.push(`Formato não suportado: ${file.name}. Envie XML, ZIP ou PDF.`);
+          errors.push(`Formato não suportado: ${file.name}. Envie os arquivos oficiais em formato .XML ou .ZIP.`);
         }
       } catch (err: any) {
         errors.push(`Falha ao ler ${file.name}: ${err.message}`);
