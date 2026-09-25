@@ -906,10 +906,11 @@ async function startServer() {
         port: u.port || 443,
         path: u.pathname,
         agent: agent,
-        timeout: 30000,
+        timeout: 45000, // Aumentado para 45s
         headers: {
           'Content-Type': 'application/soap+xml; charset=utf-8; action="http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse"',
-          'Content-Length': Buffer.byteLength(xmlPayload)
+          'Content-Length': Buffer.byteLength(xmlPayload),
+          'SOAPAction': 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse' // Alguns proxies exigem
         }
       };
 
@@ -918,10 +919,11 @@ async function startServer() {
         res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
           if (res.statusCode && res.statusCode >= 400) {
+            // Se for erro HTTP mas tiver corpo XML com cStat, resolve para tratar o cStat
             if (data && (data.includes('<cStat>') || data.includes('<soap:Fault>') || data.includes('<soap12:Fault>'))) {
               resolve(data);
             } else {
-              reject(new Error(`Erro HTTP ${res.statusCode} retornado pela SEFAZ: ${data.substring(0, 300)}`));
+              reject(new Error(`Erro HTTP ${res.statusCode} na SEFAZ. Resposta: ${data.substring(0, 500)}`));
             }
           } else {
             resolve(data);
@@ -931,11 +933,11 @@ async function startServer() {
 
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('Tempo limite de resposta da SEFAZ excedido (Timeout 30s). Verifique se o portal da Fazenda Nacional está operando normalmente.'));
+        reject(new Error('Tempo limite de resposta da SEFAZ excedido. Verifique o status dos serviços no Portal da Nota Fiscal Eletrônica.'));
       });
 
       req.on('error', (err) => {
-        reject(err);
+        reject(new Error(`Erro de rede/mTLS: ${err.message}. Verifique a conectividade e a validade do certificado.`));
       });
 
       req.write(xmlPayload);
@@ -1026,11 +1028,10 @@ async function startServer() {
     const parser = new XMLParser({ 
       ignoreAttributes: false, 
       attributeNamePrefix: "@_",
-      removeNSPrefix: true // Remove namespaces para facilitar acesso direto às tags
+      removeNSPrefix: true 
     });
     const obj = parser.parse(xml);
     
-    // Identificar tipo de documento no objeto normalizado sem namespaces
     const nfeProc = obj.nfeProc?.NFe || obj.NFe || obj.nfe || obj.infNFe || obj.InfNFe;
     const resNFe = obj.resNFe || obj.resNfe;
     const cteProc = obj.cteProc?.CTe || obj.CTe || obj.cte || obj.infCte || obj.InfCte;
@@ -1061,9 +1062,15 @@ async function startServer() {
       emitenteCnpj = resNFe.CNPJ || resNFe.CPF;
       emitente = resNFe.xNome || 'FORNECEDOR';
       valorTotal = parseFloat(resNFe.vNF || '0');
-      dataEmissao = (resNFe.dhEmi || resNFe.dEmi)?.substring(0, 10);
+      dataEmissao = (resNFe.dhEmi || resNFe.dEmi || xml.match(/<dhEmi>([^<]+)<\/dhEmi>/)?.[1])?.substring(0, 10);
       const sit = resNFe.cSitNFe?.toString();
       if (sit === '3') status = 'Cancelada';
+      
+      // Extrair numero e serie da chave (posições 25-34 e 22-25)
+      if (chave && chave.length === 44) {
+        serie = chave.substring(22, 25);
+        numero = chave.substring(25, 34);
+      }
     } else if (nfeProc) {
       tipo = 'NF-e';
       const infNFe = nfeProc.infNFe || nfeProc.InfNFe || nfeProc;
@@ -1073,8 +1080,8 @@ async function startServer() {
       const total = infNFe?.total?.ICMSTot || infNFe?.Total?.ICMSTot;
       
       chave = infNFe?.['@_Id']?.replace('NFe', '') || ide?.chNFe || xml.match(/Id="NFe(\d+)"/)?.[1];
-      numero = (ide?.nNF || ide?.nfe)?.toString().padStart(9, '0');
-      serie = (ide?.serie || ide?.Serie)?.toString().padStart(3, '0');
+      numero = (ide?.nNF || ide?.nfe || xml.match(/<nNF>(\d+)<\/nNF>/)?.[1])?.toString().padStart(9, '0');
+      serie = (ide?.serie || ide?.Serie || xml.match(/<serie>(\d+)<\/serie>/)?.[1])?.toString().padStart(3, '0');
       dataEmissao = (ide?.dhEmi || ide?.dEmi || ide?.dhEmis)?.substring(0, 10);
       emitente = emit?.xNome || emit?.XNome;
       emitenteCnpj = emit?.CNPJ || emit?.CPF;
@@ -1096,13 +1103,20 @@ async function startServer() {
       const target = resCTe || infCte;
       chave = target.chCTe || target['@_Id']?.replace('CTe', '');
       const ide = target.ide || target.Ide;
-      numero = ide?.nCT?.toString().padStart(9, '0') || chave?.substring(25, 34);
-      serie = ide?.serie?.toString().padStart(3, '0') || chave?.substring(22, 25);
+      
+      if (chave && chave.length === 44) {
+        serie = chave.substring(22, 25);
+        numero = chave.substring(25, 34);
+      } else {
+        numero = ide?.nCT?.toString().padStart(9, '0');
+        serie = ide?.serie?.toString().padStart(3, '0');
+      }
+
       const emit = target.emit || target.Emit;
       emitente = emit?.xNome || emit?.XNome || 'TRANSPORTADORA';
       emitenteCnpj = emit?.CNPJ || emit?.CPF;
       const vPrest = target.vPrest || target.VPrest;
-      valorTotal = parseFloat(vPrest?.vTPrest || vPrest || '0');
+      valorTotal = parseFloat(vPrest?.vTPrest || vPrest?.VPresta || vPrest || '0');
       dataEmissao = (ide?.dhEmi || target.dhEmi || target.dEmi)?.substring(0, 10);
     }
 
@@ -1268,7 +1282,7 @@ async function startServer() {
     console.log(`[Vértice Real-Sync] Conexão mTLS com SEFAZ AN & Portal Contribuinte NFS-e. CNPJ: ${cleanCnpj}, Período: ${dataInicio || '01/09/2026'} até ${dataFim || '24/09/2026'}`);
 
     try {
-      let creds: any = { commonName: req.body.name || 'BRASOLUB DISTRIB BRASILEIRA DE OLEOS E LUBRIF LTDA' };
+      let creds: any = { commonName: req.body.name || 'EMPRESA CLIENTE' };
       if (pfxBase64 && password) {
         const extracted = extractPfxCredentials(pfxBase64, password);
         if (!extracted.error) {
@@ -1279,10 +1293,8 @@ async function startServer() {
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
         keepAlive: true,
-        secureProtocol: 'TLS_method',
-        minVersion: 'TLSv1.2',
-        maxVersion: 'TLSv1.3',
-        ciphers: 'DEFAULT:!aNULL:!eNULL:!LOW:!EXPORT:!SSLv2:!MD5:!DES:!DSS:!RC4:!SHA1'
+        secureProtocol: 'TLSv1_2_method',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA'
       };
 
       if (creds.key && creds.cert) {
@@ -1401,8 +1413,8 @@ async function startServer() {
         success: true,
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
-          ? `Sincronização realizada com sucesso! Foram localizados ${parsedDocs.length} documentos oficiais para o CNPJ ${cleanCnpj}.`
-          : `Consulta oficial realizada com sucesso para o CNPJ ${cleanCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}. Dica: Verifique se existem notas pendentes de distribuição na SEFAZ.`,
+          ? `Sincronização realizada com sucesso! Foram localizados ${parsedDocs.length} documentos oficiais para o CNPJ ${cleanCnpj}. Dica: Alguns documentos podem vir como resumo (resNFe). Para baixar o XML completo, realize a Manifestação do Destinatário.`
+          : `Consulta oficial realizada com sucesso para o CNPJ ${cleanCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}. Dica: Se você sabe que existem notas mas elas não apareceram, tente clicar em 'Reiniciar NSU' para buscar todo o histórico de 15 dias.`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 10).toString(),
         totalFetched,

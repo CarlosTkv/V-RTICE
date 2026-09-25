@@ -19,7 +19,8 @@ import {
   ArrowRight, 
   Database,
   Building2,
-  ExternalLink
+  ExternalLink,
+  RotateCcw
 } from 'lucide-react';
 import { CompanyData } from '../types';
 
