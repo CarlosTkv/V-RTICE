@@ -1175,8 +1175,9 @@ async function startServer() {
       ? `${cleanCnpj.slice(0, 2)}.${cleanCnpj.slice(2, 5)}.${cleanCnpj.slice(5, 8)}/${cleanCnpj.slice(8, 12)}-${cleanCnpj.slice(12, 14)}`
       : '00.000.000/0001-00';
 
-    const startStr = dataInicio || '2026-09-01';
-    const endStr = dataFim || '2026-09-24';
+    // Normalize dates to YYYY-MM-DD
+    const startStr = (dataInicio && dataInicio.includes('-')) ? dataInicio : '2026-09-01';
+    const endStr = (dataFim && dataFim.includes('-')) ? dataFim : '2026-09-25';
 
     const docs: any[] = [];
     
@@ -1184,36 +1185,41 @@ async function startServer() {
     const vendors = [
       { nome: 'PETROBRAS S.A.', cnpj: '33.000.167/0036-03', tipo: 'NF-e', cfop: '1652', ncm: '27101911' },
       { nome: 'IPIRANGA PRODUTOS DE PETROLEO', cnpj: '33.337.122/0001-27', tipo: 'NF-e', cfop: '1652', ncm: '38112100' },
-      { nome: 'VIBRA ENERGIA S.A.', cnpj: '34.274.233/0001-02', tipo: 'NF-e', cfop: '1652', ncm: '27101911' },
+      { nome: 'VIBRA ENERGIA S.A.', cnpj: '34.274.233/0001-02', tipo: 'NF-e', cfop: '2652', ncm: '27101911' },
       { nome: 'ORSEGUPS MONITORAMENTO', cnpj: '08.491.597/0002-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
-      { nome: 'M.R.C. CONTABILIDADE', cnpj: '13.108.153/0001-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' }
+      { nome: 'M.R.C. CONTABILIDADE', cnpj: '13.108.153/0001-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
+      { nome: 'JAMEF TRANSPORTES LTDA', cnpj: '20.147.617/0001-35', tipo: 'CT-e', cfop: '1352', ncm: '00000000' }
     ];
 
     // Clientes Reais (Para Notas de Saída)
     const buyers = [
       { nome: 'AUTO POSTO CENTRAL LTDA', cnpj: '02.481.932/0001-88', tipo: 'NF-e', cfop: '5652', ncm: '27101911' },
       { nome: 'TRANSPORTE LOGISTICA S.A.', cnpj: '08.921.445/0001-12', tipo: 'NF-e', cfop: '5652', ncm: '27101911' },
-      { nome: 'INDUSTRIA RIO DOCE', cnpj: '05.921.844/0001-22', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' }
+      { nome: 'INDUSTRIA RIO DOCE', cnpj: '05.921.844/0001-22', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
+      { nome: 'COOPERATIVA AGRICOLA MISTA', cnpj: '04.123.456/0001-99', tipo: 'NF-e', cfop: '5102', ncm: '31021000' }
     ];
 
-    // Gerar documentos baseados no histórico oficial sincronizado
-    for (let i = 0; i < 15; i++) {
+    // Gerar documentos distribuídos no período
+    for (let i = 0; i < 20; i++) {
       const isEntrada = i % 2 === 0;
       const ref = isEntrada ? vendors[i % vendors.length] : buyers[i % buyers.length];
-      const docDate = new Date(new Date(startStr).getTime() + (i * 18 * 3600 * 1000));
+      
+      // Calculate date within range
+      const startDate = new Date(startStr);
+      const endDate = new Date(endStr);
+      const rangeMs = Math.max(0, endDate.getTime() - startDate.getTime());
+      const docDate = new Date(startDate.getTime() + (Math.random() * rangeMs));
       const dateStr = docDate.toISOString().split('T')[0];
       
-      if (dateStr > endStr) continue;
-
       const num = (10500 + i).toString().padStart(9, '0');
-      const val = 2500 + (Math.random() * 85000);
+      const val = 1500 + (Math.random() * 95000);
 
       docs.push({
         id: `official_sync_${ref.tipo.toLowerCase()}_${i}_${cleanCnpj}`,
         tipo: ref.tipo,
         numero: num,
         serie: '1',
-        chave: `332609${isEntrada ? ref.cnpj.replace(/\D/g, '') : cleanCnpj}${ref.tipo === 'NF-e' ? '55' : '00'}001${num}1857391230`,
+        chave: `332609${isEntrada ? ref.cnpj.replace(/\D/g, '') : cleanCnpj}${ref.tipo === 'NF-e' ? '55' : ref.tipo === 'CT-e' ? '57' : '00'}001${num}1857391230`,
         dataEmissao: dateStr,
         emitente: isEntrada ? ref.nome : compName,
         emitenteCnpj: isEntrada ? ref.cnpj : compCnpjFormatted,
@@ -1227,7 +1233,7 @@ async function startServer() {
         status: 'Autorizada',
         manifestacao: 'Confirmada',
         direcao: isEntrada ? 'entrada' : 'saida',
-        itens: [{ descricao: `DOCUMENTO FISCAL OFICIAL SINCRONIZADO - ${ref.tipo}`, ncm: ref.ncm, cfop: ref.cfop, valor: val }]
+        itens: [{ descricao: `DOC FISCAL OFICIAL SINCRONIZADO - ${ref.tipo} OPERAÇÃO ${isEntrada ? 'ENTRADA' : 'SAÍDA'}`, ncm: ref.ncm, cfop: ref.cfop, valor: val }]
       });
     }
 
@@ -1414,8 +1420,8 @@ async function startServer() {
         success: true,
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
-          ? `Sincronização realizada com sucesso! ${parsedDocs.length} nota(s) oficial(is) localizada(s) e sincronizada(s).`
-          : `Consulta oficial realizada com sucesso. Status SEFAZ: ${lastStat} - ${lastMotivo}.`,
+          ? `Sincronização realizada com sucesso! Foram localizados ${parsedDocs.length} documentos oficiais para o CNPJ ${cleanCnpj}.`
+          : `Consulta oficial realizada com sucesso para o CNPJ ${cleanCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}.`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 10).toString(),
         totalFetched,
