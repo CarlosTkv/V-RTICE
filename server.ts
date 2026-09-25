@@ -950,22 +950,31 @@ async function startServer() {
     
     const parser = new XMLParser({
       ignoreAttributes: false,
-      attributeNamePrefix: "@_"
+      attributeNamePrefix: "@_",
+      removeNSPrefix: true // Crucial: Remove prefixes like 'soap12:', 'nfe:', etc.
     });
     
     const jsonObj = parser.parse(xml);
-    const body = jsonObj['soap:Envelope']?.['soap:Body'] || jsonObj['soap12:Envelope']?.['soap12:Body'] || jsonObj['Envelope']?.['Body'];
-    const distRes = body?.nfeDistDFeInteresseResponse?.nfeDistDFeInteresseResult?.retDistDFeInt || body?.nfeDistDFeInteresseResult?.retDistDFeInt;
+    
+    // Caminho robusto para encontrar o retDistDFeInt independente de namespaces
+    const envelope = jsonObj.Envelope;
+    const body = envelope?.Body;
+    const distRes = body?.nfeDistDFeInteresseResponse?.nfeDistDFeInteresseResult?.retDistDFeInt 
+                || body?.nfeDistDFeInteresseResult?.retDistDFeInt
+                || body?.retDistDFeInt;
     
     if (!distRes) {
-      // Tenta extração via regex se o parser falhar na estrutura SOAP complexa
+      console.error('[Vértice SOAP] Estrutura inesperada:', JSON.stringify(jsonObj).substring(0, 500));
       const cStatMatch = xml.match(/<cStat>(\d+)<\/cStat>/);
       const xMotivoMatch = xml.match(/<xMotivo>([^<]+)<\/xMotivo>/);
+      const ultNSUMatch = xml.match(/<ultNSU>(\d+)<\/ultNSU>/);
+      const maxNSUMatch = xml.match(/<maxNSU>(\d+)<\/maxNSU>/);
+      
       return { 
         cStat: cStatMatch ? cStatMatch[1] : '999', 
-        xMotivo: xMotivoMatch ? xMotivoMatch[1] : 'Falha ao processar envelope SOAP', 
-        ultNSU: '0', 
-        maxNSU: '0', 
+        xMotivo: xMotivoMatch ? xMotivoMatch[1] : 'Falha ao mapear resposta SOAP oficial', 
+        ultNSU: ultNSUMatch ? ultNSUMatch[1] : '0', 
+        maxNSU: maxNSUMatch ? maxNSUMatch[1] : '0', 
         docs: [] 
       };
     }
@@ -984,7 +993,7 @@ async function startServer() {
       loteDist.forEach((item: any) => {
         const nsu = item['@_NSU'] || '0';
         const schema = item['@_schema'] || 'unknown';
-        const base64Gzip = item['#text'] || item;
+        const base64Gzip = item['#text'] || (typeof item === 'string' ? item : '');
 
         try {
           const bufferGzip = Buffer.from(base64Gzip, 'base64');
@@ -1003,7 +1012,7 @@ async function startServer() {
             docs.push({ nsu, schema, xml: rawXmlString });
           }
         } catch (err: any) {
-          console.error(`[Vértice WebService] Erro no NSU ${nsu}:`, err.message);
+          console.error(`[Vértice WebService] Erro de descompactação no NSU ${nsu}:`, err.message);
         }
       });
     }
@@ -1014,20 +1023,25 @@ async function startServer() {
   // Normalize parsed SEFAZ XML raw string to DocFiscal structure with robust property mapping
   function normalizeSefazDoc(nsu: string, schema: string, xml: string, clientCnpj?: string): any {
     const { XMLParser } = require('fast-xml-parser');
-    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+    const parser = new XMLParser({ 
+      ignoreAttributes: false, 
+      attributeNamePrefix: "@_",
+      removeNSPrefix: true // Remove namespaces para facilitar acesso direto às tags
+    });
     const obj = parser.parse(xml);
     
-    // Identificar tipo de documento no objeto
-    const nfeProc = obj.nfeProc?.NFe || obj.NFe;
-    const resNFe = obj.resNFe;
-    const cteProc = obj.cteProc?.CTe || obj.CTe;
-    const resCTe = obj.resCTe;
+    // Identificar tipo de documento no objeto normalizado sem namespaces
+    const nfeProc = obj.nfeProc?.NFe || obj.NFe || obj.nfe || obj.infNFe || obj.InfNFe;
+    const resNFe = obj.resNFe || obj.resNfe;
+    const cteProc = obj.cteProc?.CTe || obj.CTe || obj.cte || obj.infCte || obj.InfCte;
+    const resCTe = obj.resCTe || obj.resCte;
+    const procEventoNFe = obj.procEventoNFe || obj.procEvento;
     const resEvento = obj.resEvento;
 
     let id = `nsu_${nsu}`;
     let tipo: 'NF-e' | 'NFS-e' | 'NFC-e' | 'CT-e' = 'NF-e';
     let numero = '';
-    let serie = '001';
+    let serie = '000';
     let chave = '';
     let dataEmissao = new Date().toISOString().split('T')[0];
     let emitente = 'EMISSOR DESCONHECIDO';
@@ -1043,48 +1057,59 @@ async function startServer() {
 
     if (resNFe) {
       tipo = 'NF-e';
-      chave = resNFe.chNFe;
+      chave = resNFe.chNFe || resNFe.chave;
       emitenteCnpj = resNFe.CNPJ || resNFe.CPF;
-      emitente = resNFe.xNome;
+      emitente = resNFe.xNome || 'FORNECEDOR';
       valorTotal = parseFloat(resNFe.vNF || '0');
-      dataEmissao = resNFe.dhEmi?.substring(0, 10);
+      dataEmissao = (resNFe.dhEmi || resNFe.dEmi)?.substring(0, 10);
       const sit = resNFe.cSitNFe?.toString();
       if (sit === '3') status = 'Cancelada';
     } else if (nfeProc) {
       tipo = 'NF-e';
-      const ide = nfeProc.infNFe?.ide;
-      const emit = nfeProc.infNFe?.emit;
-      const dest = nfeProc.infNFe?.dest;
-      const total = nfeProc.infNFe?.total?.ICMSTot;
+      const infNFe = nfeProc.infNFe || nfeProc.InfNFe || nfeProc;
+      const ide = infNFe?.ide || infNFe?.Ide;
+      const emit = infNFe?.emit || infNFe?.Emit;
+      const dest = infNFe?.dest || infNFe?.Dest;
+      const total = infNFe?.total?.ICMSTot || infNFe?.Total?.ICMSTot;
       
-      chave = nfeProc.infNFe?.['@_Id']?.replace('NFe', '') || ide?.chNFe;
-      numero = ide?.nNF?.toString().padStart(9, '0');
-      serie = ide?.serie?.toString().padStart(3, '0');
-      dataEmissao = (ide?.dhEmi || ide?.dEmi)?.substring(0, 10);
-      emitente = emit?.xNome;
+      chave = infNFe?.['@_Id']?.replace('NFe', '') || ide?.chNFe || xml.match(/Id="NFe(\d+)"/)?.[1];
+      numero = (ide?.nNF || ide?.nfe)?.toString().padStart(9, '0');
+      serie = (ide?.serie || ide?.Serie)?.toString().padStart(3, '0');
+      dataEmissao = (ide?.dhEmi || ide?.dEmi || ide?.dhEmis)?.substring(0, 10);
+      emitente = emit?.xNome || emit?.XNome;
       emitenteCnpj = emit?.CNPJ || emit?.CPF;
-      destinatario = dest?.xNome;
+      destinatario = dest?.xNome || dest?.XNome;
       destinatarioCnpj = dest?.CNPJ || dest?.CPF;
       valorTotal = parseFloat(total?.vNF || '0');
       valorIcms = parseFloat(total?.vICMS || '0');
-      cfop = nfeProc.infNFe?.det?.[0]?.prod?.CFOP || nfeProc.infNFe?.det?.prod?.CFOP;
-      ncm = nfeProc.infNFe?.det?.[0]?.prod?.NCM || nfeProc.infNFe?.det?.prod?.NCM;
+      
+      let det = infNFe?.det || infNFe?.Det;
+      if (det) {
+        if (Array.isArray(det)) det = det[0];
+        const prod = det.prod || det.Prod;
+        cfop = prod?.CFOP?.toString();
+        ncm = prod?.NCM?.toString();
+      }
     } else if (resCTe || cteProc) {
       tipo = 'CT-e';
-      const target = resCTe || cteProc.infCte || cteProc;
+      const infCte = cteProc?.infCte || cteProc?.InfCte || cteProc;
+      const target = resCTe || infCte;
       chave = target.chCTe || target['@_Id']?.replace('CTe', '');
-      numero = target.ide?.nCT?.toString().padStart(9, '0') || chave?.substring(25, 34);
-      serie = target.ide?.serie?.toString().padStart(3, '0') || chave?.substring(22, 25);
-      emitente = target.emit?.xNome || 'TRANSPORTADORA';
-      emitenteCnpj = target.emit?.CNPJ || target.emit?.CPF;
-      valorTotal = parseFloat(target.vPrest?.vTPrest || target.vTPrest || '0');
-      dataEmissao = (target.ide?.dhEmi || target.dhEmi)?.substring(0, 10);
+      const ide = target.ide || target.Ide;
+      numero = ide?.nCT?.toString().padStart(9, '0') || chave?.substring(25, 34);
+      serie = ide?.serie?.toString().padStart(3, '0') || chave?.substring(22, 25);
+      const emit = target.emit || target.Emit;
+      emitente = emit?.xNome || emit?.XNome || 'TRANSPORTADORA';
+      emitenteCnpj = emit?.CNPJ || emit?.CPF;
+      const vPrest = target.vPrest || target.VPrest;
+      valorTotal = parseFloat(vPrest?.vTPrest || vPrest || '0');
+      dataEmissao = (ide?.dhEmi || target.dhEmi || target.dEmi)?.substring(0, 10);
     }
 
-    // Formatação de CNPJ
-    const formatCnpj = (v: string) => {
+    // Formatação final de CNPJ/CPF
+    const formatCnpj = (v: any) => {
       if (!v) return '';
-      const c = v.replace(/\D/g, '');
+      const c = v.toString().replace(/\D/g, '');
       if (c.length === 11) return `${c.slice(0,3)}.${c.slice(3,6)}.${c.slice(6,9)}-${c.slice(9,11)}`;
       if (c.length === 14) return `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12,14)}`;
       return v;
@@ -1164,9 +1189,10 @@ async function startServer() {
 
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
-        secureProtocol: 'TLSv1_2_method',
+        secureProtocol: 'TLS_method',
         minVersion: 'TLSv1.2',
-        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384'
+        maxVersion: 'TLSv1.3',
+        ciphers: 'DEFAULT:!aNULL:!eNULL:!LOW:!EXPORT:!SSLv2:!MD5:!DES:!DSS:!RC4:!SHA1'
       };
 
       if (creds.key && creds.cert) {
@@ -1253,9 +1279,10 @@ async function startServer() {
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
         keepAlive: true,
-        secureProtocol: 'TLSv1_2_method',
+        secureProtocol: 'TLS_method',
         minVersion: 'TLSv1.2',
-        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384'
+        maxVersion: 'TLSv1.3',
+        ciphers: 'DEFAULT:!aNULL:!eNULL:!LOW:!EXPORT:!SSLv2:!MD5:!DES:!DSS:!RC4:!SHA1'
       };
 
       if (creds.key && creds.cert) {
@@ -1279,7 +1306,7 @@ async function startServer() {
       let parsedDocs: any[] = [];
       let currentNSU_Loop = currentNsu;
       let loopCounter = 0;
-      let maxLoops = 50; 
+      let maxLoops = 100; // Deep search
       let lastStat = '100';
       let lastMotivo = 'Nenhuma consulta realizada';
       let totalFetched = 0;
@@ -1418,9 +1445,10 @@ async function startServer() {
       const agentOptions: https.AgentOptions = {
         rejectUnauthorized: false,
         keepAlive: true,
-        secureProtocol: 'TLSv1_2_method',
+        secureProtocol: 'TLS_method',
         minVersion: 'TLSv1.2',
-        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384'
+        maxVersion: 'TLSv1.3',
+        ciphers: 'DEFAULT:!aNULL:!eNULL:!LOW:!EXPORT:!SSLv2:!MD5:!DES:!DSS:!RC4:!SHA1'
       };
 
       if (creds.key && creds.cert) {
