@@ -113,6 +113,7 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cnpj: currentCompany.cnpj,
+          name: currentCompany.name,
           pfxBase64: currentCompany.pfxBase64,
           password: currentCompany.certPassword,
           tpAmb: environment,

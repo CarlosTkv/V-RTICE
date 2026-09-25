@@ -547,6 +547,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             cnpj: currentCompany.cnpj,
+            name: currentCompany.name,
             pfxBase64: currentCompany.pfxBase64,
             password: currentCompany.certPassword,
             dataInicio: '2026-09-01',
@@ -569,7 +570,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
     };
 
     loadRealCompanyDocs();
-  }, [currentCompany?.cnpj]);
+  }, [currentCompany?.cnpj, currentCompany?.name]);
 
   // Selected Doc Memo
   const selectedDoc = useMemo(() => {
