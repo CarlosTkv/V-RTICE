@@ -58,7 +58,8 @@ import {
   Key,
   Table,
   Truck,
-  FolderSync 
+  FolderSync,
+  Landmark
 } from 'lucide-react';
 import { CompanyData } from '../types';
 import { VerticeFiscalDashboard } from './VerticeFiscalDashboard';

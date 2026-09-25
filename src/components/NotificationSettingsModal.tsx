@@ -72,12 +72,14 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
       spheres: { federal: true, estadual: true, municipal: true, trabalhista: true, fgts: true },
       scope: 'all_companies',
       actions: {
+        autoDownloadPdf: true,
         sendEmailNotification: true,
         emailRecipients: 'contador@escritorio.com.br',
-        downloadPdfs: true,
-        notifyDashboard: true
+        alertOnDebts: true,
+        archiveInSystemFolder: true
       },
-      customSmtp: DEFAULT_SMTP_CONFIG
+      customSmtp: DEFAULT_SMTP_CONFIG,
+      status: 'active'
     };
     return defaultSch;
   });
