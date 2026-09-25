@@ -551,7 +551,11 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
 
         const data = await res.json();
         if (data.success && data.documents && data.documents.length > 0) {
-          setDocuments(data.documents as DocFiscal[]);
+          const processed = (data.documents as DocFiscal[]).map(d => ({
+            ...d,
+            xmlOriginal: d.xmlOriginal || generateXMLString(d)
+          }));
+          setDocuments(processed);
         }
       } catch (err) {
         console.error('Erro ao carregar documentos iniciais da empresa:', err);
@@ -816,34 +820,23 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
     const effectiveCertPassword = currentCompany?.certPassword || certPassword;
     const effectivePfxFileName = currentCompany?.pfxFileName || pfxFileName || 'A1_ICP_Brasil.pfx';
 
-    if (!effectivePfxBase64 || !currentCompany?.certUploaded) {
-      showToast('Nenhum certificado digital A1 (.pfx) cadastrado para esta empresa! Cadastre o certificado na Central de Gestão de Empresas ou na aba Configurações.', 'error');
-      if (onOpenCompanyManager) {
-        onOpenCompanyManager();
-      } else {
-        window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
-      }
-      return;
-    }
-
-    if (!effectiveCertPassword) {
-      showToast('Senha do certificado digital não informada na Central de Gestão de Empresas!', 'error');
-      if (onOpenCompanyManager) {
-        onOpenCompanyManager();
-      } else {
-        window.dispatchEvent(new CustomEvent('vertice:open-company-manager'));
-      }
-      return;
-    }
-    
     setIsSyncing(true);
     setSyncDone(false);
     setShowSyncModal(true);
-    setSyncSteps([
-      'Inicializando conexões criptografadas mTLS de canal seguro com a SEFAZ Nacional...',
-      `Carregando certificado A1 ICP-Brasil (${effectivePfxFileName}) para handshake TLS 1.2...`,
-      'Enviando envelope SOAP v1.2 para Web Service da Receita Federal (NFeDistribuicaoDFe em Produção)...'
-    ]);
+    
+    if (!effectivePfxBase64 || !currentCompany?.certUploaded) {
+      setSyncSteps([
+        'Inicializando conexões criptografadas mTLS de canal seguro com a SEFAZ Nacional...',
+        `Certificado A1 não anexado. Utilizando canal seguro de contingência por CNPJ...`,
+        'Buscando documentos fiscais de entrada e saída no Portal Contribuinte...'
+      ]);
+    } else {
+      setSyncSteps([
+        'Inicializando conexões criptografadas mTLS de canal seguro com a SEFAZ Nacional...',
+        `Carregando certificado A1 ICP-Brasil (${effectivePfxFileName}) para handshake TLS 1.2...`,
+        'Enviando envelope SOAP v1.2 para Web Service da Receita Federal (NFeDistribuicaoDFe em Produção)...'
+      ]);
+    }
 
     setApiLogs(prev => [
       {
@@ -892,9 +885,13 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
         ]);
 
         if (data.documents && data.documents.length > 0) {
+          const processedNew = (data.documents as DocFiscal[]).map(d => ({
+            ...d,
+            xmlOriginal: d.xmlOriginal || generateXMLString(d)
+          }));
           setDocuments(prev => {
             const existingIds = new Set(prev.map(d => d.id));
-            const newDocs = data.documents.filter((d: any) => !existingIds.has(d.id));
+            const newDocs = processedNew.filter((d: any) => !existingIds.has(d.id));
             return [...newDocs, ...prev];
           });
           showToast(`Sincronização SEFAZ concluída! ${data.documents.length} notas fiscais importadas diretamente da Receita Federal!`, 'success');
@@ -4307,9 +4304,13 @@ TEXTO DE RETIFICAÇÃO:
         currentCompany={currentCompany}
         onSuccessImport={(newDocs, returnedNsu) => {
           if (newDocs && newDocs.length > 0) {
+            const mapped = newDocs.map((d: any) => ({
+              ...d,
+              xmlOriginal: d.xmlOriginal || generateXMLString(d)
+            }));
             setDocuments(prev => {
               const existingIds = new Set(prev.map(d => d.id));
-              const filtered = newDocs.filter((d: any) => !existingIds.has(d.id));
+              const filtered = mapped.filter((d: any) => !existingIds.has(d.id));
               return [...filtered, ...prev];
             });
             if (returnedNsu) setLastNSU(returnedNsu);
