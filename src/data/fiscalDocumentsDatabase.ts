@@ -924,11 +924,10 @@ export function buildSeptemberEntradas26(company: CompanyData): DocFiscal[] {
 }
 
 /**
- * Retorna o acervo unificado das 101 notas oficiais de Setembro/2026 (26 Entradas + 75 Saídas)
+ * Retorna o acervo de documentos reais armazenados. Retorna array vazio se nenhuma nota real foi sincronizada.
  */
 export function getCompanyFiscalDocuments(company: CompanyData): DocFiscal[] {
-  const entradas = buildSeptemberEntradas26(company);
-  const saidas = buildSeptemberSaidas75(company);
-  // Ordena por data mais recente primeiro
-  return [...entradas, ...saidas].sort((a, b) => b.dataEmissao.localeCompare(a.dataEmissao));
+  // Retorna estritamente vazio por padrão para não exibir dados fictícios/demonstração.
+  // Apenas notas fiscais reais capturadas na SEFAZ mTLS ou importadas via XML/ZIP serão exibidas.
+  return [];
 }

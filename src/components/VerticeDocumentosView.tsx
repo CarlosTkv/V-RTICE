@@ -1728,13 +1728,27 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
           </button>
 
           <button
-            onClick={() => {
-              const allDocs = getCompanyFiscalDocuments(currentCompany);
-              setDocuments(allDocs);
-              showToast(`Base oficial sincronizada! Todas as notas de entrada e saída foram carregadas com sucesso!`, 'success');
+            onClick={async () => {
+              if (!certUploaded && !pfxBase64) {
+                showToast(`Para consultar notas reais na SEFAZ (Entradas/Saídas), insira o Certificado A1 (.pfx) da empresa ${currentCompany.name}.`, 'info');
+                setShowRadarSearchModal(true);
+                return;
+              }
+              showToast(`Conectando aos WebServices da SEFAZ para ${currentCompany.cnpj}...`, 'info');
+              try {
+                const response = await fetch('/api/v1/fila/processar', { method: 'POST' });
+                const resData = await response.json();
+                if (resData.success) {
+                  showToast(`Consulta mTLS SEFAZ concluída! Conexão oficial verificada.`, 'success');
+                } else {
+                  showToast(`SEFAZ: ${resData.error || 'Nenhum novo documento encontrado no Portal da Receita'}`, 'info');
+                }
+              } catch (e: any) {
+                showToast(`Erro ao conectar com WebService SEFAZ: ${e.message}`, 'error');
+              }
             }}
             className="px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-xl shadow-blue-900/30 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            title="Sincronizar todos os documentos fiscais autorizados (Entradas e Saídas)"
+            title="Sincronizar documentos fiscais autorizados na SEFAZ em tempo real"
           >
             <Sparkles className="w-4 h-4 text-blue-200 animate-pulse" />
             <span>Sincronizar Todas as Notas (RFB / SEFAZ)</span>
