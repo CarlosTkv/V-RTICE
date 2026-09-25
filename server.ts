@@ -943,207 +943,173 @@ async function startServer() {
     });
   }
 
-  // Parse SEFAZ SOAP distribution response natively with robust zlib.gunzipSync
+  // Parse SEFAZ SOAP distribution response natively with robust fast-xml-parser
   function parseSefazResponse(xml: string) {
     const zlib = require('zlib');
+    const { XMLParser } = require('fast-xml-parser');
     
-    // Extract cStat
-    const cStatMatch = xml.match(/<cStat>(\d+)<\/cStat>/);
-    const cStat = cStatMatch ? cStatMatch[1] : '';
-
-    // Extract xMotivo
-    const xMotivoMatch = xml.match(/<xMotivo>([^<]+)<\/xMotivo>/);
-    const xMotivo = xMotivoMatch ? xMotivoMatch[1] : '';
-
-    // Extract ultNSU
-    const ultNSUMatch = xml.match(/<ultNSU>(\d+)<\/ultNSU>/);
-    const ultNSU = ultNSUMatch ? ultNSUMatch[1] : '';
-
-    // Extract maxNSU
-    const maxNSUMatch = xml.match(/<maxNSU>(\d+)<\/maxNSU>/);
-    const maxNSU = maxNSUMatch ? maxNSUMatch[1] : '';
-
-    const docs: any[] = [];
-
-    // Robust regex matching all <docZip ...>content</docZip> regardless of attribute order or whitespace
-    const docZipBlockRegex = /<docZip\b([^>]*)>([^<]+)<\/docZip>/gi;
-    let match;
-
-    while ((match = docZipBlockRegex.exec(xml)) !== null) {
-      const attrStr = match[1];
-      const base64Gzip = match[2].trim();
-
-      const nsuMatch = attrStr.match(/NSU="(\d+)"/i) || attrStr.match(/NSU='(\d+)'/i);
-      const schemaMatch = attrStr.match(/schema="([^"]+)"/i) || attrStr.match(/schema='([^']+)'/i);
-
-      const nsu = nsuMatch ? nsuMatch[1] : '0';
-      const schema = schemaMatch ? schemaMatch[1] : 'unknown';
-
-      try {
-        const bufferGzip = Buffer.from(base64Gzip, 'base64');
-        let rawXmlString = '';
-
-        try {
-          // 1. Tenta descompactar via GZIP oficial (zlib.gunzipSync)
-          rawXmlString = zlib.gunzipSync(bufferGzip).toString('utf-8');
-        } catch (gzipErr) {
-          try {
-            // 2. Fallback para Deflate simples
-            rawXmlString = zlib.inflateSync(bufferGzip).toString('utf-8');
-          } catch (deflateErr) {
-            // 3. Fallback se já veio em UTF-8 não compactado
-            rawXmlString = bufferGzip.toString('utf-8');
-          }
-        }
-
-        if (rawXmlString) {
-          docs.push({
-            nsu,
-            schema,
-            xml: rawXmlString
-          });
-        }
-      } catch (e: any) {
-        console.error(`[Vértice WebService] Erro ao descompactar pacote docZip do NSU ${nsu}:`, e.message);
-      }
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: "@_"
+    });
+    
+    const jsonObj = parser.parse(xml);
+    const body = jsonObj['soap:Envelope']?.['soap:Body'] || jsonObj['soap12:Envelope']?.['soap12:Body'] || jsonObj['Envelope']?.['Body'];
+    const distRes = body?.nfeDistDFeInteresseResponse?.nfeDistDFeInteresseResult?.retDistDFeInt || body?.nfeDistDFeInteresseResult?.retDistDFeInt;
+    
+    if (!distRes) {
+      // Tenta extração via regex se o parser falhar na estrutura SOAP complexa
+      const cStatMatch = xml.match(/<cStat>(\d+)<\/cStat>/);
+      const xMotivoMatch = xml.match(/<xMotivo>([^<]+)<\/xMotivo>/);
+      return { 
+        cStat: cStatMatch ? cStatMatch[1] : '999', 
+        xMotivo: xMotivoMatch ? xMotivoMatch[1] : 'Falha ao processar envelope SOAP', 
+        ultNSU: '0', 
+        maxNSU: '0', 
+        docs: [] 
+      };
     }
 
-    // 2. Check for inline <resNFe>, <resEvento>, etc (if not wrapped in docZip)
-    if (docs.length === 0 && (xml.includes('<resNFe') || xml.includes('<resCTe'))) {
-      const resNfeMatches = xml.match(/<(resNFe|resCTe)[^>]*>[^]*?<\/(resNFe|resCTe)>/gi);
-      if (resNfeMatches) {
-        resNfeMatches.forEach((resXml, idx) => {
-          docs.push({ nsu: (parseInt(ultNSU || '0') + idx + 1).toString(), schema: 'summary', xml: resXml });
-        });
-      }
+    const cStat = distRes.cStat?.toString() || '999';
+    const xMotivo = distRes.xMotivo || '';
+    const ultNSU = distRes.ultNSU?.toString() || '0';
+    const maxNSU = distRes.maxNSU?.toString() || '0';
+    const docs: any[] = [];
+
+    // Processar pacotes de documentos (loteRes)
+    let loteDist = distRes.loteDistDFeInt?.docZip;
+    if (loteDist) {
+      if (!Array.isArray(loteDist)) loteDist = [loteDist];
+      
+      loteDist.forEach((item: any) => {
+        const nsu = item['@_NSU'] || '0';
+        const schema = item['@_schema'] || 'unknown';
+        const base64Gzip = item['#text'] || item;
+
+        try {
+          const bufferGzip = Buffer.from(base64Gzip, 'base64');
+          let rawXmlString = '';
+          try {
+            rawXmlString = zlib.gunzipSync(bufferGzip).toString('utf-8');
+          } catch (e) {
+            try {
+              rawXmlString = zlib.inflateSync(bufferGzip).toString('utf-8');
+            } catch (e2) {
+              rawXmlString = bufferGzip.toString('utf-8');
+            }
+          }
+
+          if (rawXmlString) {
+            docs.push({ nsu, schema, xml: rawXmlString });
+          }
+        } catch (err: any) {
+          console.error(`[Vértice WebService] Erro no NSU ${nsu}:`, err.message);
+        }
+      });
     }
 
     return { cStat, xMotivo, ultNSU, maxNSU, docs };
   }
 
-  // Normalize parsed SEFAZ XML raw string to DocFiscal structure
+  // Normalize parsed SEFAZ XML raw string to DocFiscal structure with robust property mapping
   function normalizeSefazDoc(nsu: string, schema: string, xml: string, clientCnpj?: string): any {
+    const { XMLParser } = require('fast-xml-parser');
+    const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+    const obj = parser.parse(xml);
+    
+    // Identificar tipo de documento no objeto
+    const nfeProc = obj.nfeProc?.NFe || obj.NFe;
+    const resNFe = obj.resNFe;
+    const cteProc = obj.cteProc?.CTe || obj.CTe;
+    const resCTe = obj.resCTe;
+    const resEvento = obj.resEvento;
+
     let id = `nsu_${nsu}`;
     let tipo: 'NF-e' | 'NFS-e' | 'NFC-e' | 'CT-e' = 'NF-e';
     let numero = '';
     let serie = '001';
     let chave = '';
     let dataEmissao = new Date().toISOString().split('T')[0];
-    let emitente = 'Fornecedor S/A';
+    let emitente = 'EMISSOR DESCONHECIDO';
     let emitenteCnpj = '';
-    let destinatario = 'Sua Empresa';
-    let destinatarioCnpj = '';
+    let destinatario = 'EMPRESA CONSULTADA';
+    let destinatarioCnpj = clientCnpj ? clientCnpj.replace(/\D/g, '') : '';
     let valorTotal = 0;
     let valorIcms = 0;
     let valorIss = 0;
-    let cfop = '5102';
+    let cfop = '0000';
     let ncm = '00000000';
     let status: 'Autorizada' | 'Cancelada' | 'Denegada' = 'Autorizada';
 
-    // Detect Type and extract Chave
-    const chNfeMatch = xml.match(/<chNFe>([^<]+)<\/chNFe>/) || xml.match(/Id="NFe([^"]+)"/);
-    const chCteMatch = xml.match(/<chCTe>([^<]+)<\/chCTe>/) || xml.match(/Id="CTe([^"]+)"/);
-    
-    if (chCteMatch || schema.includes('cte') || xml.includes('resCTe')) {
-      tipo = 'CT-e';
-      chave = chCteMatch ? chCteMatch[1] : '';
-    } else if (schema.includes('nfse') || xml.includes('EnviarLoteRpsEnvio')) {
-      tipo = 'NFS-e';
-    } else {
+    if (resNFe) {
       tipo = 'NF-e';
-      chave = chNfeMatch ? chNfeMatch[1] : '';
+      chave = resNFe.chNFe;
+      emitenteCnpj = resNFe.CNPJ || resNFe.CPF;
+      emitente = resNFe.xNome;
+      valorTotal = parseFloat(resNFe.vNF || '0');
+      dataEmissao = resNFe.dhEmi?.substring(0, 10);
+      const sit = resNFe.cSitNFe?.toString();
+      if (sit === '3') status = 'Cancelada';
+    } else if (nfeProc) {
+      tipo = 'NF-e';
+      const ide = nfeProc.infNFe?.ide;
+      const emit = nfeProc.infNFe?.emit;
+      const dest = nfeProc.infNFe?.dest;
+      const total = nfeProc.infNFe?.total?.ICMSTot;
+      
+      chave = nfeProc.infNFe?.['@_Id']?.replace('NFe', '') || ide?.chNFe;
+      numero = ide?.nNF?.toString().padStart(9, '0');
+      serie = ide?.serie?.toString().padStart(3, '0');
+      dataEmissao = (ide?.dhEmi || ide?.dEmi)?.substring(0, 10);
+      emitente = emit?.xNome;
+      emitenteCnpj = emit?.CNPJ || emit?.CPF;
+      destinatario = dest?.xNome;
+      destinatarioCnpj = dest?.CNPJ || dest?.CPF;
+      valorTotal = parseFloat(total?.vNF || '0');
+      valorIcms = parseFloat(total?.vICMS || '0');
+      cfop = nfeProc.infNFe?.det?.[0]?.prod?.CFOP || nfeProc.infNFe?.det?.prod?.CFOP;
+      ncm = nfeProc.infNFe?.det?.[0]?.prod?.NCM || nfeProc.infNFe?.det?.prod?.NCM;
+    } else if (resCTe || cteProc) {
+      tipo = 'CT-e';
+      const target = resCTe || cteProc.infCte || cteProc;
+      chave = target.chCTe || target['@_Id']?.replace('CTe', '');
+      numero = target.ide?.nCT?.toString().padStart(9, '0') || chave?.substring(25, 34);
+      serie = target.ide?.serie?.toString().padStart(3, '0') || chave?.substring(22, 25);
+      emitente = target.emit?.xNome || 'TRANSPORTADORA';
+      emitenteCnpj = target.emit?.CNPJ || target.emit?.CPF;
+      valorTotal = parseFloat(target.vPrest?.vTPrest || target.vTPrest || '0');
+      dataEmissao = (target.ide?.dhEmi || target.dhEmi)?.substring(0, 10);
     }
 
-    // Extract Numero and Serie
-    const nNFMatch = xml.match(/<nNF>([^<]+)<\/nNF>/);
-    if (nNFMatch) numero = nNFMatch[1].padStart(9, '0');
-    else if (chave && chave.length === 44) numero = chave.substring(25, 34);
+    // Formatação de CNPJ
+    const formatCnpj = (v: string) => {
+      if (!v) return '';
+      const c = v.replace(/\D/g, '');
+      if (c.length === 11) return `${c.slice(0,3)}.${c.slice(3,6)}.${c.slice(6,9)}-${c.slice(9,11)}`;
+      if (c.length === 14) return `${c.slice(0,2)}.${c.slice(2,5)}.${c.slice(5,8)}/${c.slice(8,12)}-${c.slice(12,14)}`;
+      return v;
+    };
 
-    const serieMatch = xml.match(/<serie>([^<]+)<\/serie>/);
-    if (serieMatch) serie = serieMatch[1].padStart(3, '0');
-    else if (chave && chave.length === 44) serie = chave.substring(22, 25);
-
-    const emitCnpjMatch = xml.match(/<emit>[^]*?<CNPJ>([^<]+)<\/CNPJ>[^]*?<\/emit>/) || xml.match(/<CNPJ>([^<]+)<\/CNPJ>/);
-    if (emitCnpjMatch) {
-      const clean = emitCnpjMatch[1].replace(/\D/g, '');
-      emitenteCnpj = `${clean.substring(0, 2)}.${clean.substring(2, 5)}.${clean.substring(5, 8)}/${clean.substring(8, 12)}-${clean.substring(12, 14)}`;
-    }
-    
-    const emitNomeMatch = xml.match(/<emit>[^]*?<xNome>([^<]+)<\/xNome>[^]*?<\/emit>/) || xml.match(/<xNome>([^<]+)<\/xNome>/);
-    if (emitNomeMatch) emitente = emitNomeMatch[1];
-
-    const destCnpjMatch = xml.match(/<dest>[^]*?<CNPJ>([^<]+)<\/CNPJ>[^]*?<\/dest>/) || xml.match(/<CPF>([^<]+)<\/CPF>/);
-    if (destCnpjMatch) {
-      const clean = destCnpjMatch[1].replace(/\D/g, '');
-      destinatarioCnpj = clean.length === 11 
-        ? `${clean.substring(0, 3)}.${clean.substring(3, 6)}.${clean.substring(6, 9)}-${clean.substring(9, 11)}`
-        : `${clean.substring(0, 2)}.${clean.substring(2, 5)}.${clean.substring(5, 8)}/${clean.substring(8, 12)}-${clean.substring(12, 14)}`;
-    } else if (clientCnpj) {
-      // In Summaries (resNFe), the recipient is always the consultor
-      const clean = clientCnpj.replace(/\D/g, '');
-      destinatarioCnpj = `${clean.substring(0, 2)}.${clean.substring(2, 5)}.${clean.substring(5, 8)}/${clean.substring(8, 12)}-${clean.substring(12, 14)}`;
-    }
-    
-    const destNomeMatch = xml.match(/<dest>[^]*?<xNome>([^<]+)<\/xNome>[^]*?<\/dest>/);
-    if (destNomeMatch) {
-      destinatario = destNomeMatch[1];
-    } else if (clientCnpj) {
-      destinatario = 'EMPRESA CONSULTADA';
-    }
-
-    // Extract Values and Dates
-    const vNFMatch = xml.match(/<vNF>([^<]+)<\/vNF>/) || xml.match(/<vTPrest>([^<]+)<\/vTPrest>/) || xml.match(/<vNF_v1.01>([^<]+)<\/vNF_v1.01>/) || xml.match(/<ValorServicos>([^<]+)<\/ValorServicos>/);
-    if (vNFMatch) valorTotal = parseFloat(vNFMatch[1]);
-
-    const vICMSMatch = xml.match(/<vICMS>([^<]+)<\/vICMS>/);
-    if (vICMSMatch) valorIcms = parseFloat(vICMSMatch[1]);
-
-    const vISSMatch = xml.match(/<ValorIss>([^<]+)<\/ValorIss>/) || xml.match(/<vISS>([^<]+)<\/vISS>/);
-    if (vISSMatch) valorIss = parseFloat(vISSMatch[1]);
-
-    const dhEmiMatch = xml.match(/<dhEmi>([^<]+)<\/dhEmi>/) || xml.match(/<dEmi>([^<]+)<\/dEmi>/) || xml.match(/<DataEmissao>([^<]+)<\/DataEmissao>/) || xml.match(/<dhEmi_v1.01>([^<]+)<\/dhEmi_v1.01>/);
-    if (dhEmiMatch) dataEmissao = dhEmiMatch[1].substring(0, 10);
-
-    const cfopMatch = xml.match(/<CFOP>([^<]+)<\/CFOP>/);
-    if (cfopMatch) cfop = cfopMatch[1];
-    
-    const ncmMatch = xml.match(/<NCM>([^<]+)<\/NCM>/);
-    if (ncmMatch) ncm = ncmMatch[1];
-
-    // Extract Status
-    const cSitMatch = xml.match(/<cSitNFe>([^<]+)<\/cSitNFe>/) || xml.match(/<cSitCTe>([^<]+)<\/cSitCTe>/) || xml.match(/<cSitNFe_v1.01>([^<]+)<\/cSitNFe_v1.01>/);
-    if (cSitMatch) {
-      const sit = cSitMatch[1];
-      if (sit === '1') status = 'Autorizada';
-      else if (sit === '3') status = 'Cancelada';
-    }
-
-    const discMatch = xml.match(/<Discriminacao>([^<]+)<\/Discriminacao>/);
-    const serviceDesc = discMatch ? discMatch[1] : `MERCADORIA REF NCM ${ncm}`;
+    emitenteCnpj = formatCnpj(emitenteCnpj);
+    destinatarioCnpj = formatCnpj(destinatarioCnpj);
 
     const itens = [
       {
-        descricao: tipo === 'NFS-e' ? serviceDesc : `MERCADORIA REF NCM ${ncm}`,
-        ncm: ncm,
-        cfop: cfop,
+        descricao: tipo === 'NFS-e' ? 'SERVIÇOS PRESTADOS' : `MERCADORIA REF NCM ${ncm}`,
+        ncm,
+        cfop,
         valor: valorTotal,
-        icmsAliquota: valorTotal > 0 && tipo !== 'NFS-e' ? Math.round((valorIcms / valorTotal) * 100) : 0,
-        issAliquota: valorTotal > 0 && tipo === 'NFS-e' ? Math.round((valorIss / valorTotal) * 100) : 0
+        icmsAliquota: valorTotal > 0 ? Math.round((valorIcms / valorTotal) * 100) : 0,
+        issAliquota: 0
       }
     ];
 
     // Determine direction
-    let direcao: 'entrada' | 'saida' = 'saida';
+    let direcao: 'entrada' | 'saida' = 'entrada';
     if (clientCnpj) {
       const cleanClient = clientCnpj.replace(/\D/g, '');
-      const cleanDest = destinatarioCnpj.replace(/\D/g, '');
       const cleanEmit = emitenteCnpj.replace(/\D/g, '');
-      
-      if (cleanDest === cleanClient) direcao = 'entrada';
-      else if (cleanEmit === cleanClient) direcao = 'saida';
-      else direcao = (cfop.startsWith('1') || cfop.startsWith('2')) ? 'entrada' : 'saida';
-    } else {
-      direcao = (cfop.startsWith('1') || cfop.startsWith('2')) ? 'entrada' : 'saida';
+      if (cleanEmit === cleanClient) direcao = 'saida';
     }
 
     return {
@@ -1151,7 +1117,7 @@ async function startServer() {
       tipo,
       numero: numero || nsu.padStart(9, '0'),
       serie,
-      chave: chave || `332609${emitenteCnpj.replace(/\D/g, '')}55001${(numero || '0').padStart(9, '0')}1857391239`,
+      chave,
       dataEmissao,
       emitente,
       emitenteCnpj,
@@ -1169,97 +1135,87 @@ async function startServer() {
     };
   }
 
-  function getAuthenticClientDocs(cleanCnpj: string, companyName?: string, dataInicio?: string, dataFim?: string) {
-    const compName = companyName || 'EMPRESA CLIENTE LTDA';
-    const compCnpjFormatted = cleanCnpj.length === 14 
-      ? `${cleanCnpj.slice(0, 2)}.${cleanCnpj.slice(2, 5)}.${cleanCnpj.slice(5, 8)}/${cleanCnpj.slice(8, 12)}-${cleanCnpj.slice(12, 14)}`
-      : '00.000.000/0001-00';
-
-    // Normalize dates to YYYY-MM-DD
-    const startStr = (dataInicio && dataInicio.includes('-')) ? dataInicio : '2026-09-01';
-    const endStr = (dataFim && dataFim.includes('-')) ? dataFim : '2026-09-25';
-
-    const docs: any[] = [];
-    
-    // Fornecedores Reais (Para Notas de Entrada)
-    const vendors = [
-      { nome: 'PETROBRAS S.A.', cnpj: '33.000.167/0036-03', tipo: 'NF-e', cfop: '1652', ncm: '27101911' },
-      { nome: 'IPIRANGA PRODUTOS DE PETROLEO', cnpj: '33.337.122/0001-27', tipo: 'NF-e', cfop: '1652', ncm: '38112100' },
-      { nome: 'VIBRA ENERGIA S.A.', cnpj: '34.274.233/0001-02', tipo: 'NF-e', cfop: '2652', ncm: '27101911' },
-      { nome: 'ORSEGUPS MONITORAMENTO', cnpj: '08.491.597/0002-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
-      { nome: 'M.R.C. CONTABILIDADE', cnpj: '13.108.153/0001-07', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
-      { nome: 'JAMEF TRANSPORTES LTDA', cnpj: '20.147.617/0001-35', tipo: 'CT-e', cfop: '1352', ncm: '00000000' }
-    ];
-
-    // Clientes Reais (Para Notas de Saída)
-    const buyers = [
-      { nome: 'AUTO POSTO CENTRAL LTDA', cnpj: '02.481.932/0001-88', tipo: 'NF-e', cfop: '5652', ncm: '27101911' },
-      { nome: 'TRANSPORTE LOGISTICA S.A.', cnpj: '08.921.445/0001-12', tipo: 'NF-e', cfop: '5652', ncm: '27101911' },
-      { nome: 'INDUSTRIA RIO DOCE', cnpj: '05.921.844/0001-22', tipo: 'NFS-e', cfop: '0000', ncm: '00000000' },
-      { nome: 'COOPERATIVA AGRICOLA MISTA', cnpj: '04.123.456/0001-99', tipo: 'NF-e', cfop: '5102', ncm: '31021000' }
-    ];
-
-    // Gerar documentos distribuídos no período
-    for (let i = 0; i < 20; i++) {
-      const isEntrada = i % 2 === 0;
-      const ref = isEntrada ? vendors[i % vendors.length] : buyers[i % buyers.length];
-      
-      // Calculate date within range
-      const startDate = new Date(startStr);
-      const endDate = new Date(endStr);
-      const rangeMs = Math.max(0, endDate.getTime() - startDate.getTime());
-      const docDate = new Date(startDate.getTime() + (Math.random() * rangeMs));
-      const dateStr = docDate.toISOString().split('T')[0];
-      
-      const num = (10500 + i).toString().padStart(9, '0');
-      const val = 1500 + (Math.random() * 95000);
-
-      docs.push({
-        id: `official_sync_${ref.tipo.toLowerCase()}_${i}_${cleanCnpj}`,
-        tipo: ref.tipo,
-        numero: num,
-        serie: '1',
-        chave: `332609${isEntrada ? ref.cnpj.replace(/\D/g, '') : cleanCnpj}${ref.tipo === 'NF-e' ? '55' : ref.tipo === 'CT-e' ? '57' : '00'}001${num}1857391230`,
-        dataEmissao: dateStr,
-        emitente: isEntrada ? ref.nome : compName,
-        emitenteCnpj: isEntrada ? ref.cnpj : compCnpjFormatted,
-        destinatario: isEntrada ? compName : ref.nome,
-        destinatarioCnpj: isEntrada ? compCnpjFormatted : ref.cnpj,
-        valorTotal: val,
-        valorIcms: ref.tipo === 'NF-e' ? val * 0.12 : 0,
-        valorIss: ref.tipo === 'NFS-e' ? val * 0.05 : 0,
-        cfop: ref.cfop,
-        ncm: ref.ncm,
-        status: 'Autorizada',
-        manifestacao: 'Confirmada',
-        direcao: isEntrada ? 'entrada' : 'saida',
-        itens: [{ descricao: `DOC FISCAL OFICIAL SINCRONIZADO - ${ref.tipo} OPERAÇÃO ${isEntrada ? 'ENTRADA' : 'SAÍDA'}`, ncm: ref.ncm, cfop: ref.cfop, valor: val }]
-      });
-    }
-
-    return docs;
-  }
-
   function getCompanyDocsForPeriod(cleanCnpj: string, companyName?: string, dataInicio?: string, dataFim?: string, searchTarget?: string) {
-    const allRealNotes = getAuthenticClientDocs(cleanCnpj, companyName, dataInicio, dataFim);
-    
-    let docsInPeriod = allRealNotes;
+    return [];
+  }
 
-    if (searchTarget && searchTarget !== 'all') {
-      const targetMap: Record<string, string> = {
-        'nfe': 'NF-e',
-        'cte': 'CT-e',
-        'nfse': 'NFS-e',
-        'nfce': 'NFC-e'
-      };
-      const expectedType = targetMap[searchTarget];
-      if (expectedType) {
-        docsInPeriod = docsInPeriod.filter(d => d.tipo === expectedType);
-      }
+  // Endpoint para Manifestação do Destinatário (Ciência da Operação / Confirmação)
+  app.post('/api/sefaz/manifest', async (req, res) => {
+    const { cnpj, chave, tpEvento, pfxBase64, password, tpAmb } = req.body;
+    
+    if (!cnpj || !chave || !tpEvento) {
+      return res.status(400).json({ success: false, error: 'CNPJ, Chave e Tipo de Evento são obrigatórios.' });
     }
 
-    return docsInPeriod.sort((a, b) => b.dataEmissao.localeCompare(a.dataEmissao));
-  }
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+    const cleanChave = chave.replace(/\D/g, '');
+    const environment = tpAmb || '1';
+    
+    const url = environment === '1'
+      ? 'https://www1.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx'
+      : 'https://hom1.nfe.fazenda.gov.br/RecepcaoEvento/RecepcaoEvento.asmx';
+
+    try {
+      let creds: any = {};
+      if (pfxBase64 && password) {
+        creds = extractPfxCredentials(pfxBase64, password);
+        if (creds.error) throw new Error(creds.error);
+      }
+
+      const agentOptions: https.AgentOptions = {
+        rejectUnauthorized: false,
+        secureProtocol: 'TLSv1_2_method',
+        minVersion: 'TLSv1.2',
+        ciphers: 'ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-GCM-SHA384:DES-CBC3-SHA:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384'
+      };
+
+      if (creds.key && creds.cert) {
+        agentOptions.key = creds.key;
+        agentOptions.cert = creds.cert;
+      } else if (creds.pfx) {
+        agentOptions.pfx = creds.pfx;
+        agentOptions.passphrase = creds.passphrase;
+      }
+
+      const agent = new https.Agent(agentOptions);
+
+      // XML para Ciência da Operação (210210) ou Confirmação (210200)
+      const now = new Date().toISOString().split('.')[0] + '-03:00';
+      const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
+<soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+  <soap12:Body>
+    <nfeRecepcaoEvento xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/RecepcaoEvento">
+      <nfeDadosMsg>
+        <envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
+          <idLote>1</idLote>
+          <evento versao="1.00">
+            <infEvento Id="ID${tpEvento}${cleanChave}01">
+              <cOrgao>91</cOrgao>
+              <tpAmb>${environment}</tpAmb>
+              <CNPJ>${cleanCnpj}</CNPJ>
+              <chNFe>${cleanChave}</chNFe>
+              <dhEvento>${now}</dhEvento>
+              <tpEvento>${tpEvento}</tpEvento>
+              <nSeqEvento>1</nSeqEvento>
+              <verEvento>1.00</verEvento>
+              <detEvento versao="1.00">
+                <descEvento>${tpEvento === '210210' ? 'Ciencia da Operacao' : 'Confirmacao da Operacao'}</descEvento>
+              </detEvento>
+            </infEvento>
+          </evento>
+        </envEvento>
+      </nfeDadosMsg>
+    </nfeRecepcaoEvento>
+  </soap12:Body>
+</soap12:Envelope>`;
+
+      const responseSoap = await callSefazWS(url, xmlPayload, agent);
+      res.json({ success: true, response: responseSoap });
+
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   app.post('/api/vertice/sync-real', async (req, res) => {
     const { cnpj, pfxBase64, password, tpAmb, ultNSU, dataInicio, dataFim, direcaoFilter, searchTarget } = req.body;
@@ -1331,6 +1287,17 @@ async function startServer() {
       // LOOP DE NSU: Varre sequencialmente via "distNSU" até cStat 137 ou limite
       while (loopCounter < maxLoops) {
         const formattedNsu = currentNSU_Loop.padStart(15, '0');
+        
+        let queryTypeXml = '';
+        if (req.body.searchMode === 'chave' && req.body.chaveAcesso) {
+          const cleanChave = req.body.chaveAcesso.replace(/\D/g, '');
+          queryTypeXml = `<consChNFe><chNFe>${cleanChave}</chNFe></consChNFe>`;
+          // Se for busca por chave, não faz loop
+          maxLoops = 1;
+        } else {
+          queryTypeXml = `<distNSU><ultNSU>${formattedNsu}</ultNSU></distNSU>`;
+        }
+
         const xmlPayload = `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Header/>
@@ -1341,9 +1308,7 @@ async function startServer() {
           <tpAmb>${environment}</tpAmb>
           <cUFAutor>91</cUFAutor>
           <CNPJ>${cleanCnpj}</CNPJ>
-          <distNSU>
-            <ultNSU>${formattedNsu}</ultNSU>
-          </distNSU>
+          ${queryTypeXml}
         </distDFeInt>
       </nfeDadosMsg>
     </nfeDistDFeInteresse>
@@ -1398,17 +1363,6 @@ async function startServer() {
         console.warn('[Vértice ADN-Sync] Portal Nacional NFS-e (ADN) temporariamente indisponível ou CNPJ não habilitado para emissão nacional.');
       }
 
-      // 3. Sincronização de documentos do histórico/portal da empresa
-      const filteredDocs = getCompanyDocsForPeriod(cleanCnpj, compName, dataInicio, dataFim);
-
-      // Mesclar documentos oficiais encontrados via WS e documentos do portal
-      const existingChaves = new Set(parsedDocs.map((d: any) => d.chave));
-      for (const d of filteredDocs) {
-        if (!existingChaves.has(d.chave)) {
-          parsedDocs.push(d);
-        }
-      }
-
       // Filtro de Direção final
       if (direcaoFilter === 'entrada') {
         parsedDocs = parsedDocs.filter((d: any) => d.direcao === 'entrada');
@@ -1421,7 +1375,7 @@ async function startServer() {
         cStat: lastStat,
         xMotivo: parsedDocs.length > 0 
           ? `Sincronização realizada com sucesso! Foram localizados ${parsedDocs.length} documentos oficiais para o CNPJ ${cleanCnpj}.`
-          : `Consulta oficial realizada com sucesso para o CNPJ ${cleanCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}.`,
+          : `Consulta oficial realizada com sucesso para o CNPJ ${cleanCnpj}. Status SEFAZ: ${lastStat} - ${lastMotivo}. Dica: Verifique se existem notas pendentes de distribuição na SEFAZ.`,
         ultNSU: currentNSU_Loop,
         maxNSU: (parseInt(currentNSU_Loop, 10) + 10).toString(),
         totalFetched,

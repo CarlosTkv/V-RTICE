@@ -137,8 +137,10 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
         throw new Error(data.error || 'Falha na comunicação com o WebService da SEFAZ.');
       }
 
-      addLog(`Retorno SEFAZ: cStat ${data.cStat} - ${data.xMotivo}`, 'ok');
-      addLog(`NSU Atual: ${data.ultNSU || '0'} | Max NSU: ${data.maxNSU || '0'}`, 'ok');
+      addLog(`Resposta oficial recebida da SEFAZ AN via canal seguro mTLS.`, 'ok');
+      addLog(`Status da Consulta (cStat): ${data.cStat} - ${data.xMotivo}`, 'ok');
+      addLog(`Sincronização NSU: Início ${currentCompany.lastSyncNSU || '0'} | Final ${data.ultNSU || '0'}`, 'info');
+      addLog(`Total de documentos OFICIAIS localizados na fila: ${data.totalFetched || 0}`, 'info');
 
       // Step 5: Normalization
       setCurrentStepIndex(4);
@@ -485,24 +487,39 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
             )}
           </div>
 
-          {/* Action Search Button */}
-          <button
-            onClick={handleStartSearch}
-            disabled={isSearching}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-sm shadow-xl shadow-rose-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 cursor-pointer"
-          >
-            {isSearching ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Varrendo WebServices Oficiais SEFAZ & ADN Nacional...</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-5 h-5" />
-                <span>Disparar Varredura em Produção Nacional</span>
-              </>
-            )}
-          </button>
+          {/* Action Search Button Group */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleStartSearch}
+              disabled={isSearching}
+              className="flex-[3] py-4 rounded-2xl bg-gradient-to-r from-rose-600 via-amber-600 to-rose-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold text-sm shadow-xl shadow-rose-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 cursor-pointer"
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Varrendo WebServices Oficiais SEFAZ...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-5 h-5" />
+                  <span>Disparar Varredura em Produção Nacional</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                onSuccessImport([], '0');
+                showToast('NSU de sincronização resetado para 0. A próxima varredura trará todo o histórico disponível.', 'info');
+              }}
+              disabled={isSearching}
+              className="flex-1 py-4 rounded-2xl bg-slate-900 border border-slate-700 hover:bg-slate-800 text-slate-300 font-bold text-[10px] uppercase tracking-wider transition disabled:opacity-50 flex flex-col items-center justify-center gap-0.5 cursor-pointer"
+              title="Reinicia o contador de sincronização (NSU) para buscar documentos desde o início da fila oficial"
+            >
+              <RotateCcw className="w-4 h-4 text-slate-500" />
+              <span>Reiniciar NSU</span>
+            </button>
+          </div>
 
           {/* Live Progress Radar Animation & Telemetry */}
           {isSearching && (

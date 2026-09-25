@@ -24,6 +24,7 @@
     "dotenv": "^17.2.3",
     "esbuild": "^0.25.12",
     "express": "^4.21.2",
+    "fast-xml-parser": "^5.11.1",
     "html2canvas": "^1.4.1",
     "html2canvas-pro": "^2.4.3",
     "imapflow": "^2.0.5",

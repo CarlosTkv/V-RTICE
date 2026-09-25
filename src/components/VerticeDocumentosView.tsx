@@ -1072,34 +1072,68 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   };
 
   // Single Doc Instant Manifestation (1-Click Action)
-  const handleSingleManifestar = (
+  const handleSingleManifestar = async (
     docId: string, 
     tipoManifestacao: 'Confirmada' | 'Ciência' | 'Desconhecida' | 'Não Realizada', 
     codigoEvento: string
   ) => {
-    const dataHora = new Date().toLocaleString();
-    setDocuments(prev => prev.map(doc => {
-      if (doc.id === docId) {
-        return {
-          ...doc,
-          manifestacao: tipoManifestacao,
-          dataManifestacao: dataHora
-        };
-      }
-      return doc;
-    }));
+    const doc = documents.find(d => d.id === docId);
+    if (!doc || !doc.chave) return;
 
-    setApiLogs(prev => [
-      {
-        timestamp: new Date().toLocaleTimeString(),
-        method: `SOAP / ReceitaEvento (${codigoEvento})`,
-        status: 200,
-        payload: `[EVENTO INDIVIDUAL TRANSMITIDO] Doc ID: ${docId} | Manifestação: "${tipoManifestacao}" (Código ${codigoEvento}) protocolado via mTLS ICP-Brasil.`
-      },
-      ...prev
-    ]);
+    try {
+      showToast(`Transmitindo manifestação para a SEFAZ...`, 'info');
+      
+      const response = await fetch('/api/sefaz/manifest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cnpj: currentCompany.cnpj,
+          chave: doc.chave,
+          tpEvento: codigoEvento,
+          pfxBase64: currentCompany.pfxBase64,
+          password: currentCompany.certPassword,
+          tpAmb: '1'
+        })
+      });
 
-    showToast(`Manifestação de "${tipoManifestacao}" (Evento ${codigoEvento}) registrada com sucesso na SEFAZ!`, 'success');
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error);
+
+      const dataHora = new Date().toLocaleString();
+      setDocuments(prev => prev.map(d => {
+        if (d.id === docId) {
+          return {
+            ...d,
+            manifestacao: tipoManifestacao,
+            dataManifestacao: dataHora
+          };
+        }
+        return d;
+      }));
+
+      setApiLogs(prev => [
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          method: `SOAP / RecepcaoEvento (${codigoEvento})`,
+          status: 200,
+          payload: `[EVENTO OFICIAL REGISTRADO] Chave: ${doc.chave} | Manifestação: "${tipoManifestacao}" protocolada com sucesso via mTLS.`
+        },
+        ...prev
+      ]);
+
+      showToast(`Manifestação de "${tipoManifestacao}" registrada com sucesso na SEFAZ!`, 'success');
+    } catch (err: any) {
+      showToast(`Erro ao manifestar na SEFAZ: ${err.message}`, 'error');
+      setApiLogs(prev => [
+        {
+          timestamp: new Date().toLocaleTimeString(),
+          method: `SOAP / RecepcaoEvento (${codigoEvento})`,
+          status: 500,
+          payload: `[ERRO SEFAZ] Falha ao registrar evento para a chave ${doc?.chave || '?'}: ${err.message}`
+        },
+        ...prev
+      ]);
+    }
   };
 
   // Copy chave helper
@@ -2264,6 +2298,12 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                                     </span>
                                   )}
 
+                                  {doc.xmlOriginal && (
+                                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[8px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-1" title="Documento recebido oficialmente via WebService da SEFAZ">
+                                      <ShieldCheck className="w-2.5 h-2.5" /> Oficial
+                                    </span>
+                                  )}
+
                                   <span className="text-xs font-mono font-bold text-slate-300">
                                     Nº {doc.numero} <span className="text-slate-600 font-normal">Série {doc.serie}</span>
                                   </span>
@@ -2335,6 +2375,18 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                               </div>
 
                               <div className="flex items-center gap-1.5">
+                                {/* Science of operation quick trigger */}
+                                {doc.tipo === 'NF-e' && (!doc.manifestacao || doc.manifestacao === 'Pendente') && (
+                                  <button
+                                    onClick={() => handleSingleManifestar(doc.id, 'Ciência', '210210')}
+                                    className="p-2 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-600 hover:text-white transition flex items-center gap-1.5 group"
+                                    title="Realizar Ciência da Operação (Libera XML completo)"
+                                  >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    <span className="text-[10px] font-bold hidden group-hover:inline">Dar Ciência</span>
+                                  </button>
+                                )}
+
                                 {/* Eye trigger view details */}
                                 <button
                                   onClick={() => {
