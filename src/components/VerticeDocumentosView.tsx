@@ -371,6 +371,11 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
   const [showQuickXmlUpload, setShowQuickXmlUpload] = useState<boolean>(false);
   const [showManifestarDropdown, setShowManifestarDropdown] = useState<boolean>(false);
   
+  // Scalable volume simulation state
+  const [dataScaleMode, setDataScaleMode] = useState<'sample' | 'corporate'>('sample'); // 'sample' = 500, 'corporate' = 50000
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+  
   // Advanced Modals
   const [showRadarSearchModal, setShowRadarSearchModal] = useState<boolean>(false);
   const [showSefinNfseManager, setShowSefinNfseManager] = useState<boolean>(false);
@@ -789,6 +794,17 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
       return matchTipo && matchStatus && matchDirecao && matchManifestacao && matchSearch;
     });
   }, [documents, filterTipo, filterStatus, filterDirecao, filterManifestacao, searchQuery, smartPillFilter, auditReport]);
+
+  // Paginated selection for UI rendering of real documents
+  const paginatedDocs = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredDocs.slice(startIndex, endIndex);
+  }, [filteredDocs, currentPage, pageSize]);
+
+  const virtualTotalCount = useMemo(() => {
+    return filteredDocs.length;
+  }, [filteredDocs]);
 
   // Executive KPI summary calculations
   const executiveStats = useMemo(() => {
@@ -2163,7 +2179,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                   <div className="p-4 bg-slate-900/60 border-b border-slate-800 flex items-center justify-between">
                     <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                       <Database className="w-4 h-4 text-rose-400" />
-                      Grade Analítica de Documentos ({filteredDocs.length})
+                      Grade Analítica de Documentos ({virtualTotalCount})
                     </h3>
                     <span className="text-[10px] text-slate-500 font-mono">
                       {filterDirecao === 'entrada' ? 'Apenas Entradas' : filterDirecao === 'saida' ? 'Apenas Saídas' : 'Entradas & Saídas'} • Repositório Unificado
@@ -2171,14 +2187,14 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                   </div>
 
                   <div className="divide-y divide-slate-800/60 max-h-[460px] overflow-y-auto">
-                    {filteredDocs.length === 0 ? (
+                    {paginatedDocs.length === 0 ? (
                       <div className="p-12 text-center text-slate-500">
                         <FileText className="w-12 h-12 mx-auto text-slate-600 mb-3" />
                         <p className="text-sm">Nenhum documento localizado com os filtros selecionados.</p>
                         <p className="text-xs text-slate-600 mt-1">Experimente clicar em "Sincronizar com a SEFAZ" ou importar arquivos XML locais.</p>
                       </div>
                     ) : (
-                      filteredDocs.map(doc => {
+                      paginatedDocs.map(doc => {
                         const isSelected = selectedDocIds.includes(doc.id);
                         const hasCorrections = !!doc.xmlCorrigido;
                         const hasCritInconsist = auditReport.some(a => a.docId === doc.id && a.severity === 'critical');
@@ -2376,6 +2392,49 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
                         );
                       })
                     )}
+                  </div>
+                  
+                  {/* High-Fidelity Paginated Footer */}
+                  <div className="p-4 bg-slate-900/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-end gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-400">
+                        Página <strong className="text-white font-mono">{currentPage}</strong> de <strong className="text-white font-mono">{Math.ceil(virtualTotalCount / pageSize) || 1}</strong>
+                        <span className="text-slate-600 text-[11px] font-mono ml-2">({virtualTotalCount.toLocaleString('pt-BR')} total)</span>
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-xs font-bold text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          type="button"
+                          disabled={currentPage >= Math.ceil(virtualTotalCount / pageSize)}
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(virtualTotalCount / pageSize)))}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-800 text-xs font-bold text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                        >
+                          Próxima
+                        </button>
+                      </div>
+
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-[#0B0F19] text-slate-300 text-[10px] font-bold p-1.5 rounded-lg border border-slate-800 focus:outline-none"
+                      >
+                        <option value={10}>10 por pág</option>
+                        <option value={25}>25 por pág</option>
+                        <option value={50}>50 por pág</option>
+                        <option value={100}>100 por pág</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               )}
