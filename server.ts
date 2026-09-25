@@ -22,6 +22,7 @@ import { verificarDivergenciaCFOP, avaliarStatusCancelamento, identificarSubstit
 import { encryptCertificateBuffer, decryptCertificateBuffer, encryptPassword, decryptPassword } from './src/services/cryptoService';
 import { notificarCancelamentoNFe, getRecentCancelAlerts } from './src/services/webhookNotifier';
 import { startQueueWorker, getWorkerStatus, executeQueueCycle } from './src/services/sefazQueueWorker';
+import MaquinaFiscalOnline from './MaquinaFiscalOnline.js';
 
 // Inicia o Worker de Sincronização por NSU em Segundo Plano (node-cron a cada hora)
 sefinCronWorker.startWorker('0 * * * *');
@@ -1837,6 +1838,41 @@ async function startServer() {
       }
     } catch (err) {
       console.error('[API v1 XML Lote Error]:', err);
+    }
+  });
+
+  // VÉRTICE DOCUMENTOS - MAQUINA FISCAL ONLINE (PROCESSAMENTO 100% EM MEMÓRIA RAM)
+  app.post('/api/v1/maquina-fiscal/processar', uploadMulter.single('xmlFile'), async (req: express.Request, res: express.Response): Promise<any> => {
+    try {
+      const cnpjSistema = req.body.cnpjSistema || req.body.cnpj || '12345678000199';
+      let xmlContent = '';
+
+      if (req.file) {
+        xmlContent = req.file.buffer.toString('utf-8');
+      } else if (req.body.xmlString) {
+        xmlContent = req.body.xmlString;
+      } else {
+        return res.status(400).json({ error: 'Arquivo xmlFile (upload) ou campo xmlString no body é obrigatório.' });
+      }
+
+      const motor = new MaquinaFiscalOnline(cnpjSistema);
+      const resultado = await motor.processarDocumento(xmlContent);
+
+      if (req.query.format === 'pdf') {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="DANFE-${resultado.dadosFiscais.numero || 'doc'}.pdf"`);
+        return res.send(resultado.pdfBuffer);
+      }
+
+      res.json({
+        sucesso: true,
+        dadosFiscais: resultado.dadosFiscais,
+        pdfBase64: resultado.pdfBuffer ? resultado.pdfBuffer.toString('base64') : null,
+        tamanhoPdfBytes: resultado.pdfBuffer ? resultado.pdfBuffer.length : 0
+      });
+    } catch (err: any) {
+      console.error('[MaquinaFiscalOnline Error]:', err?.message);
+      res.status(422).json({ sucesso: false, erro: err?.message || 'Erro de processamento fiscal.' });
     }
   });
 
