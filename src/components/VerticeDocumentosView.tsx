@@ -873,6 +873,7 @@ export const VerticeDocumentosView: React.FC<VerticeDocumentosViewProps> = ({
         },
         body: JSON.stringify({
           cnpj: currentCompany?.cnpj || '04.921.832/0001-99',
+          name: currentCompany?.name,
           pfxBase64: effectivePfxBase64,
           password: effectiveCertPassword,
           tpAmb: environment, // '1' = Produção
