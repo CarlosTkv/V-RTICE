@@ -218,69 +218,6 @@ export const SYSTEM_MODULES_TREE: ModuleTreeDef[] = [
     ]
   },
   {
-    id: 'vertice_documentos',
-    name: 'Vértice Documentos (SEFAZ DFe / mTLS)',
-    description: 'Captura em tempo real de NF-e, NFS-e e CT-e na Receita Federal via mTLS com certificado A1.',
-    icon: Globe,
-    color: 'text-emerald-400',
-    badgeBg: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
-    planKey: 'auditoria_digital',
-    submodules: [
-      {
-        id: 'sub_dfe_busca',
-        name: 'Busca Direta na SEFAZ Nacional',
-        description: 'Comunicação oficial mTLS com os WebServices da Receita Federal.',
-        tabKey: 'vertice_documentos',
-        tabs: [
-          { id: 'tab_dfe_busca_tempo_real', name: 'Consulta em Tempo Real de NF-e / NFS-e / CT-e', description: 'Varredura direta no barramento SEFAZ.' },
-          { id: 'tab_dfe_busca_chave', name: 'Busca por Chave de Acesso (44 dígitos)', description: 'Consulta pontual de documentos.' },
-          { id: 'tab_dfe_busca_nsu', name: 'Controle de NSU & Lotes de Sincronização', description: 'Sequenciamento de notas baixadas.' }
-        ]
-      },
-      {
-        id: 'sub_dfe_repositorio',
-        name: 'Repositório & Gestão de XMLs e DANFEs',
-        description: 'Armazenamento em nuvem, leitura de tags e impressão de DANFE.',
-        tabKey: 'vertice_documentos',
-        tabs: [
-          { id: 'tab_dfe_rep_armazenamento', name: 'Download de XMLs em Lote (.ZIP)', description: 'Pacotes completos de arquivos XML.' },
-          { id: 'tab_dfe_rep_danfe', name: 'Visualizador & Impressão de DANFE / DACTE', description: 'Geração de PDF do documento fiscal.' },
-          { id: 'tab_dfe_rep_filtros', name: 'Filtros Avançados por Emitente, CFOP e Data', description: 'Pesquisa refinada de notas.' }
-        ]
-      },
-      {
-        id: 'sub_dfe_manifestacao',
-        name: 'Manifestação do Destinatário',
-        description: 'Envio de eventos fiscais governamentais de confirmação ou ciência.',
-        tabKey: 'vertice_documentos',
-        tabs: [
-          { id: 'tab_dfe_manif_ciencia', name: 'Ciência da Emissão de NF-e', description: 'Registro de ciência na SEFAZ.' },
-          { id: 'tab_dfe_manif_confirmacao', name: 'Confirmação da Operação / Desconhecimento', description: 'Validação jurídica da entrada.' }
-        ]
-      },
-      {
-        id: 'sub_dfe_divergencias',
-        name: 'Relatório de Divergência Fiscal',
-        description: 'Auditoria de valores calculados vs destacados no XML.',
-        tabKey: 'vertice_documentos',
-        tabs: [
-          { id: 'tab_dfe_div_st_difal', name: 'Divergências de DIFAL & Substituição Tributária (ST)', description: 'Auditoria de cálculos tributários.' },
-          { id: 'tab_dfe_div_edicao', name: 'Edição Rápida & Correção de Valores', description: 'Ajuste de valores destacados.' }
-        ]
-      },
-      {
-        id: 'sub_dfe_robo',
-        name: 'Tarefas Agendadas & Robô de Captura Automática',
-        description: 'Automação noturna e agendamentos de busca por centralizador.',
-        tabKey: 'vertice_documentos',
-        tabs: [
-          { id: 'tab_dfe_robo_intervalos', name: 'Configuração de Intervalos (Diário / Semanal)', description: 'Horários automáticos de busca.' },
-          { id: 'tab_dfe_robo_logs', name: 'Logs & Status de Execução do Robô', description: 'Histórico de sincronizações.' }
-        ]
-      }
-    ]
-  },
-  {
     id: 'consultoria_fiscal',
     name: 'Consultoria Fiscal & Técnica',
     description: 'Banco de dados tributário de NCM, alíquotas estaduais, MVA, CFOP e códigos de serviços.',
@@ -674,8 +611,7 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
   const [permSearchQuery, setPermSearchQuery] = useState('');
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
     auditoria_digital: true,
-    planejamento_tributario: true,
-    vertice_documentos: true
+    planejamento_tributario: true
   });
 
   // Batch Import
@@ -793,13 +729,13 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
       if (preset === 'todos') {
         shouldEnableModule = inPlan;
       } else if (preset === 'auditor') {
-        shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'vertice_documentos', 'consultoria_fiscal'].includes(mod.id);
+        shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'consultoria_fiscal'].includes(mod.id);
       } else if (preset === 'contador') {
         shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'emissao_nfse', 'financeiro_bpo', 'legal_societario', 'agenda_fiscal'].includes(mod.id);
       } else if (preset === 'bpo') {
         shouldEnableModule = inPlan && ['financeiro_bpo', 'emissao_nfse', 'contratos_webmail'].includes(mod.id);
       } else if (preset === 'assistente') {
-        shouldEnableModule = inPlan && ['vertice_documentos', 'emissao_nfse', 'agenda_fiscal', 'consultoria_fiscal'].includes(mod.id);
+        shouldEnableModule = inPlan && ['emissao_nfse', 'agenda_fiscal', 'consultoria_fiscal'].includes(mod.id);
       } else if (preset === 'leitor') {
         shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'agenda_fiscal'].includes(mod.id);
       }

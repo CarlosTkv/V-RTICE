@@ -86,8 +86,7 @@ type NavModuleId =
   | 'agenda_fiscal' 
   | 'emissao_nfse'
   | 'portal_parceiro' 
-  | 'gestao_master'
-  | 'vertice_documentos';
+  | 'gestao_master';
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentCompany,
@@ -121,7 +120,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   // Identifica o módulo ativo com base na aba
   const activeModule: NavModuleId = React.useMemo(() => {
-    if (['vertice_documentos'].includes(activeTab)) return 'vertice_documentos';
     if (['dashboard', 'auditoria_digital', 'fator_r', 'socios'].includes(activeTab)) return 'auditoria_digital';
     if (['planejamento_tributario', 'regimes', 'reforma', 'projecao', 'parecer', 'historico', 'simples_hibrido', 'econet_report'].includes(activeTab)) return 'planejamento_tributario';
     if (['financeiro_gerencial', 'financeiro', 'balancete_dre', 'bpo', 'bpo_financeiro'].includes(activeTab)) return 'financeiro_gerencial';
@@ -167,7 +165,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'emissao_nfse': setActiveTab('emissao_nfse'); break;
       case 'portal_parceiro': setActiveTab('portal_parceiro'); break;
       case 'gestao_master': setActiveTab('gestao_planos'); break;
-      case 'vertice_documentos': setActiveTab('vertice_documentos'); break;
     }
   };
 
@@ -234,7 +231,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const activeBrandModule = React.useMemo(() => {
-    if (['vertice_documentos'].includes(activeTab)) return 'nfse';
     if (['dashboard', 'auditoria_digital'].includes(activeTab)) return 'master';
     if (['fator_r', 'planejamento_tributario', 'regimes'].includes(activeTab)) return 'simples';
     if (['reforma'].includes(activeTab)) return 'reforma';
@@ -278,14 +274,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                    <span className="hidden xl:inline">Validador Oficial</span>
                  </button>
                )}
-               <button
-                    onClick={() => setActiveTab && setActiveTab("vertice_documentos")}
-                    className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/70 hover:bg-emerald-900/70 text-emerald-300 border border-emerald-800/70 transition text-[10px] font-bold cursor-pointer"
-                    title="Buscador de Notas Fiscais: Entradas, Saídas, XML e DANFE PDF"
-                  >
-                    <FileCode className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="hidden xl:inline">Buscador de Notas (Entradas & Saídas)</span>
-                  </button>
                <button onClick={onOpenNotifications} className="p-2 text-slate-500 hover:text-amber-400 transition relative">
                  <Bell className="w-4 h-4" />
                  <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full border border-[#0B0F19]" />
@@ -364,16 +352,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="py-2.5 space-y-1.5">
           {!isEmpresa ? (
             <div className="space-y-1.5 w-full">
-              {/* Linha 1: 5 Módulos Principais do Sistema (Fator R, Planejamento, Blindagem Societária, Emissor NFS-e, Financeiro) */}
+              {/* Linha 1: Módulos Principais do Sistema (Fator R, Planejamento, Blindagem Societária, Emissor NFS-e, Financeiro) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
-                <NavButton 
-                  id="vertice_documentos" 
-                  label="Buscador & Gestor de Notas" 
-                  icon={FileCode} 
-                  color="emerald" 
-                  pattern="emerald" 
-                  subLabel="Entradas & Saídas • Busca Ilimitada" 
-                />
                 <NavButton 
                   id="auditoria_digital" 
                   label="Fator R & Auditoria" 
@@ -458,28 +438,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                   pattern="slate" 
                   subLabel="Planos Master & Licenças" 
                 />
-                {isMasterUser && (
-                  <NavButton 
-                    id="vertice_documentos" 
-                    label="Vértice Documentos" 
-                    icon={FileCode} 
-                    color="rose" 
-                    pattern="rose" 
-                    subLabel="Busca, Correção & XML (Dev)" 
-                  />
-                )}
               </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
-              <NavButton 
-                id="vertice_documentos" 
-                label="Buscador & Gestor de Notas" 
-                icon={FileCode} 
-                color="emerald" 
-                pattern="emerald" 
-                subLabel="Entradas & Saídas • Busca Ilimitada" 
-              />
               <NavButton 
                 id="emissao_nfse" 
                 label="Emissor Fiscal NFS-e" 

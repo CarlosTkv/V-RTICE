@@ -46,7 +46,6 @@ import { NCMServiceLookupView } from './components/NCMServiceLookupView';
 import { SimplesHibridoModule } from './components/taxPlanning/SimplesHibridoModule';
 import { SimplesHibridoClientPortal } from './components/taxPlanning/SimplesHibridoClientPortal';
 import { EconetReportGeneratorView } from './components/EconetReportGeneratorView';
-import { VerticeDocumentosView } from './components/VerticeDocumentosView';
 // Remove import
 import { PRESET_COMPANIES } from './data/presets';
 import { CompanyData, AuthUser, AppViewMode, AppActiveTab } from './types';
@@ -173,6 +172,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppActiveTab>(() => {
     const saved = localStorage.getItem('sna_active_tab') as AppActiveTab;
+    if (saved === ('vertice_documentos' as any)) return 'dashboard';
     return saved || 'dashboard';
   });
 
@@ -868,20 +868,6 @@ export default function App() {
           />
         );
 
-      case 'vertice_documentos':
-        return (
-          <VerticeDocumentosView
-            currentCompany={safeCurrentCompany}
-            companies={companies}
-            onUpdateCompany={handleUpdateCurrentCompany}
-            onSelectCompany={(idx: number) => setActiveCompanyIndex(idx)}
-            onCreateCompany={handleCreateCompany}
-            onDeleteCompany={handleDeleteCompany}
-            onOpenCompanyManager={() => setIsCompanyManagerOpen(true)}
-            showToast={showToast}
-            isMaster={authUser?.role === 'master' || authUser?.isMaster}
-          />
-        );
 
       default:
         return (

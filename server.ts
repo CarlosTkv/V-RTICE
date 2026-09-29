@@ -23,6 +23,7 @@ import { encryptCertificateBuffer, decryptCertificateBuffer, encryptPassword, de
 import { notificarCancelamentoNFe, getRecentCancelAlerts } from './src/services/webhookNotifier';
 import { startQueueWorker, getWorkerStatus, executeQueueCycle } from './src/services/sefazQueueWorker';
 import MaquinaFiscalOnline from './MaquinaFiscalOnline.js';
+import { NfseCrawler } from './src/services/nfseCrawler';
 
 // Inicia o Worker de Sincronização por NSU em Segundo Plano (node-cron a cada hora)
 sefinCronWorker.startWorker('0 * * * *');
@@ -491,7 +492,7 @@ Analisando a sua solicitação em consonância com a legislação tributária br
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const PORT = process.env.PORT && process.env.PORT !== '8080' ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json());
 
@@ -2046,6 +2047,65 @@ async function startServer() {
       });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // SINCRONIZAÇÃO AUTOMÁTICA DE NFS-e NO PORTAL NACIONAL (ADN / Sefin / Receita Federal)
+  app.post('/api/v1/nfse/sincronizar', async (req, res) => {
+    try {
+      const { cnpj, pfxBase64, password, passphrase, ambiente, dataInicio, dataFim, pagina, limite } = req.body;
+      if (!cnpj) {
+        return res.status(400).json({
+          success: false,
+          error: 'O CNPJ da empresa é obrigatório para sincronização de NFS-e.'
+        });
+      }
+
+      console.log(`[API /api/v1/nfse/sincronizar] Executando sincronização oficial para CNPJ ${cnpj}...`);
+
+      const resultado = await NfseCrawler.sincronizar({
+        cnpj,
+        pfxBuffer: pfxBase64,
+        passphrase: password || passphrase,
+        ambiente: ambiente || '1',
+        dataInicio,
+        dataFim,
+        pagina: pagina ? parseInt(pagina, 10) : 1,
+        itensPorPagina: limite ? parseInt(limite, 10) : 50
+      });
+
+      return res.status(resultado.success ? 200 : 422).json(resultado);
+    } catch (err: any) {
+      console.error('[API /api/v1/nfse/sincronizar] Erro interno:', err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || 'Erro inesperado na sincronização com o Portal Nacional da NFS-e.'
+      });
+    }
+  });
+
+  app.get('/api/v1/nfse/sincronizar', async (req, res) => {
+    try {
+      const { cnpj, ambiente, dataInicio, dataFim, pagina, limite } = req.query;
+      if (!cnpj) {
+        return res.status(400).json({
+          success: false,
+          error: 'O parâmetro cnpj é obrigatório.'
+        });
+      }
+
+      const resultado = await NfseCrawler.sincronizar({
+        cnpj: String(cnpj),
+        ambiente: (ambiente as any) || '1',
+        dataInicio: dataInicio ? String(dataInicio) : undefined,
+        dataFim: dataFim ? String(dataFim) : undefined,
+        pagina: pagina ? parseInt(String(pagina), 10) : 1,
+        itensPorPagina: limite ? parseInt(String(limite), 10) : 50
+      });
+
+      return res.status(resultado.success ? 200 : 422).json(resultado);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
     }
   });
 

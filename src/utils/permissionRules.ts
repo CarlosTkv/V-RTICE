@@ -280,9 +280,6 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
     if (tab === 'parecer' && sub.plan_parecer === false && sub.hibrido_parecer === false) {
       return { allowed: false, reason: 'Acesso à Emissão de Parecer Técnico desabilitado.' };
     }
-    if (tab === 'vertice_documentos' && sub.dfe_busca_sefaz === false && sub.dfe_repositorio_xml === false) {
-      return { allowed: false, reason: 'Acesso ao Vértice Documentos / SEFAZ DFe desabilitado.' };
-    }
     if (tab === 'cfop' && sub.cons_cfop === false) {
       return { allowed: false, reason: 'Acesso à Consulta CFOP / Monofásicos desabilitado.' };
     }

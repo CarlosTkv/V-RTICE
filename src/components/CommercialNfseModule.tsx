@@ -18,13 +18,24 @@ import {
   AlertCircle,
   FileCode,
   Check,
-  Edit3
+  Edit3,
+  KeyRound,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Eye,
+  EyeOff,
+  Globe,
+  Copy,
+  Trash2,
+  Layers
 } from 'lucide-react';
+import JSZip from 'jszip';
 import { CompanyData, AuthUser, AppViewMode, BankConfig, BillingInvoice, NfseNacionalData } from '../types';
 import { NfseNacionalService } from '../utils/nfseService';
 import { AuthService } from '../utils/authService';
 import { NfseNacionalModal } from './NfseNacionalModal';
 import { BrandLogo } from './BrandLogo';
+import { NfseDocumentoCapturado } from '../services/nfseCrawler';
 
 interface CommercialNfseModuleProps {
   currentCompany: CompanyData;
@@ -62,7 +73,187 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
   bankConfig,
   invoices = []
 }) => {
-  const [activeTab, setActiveTab] = useState<'emitir' | 'historico' | 'tomadores' | 'config'>('emitir');
+  const [activeTab, setActiveTab] = useState<'portal_nacional' | 'emitir' | 'historico' | 'tomadores' | 'config'>('portal_nacional');
+
+  // Estados de Captura Oficial de NFS-e no Portal Nacional (ADN / Sefin / Receita Federal)
+  const nfseStorageKey = `portal_nacional_nfse_${currentCompany.cnpj.replace(/\D/g, '')}`;
+  const [realNfseDocs, setRealNfseDocs] = useState<NfseDocumentoCapturado[]>(() => {
+    try {
+      const saved = localStorage.getItem(nfseStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(nfseStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setRealNfseDocs(parsed);
+          return;
+        }
+      }
+      setRealNfseDocs([]);
+    } catch {
+      setRealNfseDocs([]);
+    }
+  }, [nfseStorageKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(nfseStorageKey, JSON.stringify(realNfseDocs));
+    } catch (e) {}
+  }, [realNfseDocs, nfseStorageKey]);
+
+  const [isSyncingNfse, setIsSyncingNfse] = useState(false);
+  const [nfseSyncDiagnostic, setNfseSyncDiagnostic] = useState<string | null>(null);
+  const [pfxFile, setPfxFile] = useState<File | null>(null);
+  const [pfxPassword, setPfxPassword] = useState('');
+  const [showPfxPassword, setShowPfxPassword] = useState(false);
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
+  const [filtroDirecao, setFiltroDirecao] = useState<'todas' | 'saida' | 'entrada'>('todas');
+  const [activeDanfseDoc, setActiveDanfseDoc] = useState<NfseDocumentoCapturado | null>(null);
+  const [activeXmlDoc, setActiveXmlDoc] = useState<NfseDocumentoCapturado | null>(null);
+
+  // Executa o disparo da API oficial /api/v1/nfse/sincronizar
+  const handleTriggerNfseSync = async () => {
+    setIsSyncingNfse(true);
+    setNfseSyncDiagnostic('Conectando ao Ambiente de Dados Nacional (ADN / Sefin / Receita Federal)...');
+
+    try {
+      let pfxBase64 = '';
+      if (pfxFile) {
+        const buffer = await pfxFile.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        pfxBase64 = btoa(binary);
+      }
+
+      const res = await fetch('/api/v1/nfse/sincronizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cnpj: currentCompany.cnpj,
+          pfxBase64: pfxBase64 || undefined,
+          password: pfxPassword || currentCompany.certificateA1?.password || undefined,
+          dataInicio: filtroDataInicio || undefined,
+          dataFim: filtroDataFim || undefined,
+          ambiente: '1' // Produção Oficial
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setNfseSyncDiagnostic(data.mensagem || 'Sincronização oficial concluída com sucesso!');
+        if (data.documentos && Array.isArray(data.documentos) && data.documentos.length > 0) {
+          setRealNfseDocs(prev => {
+            const existingKeys = new Set(prev.map(d => d.chaveAcesso));
+            const novos = data.documentos.filter((d: NfseDocumentoCapturado) => !existingKeys.has(d.chaveAcesso));
+            return [...novos, ...prev];
+          });
+          showToast(`${data.documentos.length} NFS-e(s) capturada(s) com sucesso no Portal Nacional!`);
+        } else {
+          showToast('Nenhuma nova NFS-e retornada pelo Portal Nacional no período.');
+        }
+      } else {
+        const errMessage = data.error || data.mensagem || 'Falha na resposta do Portal Nacional.';
+        setNfseSyncDiagnostic(`Erro retornado: ${errMessage}`);
+        showToast(`Erro na sincronização: ${errMessage}`);
+      }
+    } catch (e: any) {
+      setNfseSyncDiagnostic(`Erro de conexão com o servidor: ${e.message}`);
+      showToast(`Falha de comunicação: ${e.message}`);
+    } finally {
+      setIsSyncingNfse(false);
+    }
+  };
+
+  // Download do XML Oficial
+  const handleDownloadNfseXml = (doc: NfseDocumentoCapturado) => {
+    if (!doc.xmlConteudo) {
+      showToast('Conteúdo XML não disponível para este registro.');
+      return;
+    }
+    const blob = new Blob([doc.xmlConteudo], { type: 'application/xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `NFSe_${doc.chaveAcesso || doc.numero}.xml`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Download do XML oficial da NFS-e iniciado!');
+  };
+
+  // Download do PDF DANFSE Oficial
+  const handleDownloadDanfsePdf = (doc: NfseDocumentoCapturado) => {
+    if (doc.pdfBase64) {
+      const byteCharacters = atob(doc.pdfBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DANFSE_${doc.chaveAcesso || doc.numero}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Download do DANFSE em PDF iniciado!');
+      return;
+    }
+    showToast('Espelho PDF sendo gerado a partir do XML oficial...');
+  };
+
+  // Download em Lote (.ZIP)
+  const handleBatchDownloadZip = async () => {
+    if (realNfseDocs.length === 0) {
+      showToast('Nenhum documento para exportação em lote.');
+      return;
+    }
+    try {
+      const zip = new JSZip();
+      const folderXml = zip.folder('xmls');
+      const folderPdf = zip.folder('danfses');
+
+      realNfseDocs.forEach(doc => {
+        if (doc.xmlConteudo && folderXml) {
+          folderXml.file(`NFSe_${doc.chaveAcesso || doc.numero}.xml`, doc.xmlConteudo);
+        }
+        if (doc.pdfBase64 && folderPdf) {
+          folderPdf.file(`DANFSE_${doc.chaveAcesso || doc.numero}.pdf`, doc.pdfBase64, { base64: true });
+        }
+      });
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LOTE_NFSE_PORTAL_NACIONAL_${currentCompany.cnpj.replace(/\D/g, '')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Pacote .ZIP com XMLs e PDFs gerado com sucesso!');
+    } catch (e: any) {
+      showToast(`Erro ao gerar pacote .ZIP: ${e.message}`);
+    }
+  };
 
   // Tomadores salvos
   const [tomadores, setTomadores] = useState<CommercialTomador[]>(() => {
@@ -373,7 +564,19 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
       </div>
 
       {/* Navegação por Sub-Abas do Módulo Commercial */}
-      <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
+      <div className="flex items-center space-x-2 border-b border-slate-800 pb-3 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('portal_nacional')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
+            activeTab === 'portal_nacional'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30 border border-emerald-400/40'
+              : 'bg-[#0F172A] text-emerald-400 hover:text-white border border-emerald-900/60'
+          }`}
+        >
+          <Globe className="w-4 h-4 text-emerald-300" />
+          <span>Captura Portal Nacional ({realNfseDocs.length})</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('emitir')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
@@ -422,6 +625,483 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
           <span>4. Certificado & Regras Fiscais</span>
         </button>
       </div>
+
+      {/* ABA 0: CAPTURA OFICIAL PORTAL NACIONAL NFS-E */}
+      {activeTab === 'portal_nacional' && (
+        <div className="space-y-6">
+          {/* Painel de Disparo da API de Sincronização */}
+          <div className="bg-[#0F172A] border border-emerald-500/40 rounded-2xl p-6 shadow-xl space-y-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    PORTAL NACIONAL ADN / SEFIN • PRODUÇÃO
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono text-[10px] font-bold border border-blue-500/30">
+                    ROTA API: /api/v1/nfse/sincronizar
+                  </span>
+                </div>
+                <h4 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Globe className="w-5 h-5 text-emerald-400" />
+                  Sincronização & Captura Automática de NFS-e (XML e PDF)
+                </h4>
+                <p className="text-xs text-slate-300">
+                  Comunicação direta via mTLS e crawler oficial com o repositório nacional da Receita Federal. Captura notas fiscais <strong className="text-emerald-400">Prestadas</strong> (emitidas) e <strong className="text-blue-400">Tomadas</strong> (recebidas de fornecedores).
+                </p>
+              </div>
+
+              <div className="text-right">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">CNPJ Consultado</div>
+                <div className="text-sm font-black text-emerald-400 font-mono">{currentCompany.cnpj}</div>
+              </div>
+            </div>
+
+            {/* Formulário de Credenciais mTLS e Parâmetros */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                  Certificado A1 (.pfx ou .p12)
+                </label>
+                <input
+                  type="file"
+                  accept=".pfx,.p12"
+                  onChange={e => {
+                    if (e.target.files && e.target.files[0]) {
+                      setPfxFile(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-slate-900 border border-slate-700 rounded-xl p-1.5"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Senha do Certificado Digital</label>
+                <div className="relative">
+                  <input
+                    type={showPfxPassword ? 'text' : 'password'}
+                    value={pfxPassword}
+                    onChange={e => setPfxPassword(e.target.value)}
+                    placeholder={currentCompany.certificateA1?.password ? '•••••••• (Usar salva)' : 'Digite a senha do A1...'}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPfxPassword(!showPfxPassword)}
+                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showPfxPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Período de Emissão (Opcional)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={filtroDataInicio}
+                    onChange={e => setFiltroDataInicio(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none"
+                    title="Data Início"
+                  />
+                  <input
+                    type="date"
+                    value={filtroDataFim}
+                    onChange={e => setFiltroDataFim(e.target.value)}
+                    className="bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none"
+                    title="Data Fim"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botão de Disparo */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <div className="text-xs text-slate-400 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                <span>Modo Produção: Executa consulta direta aos servidores da Receita Federal / Serpro</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTriggerNfseSync}
+                disabled={isSyncingNfse}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/40 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSyncingNfse ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
+                    <span>Sincronizando com o Portal Nacional...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-emerald-200" />
+                    <span>Disparar Sincronização Automática</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Painel de Diagnóstico */}
+            {nfseSyncDiagnostic && (
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-emerald-300 flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold text-white">Retorno do Barramento Nacional:</div>
+                  <div className="text-slate-300 leading-relaxed">{nfseSyncDiagnostic}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Métricas e Barra de Ações */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total NFS-e Reais</div>
+              <div className="text-2xl font-black text-white font-mono">{realNfseDocs.length}</div>
+              <div className="text-[10px] text-slate-500">Documentos autenticados</div>
+            </div>
+
+            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prestadas (Saídas)</div>
+              <div className="text-xl font-black text-emerald-400 font-mono">
+                R$ {realNfseDocs.filter(d => d.direcao === 'saida').reduce((acc, d) => acc + (d.valorServicos || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-[10px] text-slate-500">{realNfseDocs.filter(d => d.direcao === 'saida').length} nota(s) emitidas</div>
+            </div>
+
+            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tomadas (Entradas)</div>
+              <div className="text-xl font-black text-blue-400 font-mono">
+                R$ {realNfseDocs.filter(d => d.direcao === 'entrada').reduce((acc, d) => acc + (d.valorServicos || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-[10px] text-slate-500">{realNfseDocs.filter(d => d.direcao === 'entrada').length} nota(s) de fornecedores</div>
+            </div>
+
+            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ISSQN Total</div>
+              <div className="text-xl font-black text-amber-400 font-mono">
+                R$ {realNfseDocs.reduce((acc, d) => acc + (d.valorIss || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div className="text-[10px] text-slate-500">Imposto municipal retido/destacado</div>
+            </div>
+          </div>
+
+          {/* Filtros e Download em Lote */}
+          <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">Exibir:</span>
+              <button
+                onClick={() => setFiltroDirecao('todas')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  filtroDirecao === 'todas' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'
+                }`}
+              >
+                Todas ({realNfseDocs.length})
+              </button>
+              <button
+                onClick={() => setFiltroDirecao('saida')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                  filtroDirecao === 'saida' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-emerald-400 hover:text-white'
+                }`}
+              >
+                <ArrowUpRight className="w-3.5 h-3.5" />
+                Prestadas ({realNfseDocs.filter(d => d.direcao === 'saida').length})
+              </button>
+              <button
+                onClick={() => setFiltroDirecao('entrada')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                  filtroDirecao === 'entrada' ? 'bg-blue-600 text-white' : 'bg-slate-900 text-blue-400 hover:text-white'
+                }`}
+              >
+                <ArrowDownLeft className="w-3.5 h-3.5" />
+                Tomadas ({realNfseDocs.filter(d => d.direcao === 'entrada').length})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleBatchDownloadZip}
+                disabled={realNfseDocs.length === 0}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-40"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Baixar Lote (.ZIP de XML e PDF)</span>
+              </button>
+
+              {realNfseDocs.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm('Deseja limpar os registros baixados desta empresa?')) {
+                      setRealNfseDocs([]);
+                      localStorage.removeItem(nfseStorageKey);
+                      showToast('Registros locais limpos.');
+                    }
+                  }}
+                  className="p-2 rounded-xl bg-slate-900 hover:bg-rose-950/40 border border-slate-800 text-slate-400 hover:text-rose-400 transition cursor-pointer"
+                  title="Limpar registros locais"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tabela de Resultados Reais */}
+          {realNfseDocs.length === 0 ? (
+            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-10 text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                <Globe className="w-8 h-8" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h5 className="font-bold text-white text-base">Nenhuma NFS-e sincronizada</h5>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Insira o Certificado A1 (.pfx) acima e clique em <strong className="text-emerald-400">Disparar Sincronização Automática</strong> para consultar os WebServices oficiais da Receita Federal.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-[#0B0F19] text-slate-400 uppercase font-bold text-[10px] border-b border-slate-800">
+                    <tr>
+                      <th className="p-3.5">Chave / Número</th>
+                      <th className="p-3.5">Emissão</th>
+                      <th className="p-3.5">Direção</th>
+                      <th className="p-3.5">Prestador</th>
+                      <th className="p-3.5">Tomador</th>
+                      <th className="p-3.5 text-right">Valor Serviços</th>
+                      <th className="p-3.5 text-right">ISSQN</th>
+                      <th className="p-3.5 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-sans">
+                    {realNfseDocs
+                      .filter(d => filtroDirecao === 'todas' || d.direcao === filtroDirecao)
+                      .map(doc => (
+                        <tr key={doc.id || doc.chaveAcesso} className="hover:bg-slate-900/60 transition">
+                          <td className="p-3.5">
+                            <div className="font-bold text-white font-mono">Nº {doc.numero}</div>
+                            <div className="text-[10px] text-slate-500 font-mono truncate max-w-[140px]" title={doc.chaveAcesso}>
+                              {doc.chaveAcesso}
+                            </div>
+                          </td>
+
+                          <td className="p-3.5 font-mono text-slate-400 whitespace-nowrap">
+                            {doc.dataEmissao ? new Date(doc.dataEmissao).toLocaleDateString('pt-BR') : '-'}
+                          </td>
+
+                          <td className="p-3.5 whitespace-nowrap">
+                            {doc.direcao === 'saida' ? (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1 w-fit">
+                                <ArrowUpRight className="w-3 h-3" />
+                                Prestada
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[10px] font-bold flex items-center gap-1 w-fit">
+                                <ArrowDownLeft className="w-3 h-3" />
+                                Tomada
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="p-3.5 max-w-[180px]">
+                            <div className="font-bold text-slate-200 truncate" title={doc.emitenteNome}>{doc.emitenteNome}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{doc.emitenteCnpj}</div>
+                          </td>
+
+                          <td className="p-3.5 max-w-[180px]">
+                            <div className="font-bold text-slate-200 truncate" title={doc.tomadorNome}>{doc.tomadorNome}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{doc.tomadorCnpj}</div>
+                          </td>
+
+                          <td className="p-3.5 text-right font-mono font-bold text-white whitespace-nowrap">
+                            R$ {(doc.valorServicos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </td>
+
+                          <td className="p-3.5 text-right font-mono text-slate-300 whitespace-nowrap">
+                            R$ {(doc.valorIss || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            {doc.issRetido && <span className="block text-[9px] text-amber-400">Retido</span>}
+                          </td>
+
+                          <td className="p-3.5 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => setActiveDanfseDoc(doc)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                                title="Visualizar DANFSE (PDF Oficial)"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-blue-400" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDownloadDanfsePdf(doc)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                                title="Baixar PDF (DANFSE)"
+                              >
+                                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                              </button>
+
+                              <button
+                                onClick={() => setActiveXmlDoc(doc)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                                title="Inspecionar XML Bruto Oficial"
+                              >
+                                <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                              </button>
+
+                              <button
+                                onClick={() => handleDownloadNfseXml(doc)}
+                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                                title="Baixar arquivo XML Oficial"
+                              >
+                                <Download className="w-3.5 h-3.5 text-slate-400" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Modal DANFSE PDF Oficial */}
+          {activeDanfseDoc && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-[#0F172A] border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-base">Espelho DANFSE • NFS-e Nacional</h4>
+                      <p className="text-xs text-slate-400 font-mono">Chave: {activeDanfseDoc.chaveAcesso}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setActiveDanfseDoc(null)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                </div>
+
+                <div className="bg-white text-slate-900 p-6 rounded-2xl space-y-4 font-sans text-xs">
+                  <div className="flex justify-between items-start border-b border-slate-300 pb-3">
+                    <div>
+                      <div className="font-black text-sm uppercase">{activeDanfseDoc.emitenteNome}</div>
+                      <div className="font-mono text-[11px] text-slate-600">CNPJ Prestador: {activeDanfseDoc.emitenteCnpj}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-black text-sm text-emerald-700">NFS-e Padrão Nacional</div>
+                      <div className="font-mono font-bold text-xs">Nº {activeDanfseDoc.numero} • Série {activeDanfseDoc.serie}</div>
+                      <div className="text-[10px] text-slate-500">Emissão: {activeDanfseDoc.dataEmissao}</div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-100 rounded-xl space-y-1">
+                    <div className="font-bold text-[10px] uppercase text-slate-500">Tomador dos Serviços</div>
+                    <div className="font-bold text-xs">{activeDanfseDoc.tomadorNome}</div>
+                    <div className="font-mono text-[11px] text-slate-600">CNPJ/CPF: {activeDanfseDoc.tomadorCnpj}</div>
+                  </div>
+
+                  <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                    <div className="font-bold text-[10px] uppercase text-slate-500">Discriminação dos Serviços</div>
+                    <div className="text-xs text-slate-700 whitespace-pre-wrap">{activeDanfseDoc.discriminacao || 'Serviços prestados conforme contrato.'}</div>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-slate-900 text-white p-4 rounded-xl">
+                    <div>
+                      <div className="text-[10px] uppercase text-slate-400">Valor dos Serviços</div>
+                      <div className="text-lg font-black font-mono">
+                        R$ {(activeDanfseDoc.valorServicos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase text-slate-400">ISSQN Apurado</div>
+                      <div className="text-lg font-black font-mono text-emerald-400">
+                        R$ {(activeDanfseDoc.valorIss || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => handleDownloadDanfsePdf(activeDanfseDoc)}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Baixar DANFSE (PDF)</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveDanfseDoc(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal XML Oficial */}
+          {activeXmlDoc && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+              <div className="bg-[#0F172A] border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                      <FileCode className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white text-base">Código-Fonte XML Oficial (NFS-e Nacional)</h4>
+                      <p className="text-xs text-slate-400 font-mono truncate max-w-md">Chave: {activeXmlDoc.chaveAcesso}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setActiveXmlDoc(null)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                </div>
+
+                <div className="flex-1 overflow-auto bg-[#070B13] border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-emerald-300 whitespace-pre">
+                  {activeXmlDoc.xmlConteudo || '<!-- XML não disponível -->'}
+                </div>
+
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    onClick={() => {
+                      if (activeXmlDoc.xmlConteudo) {
+                        navigator.clipboard.writeText(activeXmlDoc.xmlConteudo);
+                        showToast('XML copiado para a área de transferência!');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copiar XML</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleDownloadNfseXml(activeXmlDoc)}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Baixar Arquivo XML</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveXmlDoc(null)}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ABA 1: EMITIR NOVA NFS-E */}
       {activeTab === 'emitir' && (

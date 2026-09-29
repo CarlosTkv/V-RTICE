@@ -1402,7 +1402,6 @@ export type AppActiveTab =
   | 'portal_parceiro'
   | 'webmail_umbler'
   | 'econet_report'
-  | 'vertice_documentos'
   // Sub-abas (usadas para navegação interna ou permissões específicas)
   | 'regimes' 
   | 'financeiro' 
