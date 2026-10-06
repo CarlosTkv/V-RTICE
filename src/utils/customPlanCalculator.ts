@@ -94,13 +94,6 @@ export const MODULAR_PRICING_CATALOG: ModularItemPricing[] = [
     monthlyPrice: 30.00,
   },
   {
-    id: 'emissao_nfse',
-    label: 'Módulo de Emissão de NFS-e Nacional (Gov.br)',
-    description: 'Emissão oficial de Notas Fiscais de Serviços Eletrônicas para clientes terceiros, controle de tomadores, DANFSE PDF e transmissão síncrona ADN',
-    category: 'gestao',
-    monthlyPrice: 85.00,
-  },
-  {
     id: 'societario',
     label: 'Módulo Societário & Gerador de Contratos',
     description: 'Guia de Abertura/Alteração/Encerramento nas 27 Juntas Comerciais (DREI IN 81/20) e Minutas Personalizadas de Contratos e Distratos',

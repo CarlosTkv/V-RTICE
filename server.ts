@@ -11,23 +11,6 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import zlib from 'zlib';
 import forge from 'node-forge';
-import { sefinCronWorker } from './src/services/sefinCronWorker';
-import { getCompanyFiscalDocuments, buildChaveAcesso, generateFiscalXml } from './src/data/fiscalDocumentsDatabase';
-import multer from 'multer';
-import unzipper from 'unzipper';
-import PDFDocument from 'pdfkit';
-import { XMLParser } from 'fast-xml-parser';
-import { Pool } from 'pg';
-import { verificarDivergenciaCFOP, avaliarStatusCancelamento, identificarSubstituicaoTributaria, identificarMonofasico } from './src/services/complianceEngine';
-import { encryptCertificateBuffer, decryptCertificateBuffer, encryptPassword, decryptPassword } from './src/services/cryptoService';
-import { notificarCancelamentoNFe, getRecentCancelAlerts } from './src/services/webhookNotifier';
-import { startQueueWorker, getWorkerStatus, executeQueueCycle } from './src/services/sefazQueueWorker';
-import MaquinaFiscalOnline from './MaquinaFiscalOnline.js';
-import { NfseCrawler } from './src/services/nfseCrawler';
-
-// Inicia o Worker de Sincronização por NSU em Segundo Plano (node-cron a cada hora)
-sefinCronWorker.startWorker('0 * * * *');
-startQueueWorker(60 * 1000);
 
 const dnsPromises = dns.promises;
 dotenv.config();
@@ -2053,7 +2036,7 @@ async function startServer() {
   // SINCRONIZAÇÃO AUTOMÁTICA DE NFS-e NO PORTAL NACIONAL (ADN / Sefin / Receita Federal)
   app.post('/api/v1/nfse/sincronizar', async (req, res) => {
     try {
-      const { cnpj, pfxBase64, password, passphrase, ambiente, dataInicio, dataFim, pagina, limite } = req.body;
+      const { cnpj, pfxBase64, password, passphrase, authType, usuario, senhaWeb, ambiente, dataInicio, dataFim, pagina, limite } = req.body;
       if (!cnpj) {
         return res.status(400).json({
           success: false,
@@ -2061,10 +2044,13 @@ async function startServer() {
         });
       }
 
-      console.log(`[API /api/v1/nfse/sincronizar] Executando sincronização oficial para CNPJ ${cnpj}...`);
+      console.log(`[API /api/v1/nfse/sincronizar] Executando sincronização oficial para CNPJ ${cnpj} (Tipo Auth: ${authType || (senhaWeb ? 'senha_web' : 'certificado')})...`);
 
       const resultado = await NfseCrawler.sincronizar({
         cnpj,
+        authType: authType || (pfxBase64 ? 'certificado' : (senhaWeb ? 'senha_web' : 'certificado')),
+        usuario: usuario || cnpj,
+        senhaWeb: senhaWeb || password || passphrase,
         pfxBuffer: pfxBase64,
         passphrase: password || passphrase,
         ambiente: ambiente || '1',

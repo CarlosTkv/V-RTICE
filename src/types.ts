@@ -1391,8 +1391,6 @@ export type AppActiveTab =
   | 'consultoria_fiscal'
   | 'legal_societario'
   | 'agenda_fiscal'
-  | 'emissao_nfse'
-  | 'nfse'
   | 'bpo_financeiro'
   | 'bpo'
   | 'conhecimentos' 
@@ -1430,8 +1428,6 @@ export interface PlanAllowedModules {
   consultoria_fiscal?: boolean;
   legal_societario?: boolean;
   agenda_fiscal?: boolean;
-  emissao_nfse?: boolean;
-  nfse_module?: boolean;
   pgdas_import?: boolean;
   ai_auditor?: boolean;
   partner_portal?: boolean;

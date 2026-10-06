@@ -27,7 +27,11 @@ import {
   Globe,
   Copy,
   Trash2,
-  Layers
+  Layers,
+  Printer,
+  FileSpreadsheet,
+  Filter,
+  Calendar
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { CompanyData, AuthUser, AppViewMode, BankConfig, BillingInvoice, NfseNacionalData } from '../types';
@@ -120,15 +124,129 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
   const [filtroDirecao, setFiltroDirecao] = useState<'todas' | 'saida' | 'entrada'>('todas');
   const [activeDanfseDoc, setActiveDanfseDoc] = useState<NfseDocumentoCapturado | null>(null);
   const [activeXmlDoc, setActiveXmlDoc] = useState<NfseDocumentoCapturado | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [ambienteSefin, setAmbienteSefin] = useState<'1' | '2'>('1');
+  const [datePreset, setDatePreset] = useState<'hoje' | '7dias' | 'mes' | 'ano' | 'custom'>('mes');
+  const [authMethod, setAuthMethod] = useState<'certificado' | 'senha_web'>('certificado');
+  const [usuarioWeb, setUsuarioWeb] = useState(currentCompany.cnpj || '');
+  const [senhaWeb, setSenhaWeb] = useState('');
+  const [showSenhaWeb, setShowSenhaWeb] = useState(false);
+
+  const copyToClipboard = (text: string, label: string = 'Texto') => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(text);
+    showToast(`${label} copiado!`);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const applyDatePreset = (preset: 'hoje' | '7dias' | 'mes' | 'ano') => {
+    setDatePreset(preset);
+    const now = new Date();
+    const pad = (n: number) => n < 10 ? `0${n}` : `${n}`;
+    const format = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (preset === 'hoje') {
+      const today = format(now);
+      setFiltroDataInicio(today);
+      setFiltroDataFim(today);
+    } else if (preset === '7dias') {
+      const past = new Date();
+      past.setDate(past.getDate() - 7);
+      setFiltroDataInicio(format(past));
+      setFiltroDataFim(format(now));
+    } else if (preset === 'mes') {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      setFiltroDataInicio(format(first));
+      setFiltroDataFim(format(now));
+    } else if (preset === 'ano') {
+      const firstYear = new Date(now.getFullYear(), 0, 1);
+      setFiltroDataInicio(format(firstYear));
+      setFiltroDataFim(format(now));
+    }
+  };
+
+  const handleExportCsv = () => {
+    if (realNfseDocs.length === 0) {
+      showToast('Nenhum dado disponível para exportar CSV.');
+      return;
+    }
+    const headers = ['Chave de Acesso', 'Número', 'Série', 'Data Emissão', 'Direção', 'Prestador CNPJ', 'Prestador Nome', 'Tomador CNPJ', 'Tomador Nome', 'Valor Serviços (R$)', 'ISSQN (R$)', 'ISS Retido'];
+    const rows = realNfseDocs.map(d => [
+      `"${d.chaveAcesso || ''}"`,
+      `"${d.numero || ''}"`,
+      `"${d.serie || ''}"`,
+      `"${d.dataEmissao || ''}"`,
+      `"${d.direcao === 'saida' ? 'Prestada' : 'Tomada'}"`,
+      `"${d.emitenteCnpj || ''}"`,
+      `"${(d.emitenteNome || '').replace(/"/g, '""')}"`,
+      `"${d.tomadorCnpj || ''}"`,
+      `"${(d.tomadorNome || '').replace(/"/g, '""')}"`,
+      (d.valorServicos || 0).toFixed(2),
+      (d.valorIss || 0).toFixed(2),
+      d.issRetido ? 'Sim' : 'Não'
+    ]);
+    const csvContent = '\uFEFF' + [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `RELATORIO_NFSE_NACIONAL_${currentCompany.cnpj.replace(/\D/g, '')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Planilha CSV gerada com sucesso!');
+  };
+
+  const handleDownloadSelectedZip = async () => {
+    const selected = realNfseDocs.filter(d => selectedDocIds.includes(d.id || d.chaveAcesso));
+    if (selected.length === 0) {
+      showToast('Selecione pelo menos uma NFS-e para baixar.');
+      return;
+    }
+    try {
+      const zip = new JSZip();
+      const folderXml = zip.folder('xmls');
+      const folderPdf = zip.folder('danfses');
+
+      selected.forEach(doc => {
+        if (doc.xmlConteudo && folderXml) {
+          folderXml.file(`NFSe_${doc.chaveAcesso || doc.numero}.xml`, doc.xmlConteudo);
+        }
+        if (doc.pdfBase64 && folderPdf) {
+          folderPdf.file(`DANFSE_${doc.chaveAcesso || doc.numero}.pdf`, doc.pdfBase64, { base64: true });
+        }
+      });
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SELECAO_NFSE_${selected.length}_NOTAS.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast(`Pacote com ${selected.length} notas baixado!`);
+    } catch (e: any) {
+      showToast(`Erro ao gerar pacote: ${e.message}`);
+    }
+  };
 
   // Executa o disparo da API oficial /api/v1/nfse/sincronizar
   const handleTriggerNfseSync = async () => {
     setIsSyncingNfse(true);
-    setNfseSyncDiagnostic('Conectando ao Ambiente de Dados Nacional (ADN / Sefin / Receita Federal)...');
+    if (authMethod === 'senha_web') {
+      setNfseSyncDiagnostic(`Autenticando com Usuário e Senha Web no Portal Nacional (${usuarioWeb || currentCompany.cnpj})...`);
+    } else {
+      setNfseSyncDiagnostic('Conectando ao Ambiente de Dados Nacional (ADN / Sefin / Receita Federal via mTLS)...');
+    }
 
     try {
       let pfxBase64 = '';
-      if (pfxFile) {
+      if (pfxFile && authMethod === 'certificado') {
         const buffer = await pfxFile.arrayBuffer();
         const bytes = new Uint8Array(buffer);
         let binary = '';
@@ -143,11 +261,14 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cnpj: currentCompany.cnpj,
-          pfxBase64: pfxBase64 || undefined,
-          password: pfxPassword || currentCompany.certificateA1?.password || undefined,
+          authType: authMethod,
+          usuario: authMethod === 'senha_web' ? (usuarioWeb || currentCompany.cnpj) : undefined,
+          senhaWeb: authMethod === 'senha_web' ? senhaWeb : undefined,
+          pfxBase64: authMethod === 'certificado' ? pfxBase64 || undefined : undefined,
+          password: authMethod === 'certificado' ? (pfxPassword || currentCompany.certificateA1?.password || undefined) : undefined,
           dataInicio: filtroDataInicio || undefined,
           dataFim: filtroDataFim || undefined,
-          ambiente: '1' // Produção Oficial
+          ambiente: ambienteSefin
         })
       });
 
@@ -529,211 +650,401 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
     }
   };
 
+  // Filtragem dinâmica de documentos da NFS-e
+  const filteredNfseDocs = realNfseDocs.filter(d => {
+    if (filtroDirecao !== 'todas' && d.direcao !== filtroDirecao) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchKey = (d.chaveAcesso || '').toLowerCase().includes(q);
+      const matchNum = (d.numero || '').toLowerCase().includes(q);
+      const matchEmit = (d.emitenteNome || '').toLowerCase().includes(q) || (d.emitenteCnpj || '').includes(q);
+      const matchTom = (d.tomadorNome || '').toLowerCase().includes(q) || (d.tomadorCnpj || '').includes(q);
+      if (!matchKey && !matchNum && !matchEmit && !matchTom) return false;
+    }
+    return true;
+  });
+
+  const toggleSelectAll = () => {
+    if (selectedDocIds.length === filteredNfseDocs.length) {
+      setSelectedDocIds([]);
+    } else {
+      setSelectedDocIds(filteredNfseDocs.map(d => d.id || d.chaveAcesso));
+    }
+  };
+
+  const toggleSelectDoc = (id: string) => {
+    setSelectedDocIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header Comercial com Identificação da Empresa Emitente */}
-      <div className="bg-gradient-to-r from-rose-950/90 via-[#0F172A] to-[#0F172A] border border-rose-500/40 rounded-2xl p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start space-x-4">
-          <BrandLogo variant="badge" module="nfse" />
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono text-[10px] font-bold border border-rose-500/30">
-                MÓDULO COMERCIAL NFS-E • GOV.BR NACIONAL
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-800 text-[10px] font-bold flex items-center gap-1 font-mono">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                WEBSERVICE DE PRODUÇÃO OPERACIONAL
-              </span>
+      {/* Header Profissional Figma: Padrão Nacional ADN / Sefin */}
+      <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl text-emerald-400">
+              <Globe className="w-7 h-7" />
             </div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              Emissão de Notas Fiscais para Clientes
-              <span className="text-xs font-normal text-slate-400 font-mono">({currentCompany.name})</span>
-            </h3>
-            <p className="text-xs text-slate-300">
-              Módulo oficial de transmissão síncrona de DPS, cálculo automático de ISS e retenções federais com envio imediato por e-mail ao tomador.
-            </p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono font-bold text-emerald-400 uppercase tracking-wider">
+                  SISTEMA NACIONAL DA NFS-E • PADRÃO ADN / SEFIN
+                </span>
+                <span className="text-slate-600">·</span>
+                <span className="text-[11px] text-slate-400 font-medium">Receita Federal do Brasil</span>
+                <span className="text-slate-600">·</span>
+                <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Conexão mTLS Produção
+                </span>
+              </div>
+              <h2 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                Gestão & Emissão de NFS-e Nacional
+              </h2>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
+                Ambiente de integração direta com o barramento governamental da Receita Federal. Captura automática de documentos fiscais por mTLS, emissão síncrona de DPS e geração de DANFSE em PDF oficial.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-slate-900/90 border border-slate-800 px-4 py-2.5 rounded-xl text-right">
+              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Empresa em Operação</div>
+              <div className="text-sm font-bold text-white truncate max-w-[200px]" title={currentCompany.name}>{currentCompany.name}</div>
+              <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                <span className="text-xs font-mono font-bold text-emerald-400">{currentCompany.cnpj}</span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(currentCompany.cnpj, 'CNPJ')}
+                  className="text-slate-500 hover:text-emerald-400 transition"
+                  title="Copiar CNPJ"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="bg-slate-900/90 border border-slate-700/80 px-4 py-2 rounded-xl text-right">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Empresa Prestadora</div>
-            <div className="text-xs font-bold text-rose-400 font-mono">{currentCompany.cnpj}</div>
-          </div>
+        {/* Segmented Control Bar (Figma Design) */}
+        <div className="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 p-1.5 rounded-xl overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('portal_nacional')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'portal_nacional'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>Captura Portal Nacional</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-emerald-950 text-emerald-300 text-[10px] font-mono border border-emerald-700/60">
+              {realNfseDocs.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('emitir')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'emitir'
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>1. Emitir Nova NFS-e (DPS)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('historico')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'historico'
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <FileCode className="w-4 h-4" />
+            <span>2. Painel de Emitidas</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-slate-800 text-slate-300 text-[10px] font-mono">
+              {commercialNotes.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('tomadores')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'tomadores'
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <UserCheck className="w-4 h-4" />
+            <span>3. Clientes / Tomadores</span>
+            <span className="px-1.5 py-0.2 rounded-md bg-slate-800 text-slate-300 text-[10px] font-mono">
+              {tomadores.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('config')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'config'
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-950/60'
+                : 'text-slate-400 hover:text-white hover:bg-slate-900'
+            }`}
+          >
+            <Key className="w-4 h-4" />
+            <span>4. Certificado & Regras</span>
+          </button>
         </div>
       </div>
 
-      {/* Navegação por Sub-Abas do Módulo Commercial */}
-      <div className="flex items-center space-x-2 border-b border-slate-800 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('portal_nacional')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-            activeTab === 'portal_nacional'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/30 border border-emerald-400/40'
-              : 'bg-[#0F172A] text-emerald-400 hover:text-white border border-emerald-900/60'
-          }`}
-        >
-          <Globe className="w-4 h-4 text-emerald-300" />
-          <span>Captura Portal Nacional ({realNfseDocs.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('emitir')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-            activeTab === 'emitir'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-900/30 border border-rose-400/40'
-              : 'bg-[#0F172A] text-slate-400 hover:text-white border border-slate-800'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>1. Emitir Nova NFS-e</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('historico')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-            activeTab === 'historico'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-900/30 border border-rose-400/40'
-              : 'bg-[#0F172A] text-slate-400 hover:text-white border border-slate-800'
-          }`}
-        >
-          <FileCode className="w-4 h-4" />
-          <span>2. Painel de Notas Emitidas ({commercialNotes.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('tomadores')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-            activeTab === 'tomadores'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-900/30 border border-rose-400/40'
-              : 'bg-[#0F172A] text-slate-400 hover:text-white border border-slate-800'
-          }`}
-        >
-          <UserCheck className="w-4 h-4" />
-          <span>3. Meus Clientes / Tomadores ({tomadores.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('config')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer ${
-            activeTab === 'config'
-              ? 'bg-rose-600 text-white shadow-md shadow-rose-900/30 border border-rose-400/40'
-              : 'bg-[#0F172A] text-slate-400 hover:text-white border border-slate-800'
-          }`}
-        >
-          <Key className="w-4 h-4" />
-          <span>4. Certificado & Regras Fiscais</span>
-        </button>
-      </div>
-
-      {/* ABA 0: CAPTURA OFICIAL PORTAL NACIONAL NFS-E */}
+      {/* ABA 0: CAPTURA OFICIAL PORTAL NACIONAL NFS-E (LAYOUT FIGMA) */}
       {activeTab === 'portal_nacional' && (
         <div className="space-y-6">
-          {/* Painel de Disparo da API de Sincronização */}
-          <div className="bg-[#0F172A] border border-emerald-500/40 rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    PORTAL NACIONAL ADN / SEFIN • PRODUÇÃO
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono text-[10px] font-bold border border-blue-500/30">
-                    ROTA API: /api/v1/nfse/sincronizar
-                  </span>
-                </div>
-                <h4 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Globe className="w-5 h-5 text-emerald-400" />
-                  Sincronização & Captura Automática de NFS-e (XML e PDF)
-                </h4>
-                <p className="text-xs text-slate-300">
-                  Comunicação direta via mTLS e crawler oficial com o repositório nacional da Receita Federal. Captura notas fiscais <strong className="text-emerald-400">Prestadas</strong> (emitidas) e <strong className="text-blue-400">Tomadas</strong> (recebidas de fornecedores).
+          {/* Deck de Controle mTLS & Disparo da API */}
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  Painel de Sincronização e Busca Direta na Receita Federal
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Transmissão por socket TLS mútuo (mTLS) com o endpoint governamental <code className="text-emerald-300 font-mono">/api/v1/nfse/sincronizar</code>
                 </p>
               </div>
 
-              <div className="text-right">
-                <div className="text-[10px] font-bold text-slate-400 uppercase">CNPJ Consultado</div>
-                <div className="text-sm font-black text-emerald-400 font-mono">{currentCompany.cnpj}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-400">Ambiente:</span>
+                <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setAmbienteSefin('1')}
+                    className={`px-2.5 py-1 rounded-md transition ${ambienteSefin === '1' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Produção Oficial
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAmbienteSefin('2')}
+                    className={`px-2.5 py-1 rounded-md transition ${ambienteSefin === '2' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    Homologação
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Formulário de Credenciais mTLS e Parâmetros */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
-                  Certificado A1 (.pfx ou .p12)
-                </label>
-                <input
-                  type="file"
-                  accept=".pfx,.p12"
-                  onChange={e => {
-                    if (e.target.files && e.target.files[0]) {
-                      setPfxFile(e.target.files[0]);
-                    }
-                  }}
-                  className="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-slate-900 border border-slate-700 rounded-xl p-1.5"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Senha do Certificado Digital</label>
-                <div className="relative">
-                  <input
-                    type={showPfxPassword ? 'text' : 'password'}
-                    value={pfxPassword}
-                    onChange={e => setPfxPassword(e.target.value)}
-                    placeholder={currentCompany.certificateA1?.password ? '•••••••• (Usar salva)' : 'Digite a senha do A1...'}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
-                  />
+            {/* Seletor de Método de Autenticação: Certificado A1 vs Usuário e Senha Web */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-300">Modo de Acesso:</span>
+                <div className="flex items-center bg-slate-900 border border-slate-700/80 p-0.5 rounded-lg text-xs">
                   <button
                     type="button"
-                    onClick={() => setShowPfxPassword(!showPfxPassword)}
-                    className="absolute right-3 top-2 text-slate-400 hover:text-slate-200"
+                    onClick={() => setAuthMethod('certificado')}
+                    className={`px-3 py-1.5 rounded-md font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      authMethod === 'certificado'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
                   >
-                    {showPfxPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Certificado Digital A1 (.pfx)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('senha_web')}
+                    className={`px-3 py-1.5 rounded-md font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      authMethod === 'senha_web'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Usuário e Senha Web (CPF/CNPJ + Senha)</span>
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-300">Período de Emissão (Opcional)</label>
+              <div className="text-[11px] text-slate-400">
+                {authMethod === 'certificado'
+                  ? '🔒 Conexão mTLS com canal criptográfico seguro ICP-Brasil.'
+                  : '👤 Acesso direto para MEI e optantes pelo login com Senha Web / Código de Acesso do Portal Nacional.'}
+              </div>
+            </div>
+
+            {/* Grid de Configurações de Conexão */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {authMethod === 'certificado' ? (
+                <>
+                  {/* Card 1: Certificado A1 */}
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                        <KeyRound className="w-3.5 h-3.5 text-emerald-400" />
+                        Certificado Digital A1 (.pfx)
+                      </label>
+                      {currentCompany.certificateA1?.password && (
+                        <span className="text-[10px] text-emerald-400 font-medium bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+                          Salvo na Empresa
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      accept=".pfx,.p12"
+                      onChange={e => {
+                        if (e.target.files && e.target.files[0]) {
+                          setPfxFile(e.target.files[0]);
+                          showToast(`Certificado ${e.target.files[0].name} carregado.`);
+                        }
+                      }}
+                      className="w-full text-xs text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-500 cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-1"
+                    />
+                    <div className="text-[10px] text-slate-500">
+                      {pfxFile ? `Arquivo pronto: ${pfxFile.name}` : 'Utilize o certificado e-CNPJ da empresa para abrir o canal seguro'}
+                    </div>
+                  </div>
+
+                  {/* Card 2: Senha Certificado */}
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                    <label className="text-xs font-bold text-slate-200 block">
+                      Senha do Certificado A1
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPfxPassword ? 'text' : 'password'}
+                        value={pfxPassword}
+                        onChange={e => setPfxPassword(e.target.value)}
+                        placeholder={currentCompany.certificateA1?.password ? '•••••••• (Usar salva)' : 'Senha do arquivo .pfx...'}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPfxPassword(!showPfxPassword)}
+                        className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-200"
+                      >
+                        {showPfxPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      A senha é descriptografada em memória RAM para o handshake TLS
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Card 1: Usuário / CPF / CNPJ */}
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                    <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      Usuário (CPF ou CNPJ)
+                    </label>
+                    <input
+                      type="text"
+                      value={usuarioWeb}
+                      onChange={e => setUsuarioWeb(e.target.value)}
+                      placeholder="00.000.000/0001-00 ou CPF..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                    <div className="text-[10px] text-slate-500">
+                      CPF do titular ou CNPJ da empresa cadastrado no Emissor Nacional
+                    </div>
+                  </div>
+
+                  {/* Card 2: Senha Web / Código de Acesso */}
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                    <label className="text-xs font-bold text-slate-200 block">
+                      Senha Web / Código de Acesso
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showSenhaWeb ? 'text' : 'password'}
+                        value={senhaWeb}
+                        onChange={e => setSenhaWeb(e.target.value)}
+                        placeholder="Digite a Senha Web ou Código..."
+                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSenhaWeb(!showSenhaWeb)}
+                        className="absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-200"
+                      >
+                        {showSenhaWeb ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      Senha cadastrada no Portal Nacional da NFS-e (nfse.gov.br)
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Card 3: Filtro de Período com Presets */}
+              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                    Período de Emissão
+                  </label>
+                  <div className="flex items-center gap-1 text-[10px]">
+                    <button type="button" onClick={() => applyDatePreset('hoje')} className={`px-1.5 py-0.5 rounded ${datePreset === 'hoje' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}>Hoje</button>
+                    <button type="button" onClick={() => applyDatePreset('7dias')} className={`px-1.5 py-0.5 rounded ${datePreset === '7dias' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}>7D</button>
+                    <button type="button" onClick={() => applyDatePreset('mes')} className={`px-1.5 py-0.5 rounded ${datePreset === 'mes' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}>Mês</button>
+                    <button type="button" onClick={() => applyDatePreset('ano')} className={`px-1.5 py-0.5 rounded ${datePreset === 'ano' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}>Ano</button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="date"
                     value={filtroDataInicio}
-                    onChange={e => setFiltroDataInicio(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none"
-                    title="Data Início"
+                    onChange={e => {
+                      setFiltroDataInicio(e.target.value);
+                      setDatePreset('custom');
+                    }}
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    title="Data Inicial"
                   />
                   <input
                     type="date"
                     value={filtroDataFim}
-                    onChange={e => setFiltroDataFim(e.target.value)}
-                    className="bg-slate-900 border border-slate-700 rounded-xl px-2 py-1.5 text-xs text-white focus:outline-none"
-                    title="Data Fim"
+                    onChange={e => {
+                      setFiltroDataFim(e.target.value);
+                      setDatePreset('custom');
+                    }}
+                    className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    title="Data Final"
                   />
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Deixe em branco para sincronização irrestrita por NSU
                 </div>
               </div>
             </div>
 
-            {/* Botão de Disparo */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            {/* Barra de Ação de Disparo */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-800/60">
               <div className="text-xs text-slate-400 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>Modo Produção: Executa consulta direta aos servidores da Receita Federal / Serpro</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Consulta direta: varre notas emitidas pela empresa e notas recebidas de fornecedores.</span>
               </div>
 
               <button
                 type="button"
                 onClick={handleTriggerNfseSync}
                 disabled={isSyncingNfse}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/40 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/60 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isSyncingNfse ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin text-emerald-200" />
-                    <span>Sincronizando com o Portal Nacional...</span>
+                    <span>Consultando Barramento Nacional...</span>
                   </>
                 ) : (
                   <>
@@ -744,76 +1055,115 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
               </button>
             </div>
 
-            {/* Painel de Diagnóstico */}
+            {/* Terminal de Diagnóstico Governamental */}
             {nfseSyncDiagnostic && (
-              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-emerald-300 flex items-start gap-2.5">
-                <AlertCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <div className="font-bold text-white">Retorno do Barramento Nacional:</div>
-                  <div className="text-slate-300 leading-relaxed">{nfseSyncDiagnostic}</div>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/90 text-xs font-mono space-y-1.5">
+                <div className="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-2">
+                  <span className="flex items-center gap-2 text-emerald-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    LOG DA SESSÃO mTLS / RECEITA FEDERAL
+                  </span>
+                  <span className="text-[10px] text-slate-500">Status 200 OK</span>
+                </div>
+                <div className="text-slate-300 pt-1 leading-relaxed">
+                  {nfseSyncDiagnostic}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Métricas e Barra de Ações */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total NFS-e Reais</div>
-              <div className="text-2xl font-black text-white font-mono">{realNfseDocs.length}</div>
-              <div className="text-[10px] text-slate-500">Documentos autenticados</div>
+          {/* Cards de Métricas Executivas (Figma Style) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 space-y-1.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total de NFS-e Capturadas</div>
+              <div className="text-3xl font-black text-white font-mono">{realNfseDocs.length}</div>
+              <div className="text-[11px] text-slate-500">Documentos fiscais autênticos</div>
             </div>
 
-            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Prestadas (Saídas)</div>
-              <div className="text-xl font-black text-emerald-400 font-mono">
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 space-y-1.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+                Prestadas (Faturamento)
+              </div>
+              <div className="text-2xl font-black text-emerald-400 font-mono">
                 R$ {realNfseDocs.filter(d => d.direcao === 'saida').reduce((acc, d) => acc + (d.valorServicos || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              <div className="text-[10px] text-slate-500">{realNfseDocs.filter(d => d.direcao === 'saida').length} nota(s) emitidas</div>
+              <div className="text-[11px] text-slate-500">
+                {realNfseDocs.filter(d => d.direcao === 'saida').length} nota(s) emitidas pela empresa
+              </div>
             </div>
 
-            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tomadas (Entradas)</div>
-              <div className="text-xl font-black text-blue-400 font-mono">
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 space-y-1.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <ArrowDownLeft className="w-3.5 h-3.5 text-blue-400" />
+                Tomadas (Compras / Despesas)
+              </div>
+              <div className="text-2xl font-black text-blue-400 font-mono">
                 R$ {realNfseDocs.filter(d => d.direcao === 'entrada').reduce((acc, d) => acc + (d.valorServicos || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              <div className="text-[10px] text-slate-500">{realNfseDocs.filter(d => d.direcao === 'entrada').length} nota(s) de fornecedores</div>
+              <div className="text-[11px] text-slate-500">
+                {realNfseDocs.filter(d => d.direcao === 'entrada').length} nota(s) recebidas de fornecedores
+              </div>
             </div>
 
-            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 space-y-1">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ISSQN Total</div>
-              <div className="text-xl font-black text-amber-400 font-mono">
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 space-y-1.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total ISSQN Apurado</div>
+              <div className="text-2xl font-black text-amber-400 font-mono">
                 R$ {realNfseDocs.reduce((acc, d) => acc + (d.valorIss || 0), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
-              <div className="text-[10px] text-slate-500">Imposto municipal retido/destacado</div>
+              <div className="text-[11px] text-slate-500">Imposto municipal destacado e retido</div>
             </div>
           </div>
 
-          {/* Filtros e Download em Lote */}
-          <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-400">Exibir:</span>
+          {/* Barra de Ferramentas, Busca e Ações em Massa (Figma Style) */}
+          <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            {/* Campo de Busca Rápida */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar por chave de 50 dígitos, prestador, tomador ou número..."
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-sans"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-2 text-slate-500 hover:text-slate-300 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Segmented Filter (Todas, Prestadas, Tomadas) */}
+            <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 p-1 rounded-xl text-xs">
               <button
+                type="button"
                 onClick={() => setFiltroDirecao('todas')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  filtroDirecao === 'todas' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer ${
+                  filtroDirecao === 'todas' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Todas ({realNfseDocs.length})
               </button>
               <button
+                type="button"
                 onClick={() => setFiltroDirecao('saida')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  filtroDirecao === 'saida' ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-emerald-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
+                  filtroDirecao === 'saida' ? 'bg-emerald-600 text-white' : 'text-emerald-400 hover:text-white'
                 }`}
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
                 Prestadas ({realNfseDocs.filter(d => d.direcao === 'saida').length})
               </button>
               <button
+                type="button"
                 onClick={() => setFiltroDirecao('entrada')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
-                  filtroDirecao === 'entrada' ? 'bg-blue-600 text-white' : 'bg-slate-900 text-blue-400 hover:text-white'
+                className={`px-3 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
+                  filtroDirecao === 'entrada' ? 'bg-blue-600 text-white' : 'text-blue-400 hover:text-white'
                 }`}
               >
                 <ArrowDownLeft className="w-3.5 h-3.5" />
@@ -821,22 +1171,49 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
               </button>
             </div>
 
+            {/* Botões de Ações em Massa */}
             <div className="flex items-center gap-2">
+              {selectedDocIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDownloadSelectedZip}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Baixar Selecionadas ({selectedDocIds.length})</span>
+                </button>
+              )}
+
               <button
+                type="button"
                 onClick={handleBatchDownloadZip}
                 disabled={realNfseDocs.length === 0}
-                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white font-bold text-xs transition flex items-center gap-2 cursor-pointer disabled:opacity-40"
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 hover:text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                title="Baixar pacote completo com todos os XMLs e PDFs"
               >
                 <Download className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Baixar Lote (.ZIP de XML e PDF)</span>
+                <span>Lote (.ZIP)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                disabled={realNfseDocs.length === 0}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 hover:text-white font-bold text-xs transition flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                title="Exportar planilha Excel/CSV com os dados tributários"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-blue-400" />
+                <span>CSV</span>
               </button>
 
               {realNfseDocs.length > 0 && (
                 <button
+                  type="button"
                   onClick={() => {
                     if (confirm('Deseja limpar os registros baixados desta empresa?')) {
                       setRealNfseDocs([]);
                       localStorage.removeItem(nfseStorageKey);
+                      setSelectedDocIds([]);
                       showToast('Registros locais limpos.');
                     }
                   }}
@@ -849,48 +1226,80 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
             </div>
           </div>
 
-          {/* Tabela de Resultados Reais */}
+          {/* Tabela de Dados de Alta Densidade (Figma Style) */}
           {realNfseDocs.length === 0 ? (
-            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl p-10 text-center space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl p-12 text-center space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-950/40 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
                 <Globe className="w-8 h-8" />
               </div>
               <div className="max-w-md mx-auto space-y-1">
-                <h5 className="font-bold text-white text-base">Nenhuma NFS-e sincronizada</h5>
+                <h4 className="font-bold text-white text-base">Nenhuma NFS-e sincronizada</h4>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Insira o Certificado A1 (.pfx) acima e clique em <strong className="text-emerald-400">Disparar Sincronização Automática</strong> para consultar os WebServices oficiais da Receita Federal.
+                  Carregue o Certificado A1 (.pfx) acima e clique em <strong className="text-emerald-400">Disparar Sincronização Automática</strong> para capturar as notas diretamente do repositório da Receita Federal.
                 </p>
               </div>
             </div>
           ) : (
-            <div className="bg-[#0F172A] border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+            <div className="bg-[#0B0F19] border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#0B0F19] text-slate-400 uppercase font-bold text-[10px] border-b border-slate-800">
+                  <thead className="bg-slate-950 text-slate-400 uppercase font-bold text-[10px] border-b border-slate-800">
                     <tr>
-                      <th className="p-3.5">Chave / Número</th>
+                      <th className="p-3.5 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedDocIds.length === filteredNfseDocs.length && filteredNfseDocs.length > 0}
+                          onChange={toggleSelectAll}
+                          className="rounded border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
+                        />
+                      </th>
+                      <th className="p-3.5">Chave de Acesso (50 Dígitos) / Nº</th>
                       <th className="p-3.5">Emissão</th>
                       <th className="p-3.5">Direção</th>
                       <th className="p-3.5">Prestador</th>
                       <th className="p-3.5">Tomador</th>
                       <th className="p-3.5 text-right">Valor Serviços</th>
                       <th className="p-3.5 text-right">ISSQN</th>
-                      <th className="p-3.5 text-center">Ações</th>
+                      <th className="p-3.5 text-center">Ações Fiscais</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-sans">
-                    {realNfseDocs
-                      .filter(d => filtroDirecao === 'todas' || d.direcao === filtroDirecao)
-                      .map(doc => (
-                        <tr key={doc.id || doc.chaveAcesso} className="hover:bg-slate-900/60 transition">
+                    {filteredNfseDocs.map(doc => {
+                      const isSelected = selectedDocIds.includes(doc.id || doc.chaveAcesso);
+                      return (
+                        <tr key={doc.id || doc.chaveAcesso} className={`hover:bg-slate-900/50 transition ${isSelected ? 'bg-slate-900/80' : ''}`}>
+                          <td className="p-3.5 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectDoc(doc.id || doc.chaveAcesso)}
+                              className="rounded border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
+                            />
+                          </td>
+
                           <td className="p-3.5">
-                            <div className="font-bold text-white font-mono">Nº {doc.numero}</div>
-                            <div className="text-[10px] text-slate-500 font-mono truncate max-w-[140px]" title={doc.chaveAcesso}>
-                              {doc.chaveAcesso}
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-white font-mono">Nº {doc.numero}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">Série {doc.serie}</span>
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-mono truncate max-w-[150px]" title={doc.chaveAcesso}>
+                                {doc.chaveAcesso ? `${doc.chaveAcesso.substring(0, 12)}...${doc.chaveAcesso.substring(38)}` : 'Chave não informada'}
+                              </span>
+                              {doc.chaveAcesso && (
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(doc.chaveAcesso, 'Chave de Acesso')}
+                                  className="text-slate-500 hover:text-emerald-400 transition"
+                                  title="Copiar chave de acesso completa"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              )}
                             </div>
                           </td>
 
-                          <td className="p-3.5 font-mono text-slate-400 whitespace-nowrap">
+                          <td className="p-3.5 font-mono text-slate-300 whitespace-nowrap">
                             {doc.dataEmissao ? new Date(doc.dataEmissao).toLocaleDateString('pt-BR') : '-'}
                           </td>
 
@@ -924,103 +1333,181 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
 
                           <td className="p-3.5 text-right font-mono text-slate-300 whitespace-nowrap">
                             R$ {(doc.valorIss || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            {doc.issRetido && <span className="block text-[9px] text-amber-400">Retido</span>}
+                            {doc.issRetido && <span className="block text-[9px] text-amber-400 font-bold">Retido</span>}
                           </td>
 
                           <td className="p-3.5 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
+                                type="button"
                                 onClick={() => setActiveDanfseDoc(doc)}
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-                                title="Visualizar DANFSE (PDF Oficial)"
+                                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-400 hover:text-white transition cursor-pointer"
+                                title="Visualizar DANFSE (Layout Oficial)"
                               >
-                                <Eye className="w-3.5 h-3.5 text-blue-400" />
+                                <Eye className="w-3.5 h-3.5" />
                               </button>
 
                               <button
+                                type="button"
                                 onClick={() => handleDownloadDanfsePdf(doc)}
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-                                title="Baixar PDF (DANFSE)"
+                                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-400 hover:text-white transition cursor-pointer"
+                                title="Baixar DANFSE em PDF"
                               >
-                                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                                <Download className="w-3.5 h-3.5" />
                               </button>
 
                               <button
+                                type="button"
                                 onClick={() => setActiveXmlDoc(doc)}
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-                                title="Inspecionar XML Bruto Oficial"
+                                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 hover:text-white transition cursor-pointer"
+                                title="Inspecionar XML Assinado"
                               >
-                                <FileCode className="w-3.5 h-3.5 text-amber-400" />
+                                <FileCode className="w-3.5 h-3.5" />
                               </button>
 
                               <button
+                                type="button"
                                 onClick={() => handleDownloadNfseXml(doc)}
-                                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
-                                title="Baixar arquivo XML Oficial"
+                                className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+                                title="Baixar arquivo XML"
                               >
                                 <Download className="w-3.5 h-3.5 text-slate-400" />
                               </button>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
-          {/* Modal DANFSE PDF Oficial */}
+          {/* Modal DANFSE Oficial da Receita Federal (Padrão Figma Make) */}
           {activeDanfseDoc && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-[#0F172A] border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className="bg-[#0B0F19] border border-slate-700 rounded-3xl max-w-4xl w-full max-h-[92vh] overflow-y-auto p-6 shadow-2xl space-y-5">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                      <FileText className="w-5 h-5" />
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
+                      <FileText className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-white text-base">Espelho DANFSE • NFS-e Nacional</h4>
-                      <p className="text-xs text-slate-400 font-mono">Chave: {activeDanfseDoc.chaveAcesso}</p>
+                      <h4 className="font-bold text-white text-base">Espelho DANFSE • Padrão Nacional</h4>
+                      <p className="text-xs text-slate-400 font-mono">
+                        Chave: {activeDanfseDoc.chaveAcesso}
+                      </p>
                     </div>
                   </div>
-                  <button onClick={() => setActiveDanfseDoc(null)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDanfsePdf(activeDanfseDoc)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Baixar PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDanfseDoc(null)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition text-sm cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
-                <div className="bg-white text-slate-900 p-6 rounded-2xl space-y-4 font-sans text-xs">
-                  <div className="flex justify-between items-start border-b border-slate-300 pb-3">
-                    <div>
-                      <div className="font-black text-sm uppercase">{activeDanfseDoc.emitenteNome}</div>
-                      <div className="font-mono text-[11px] text-slate-600">CNPJ Prestador: {activeDanfseDoc.emitenteCnpj}</div>
+                {/* Espelho Físico DANFSE Oficial (Branco/Padrão Nacional) */}
+                <div className="bg-white text-slate-900 p-6 rounded-2xl space-y-4 font-sans text-xs border border-slate-300 shadow-md">
+                  {/* Cabeçalho Oficial */}
+                  <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3">
+                    <div className="space-y-1 max-w-sm">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        República Federativa do Brasil
+                      </div>
+                      <div className="text-base font-black uppercase text-slate-900 leading-tight">
+                        {activeDanfseDoc.emitenteNome}
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-700">
+                        CNPJ Prestador: <strong>{activeDanfseDoc.emitenteCnpj}</strong>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-black text-sm text-emerald-700">NFS-e Padrão Nacional</div>
-                      <div className="font-mono font-bold text-xs">Nº {activeDanfseDoc.numero} • Série {activeDanfseDoc.serie}</div>
-                      <div className="text-[10px] text-slate-500">Emissão: {activeDanfseDoc.dataEmissao}</div>
+
+                    <div className="text-right border-l-2 border-slate-800 pl-4 space-y-0.5">
+                      <div className="font-black text-sm text-emerald-800 uppercase tracking-tight">
+                        DANFSE NACIONAL
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-bold">Documento Auxiliar da NFS-e</div>
+                      <div className="font-mono font-bold text-xs text-slate-900 pt-1">
+                        Nº {activeDanfseDoc.numero} · Série {activeDanfseDoc.serie}
+                      </div>
+                      <div className="text-[10px] text-slate-600">
+                        Emissão: {activeDanfseDoc.dataEmissao}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="p-3 bg-slate-100 rounded-xl space-y-1">
-                    <div className="font-bold text-[10px] uppercase text-slate-500">Tomador dos Serviços</div>
-                    <div className="font-bold text-xs">{activeDanfseDoc.tomadorNome}</div>
-                    <div className="font-mono text-[11px] text-slate-600">CNPJ/CPF: {activeDanfseDoc.tomadorCnpj}</div>
+                  {/* Chave de Acesso Formatada */}
+                  <div className="p-2.5 bg-slate-100 rounded-lg border border-slate-300 space-y-0.5 text-center">
+                    <div className="text-[9px] uppercase font-bold text-slate-500">Chave de Acesso para Consulta no Portal Nacional</div>
+                    <div className="font-mono font-black text-xs text-slate-900 tracking-wider">
+                      {activeDanfseDoc.chaveAcesso ? activeDanfseDoc.chaveAcesso.match(/.{1,4}/g)?.join(' ') : '0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 00'}
+                    </div>
                   </div>
 
-                  <div className="p-3 border border-slate-200 rounded-xl space-y-1">
-                    <div className="font-bold text-[10px] uppercase text-slate-500">Discriminação dos Serviços</div>
-                    <div className="text-xs text-slate-700 whitespace-pre-wrap">{activeDanfseDoc.discriminacao || 'Serviços prestados conforme contrato.'}</div>
+                  {/* Quadros de Prestador e Tomador */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                      <div className="font-bold text-[10px] uppercase text-slate-500">Dados do Prestador</div>
+                      <div className="font-bold text-xs">{activeDanfseDoc.emitenteNome}</div>
+                      <div className="font-mono text-[11px] text-slate-700">CNPJ: {activeDanfseDoc.emitenteCnpj}</div>
+                      <div className="text-[10px] text-slate-600">Município de Incidência do ISS</div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                      <div className="font-bold text-[10px] uppercase text-slate-500">Dados do Tomador</div>
+                      <div className="font-bold text-xs">{activeDanfseDoc.tomadorNome}</div>
+                      <div className="font-mono text-[11px] text-slate-700">CNPJ/CPF: {activeDanfseDoc.tomadorCnpj}</div>
+                      <div className="text-[10px] text-slate-600">Destinatário do Serviço</div>
+                    </div>
                   </div>
 
-                  <div className="flex justify-between items-center bg-slate-900 text-white p-4 rounded-xl">
-                    <div>
-                      <div className="text-[10px] uppercase text-slate-400">Valor dos Serviços</div>
-                      <div className="text-lg font-black font-mono">
+                  {/* Discriminação dos Serviços */}
+                  <div className="p-3.5 border border-slate-300 rounded-xl space-y-1.5">
+                    <div className="font-bold text-[10px] uppercase text-slate-500 border-b border-slate-200 pb-1">
+                      Discriminação dos Serviços Prestados
+                    </div>
+                    <div className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                      {activeDanfseDoc.discriminacao || 'Prestação de serviços executada conforme especificações e parâmetros legais da Receita Federal.'}
+                    </div>
+                    {activeDanfseDoc.itemLc116 && (
+                      <div className="text-[10px] text-slate-500 font-mono pt-1">
+                        Código de Tributação Nacional / LC 116: <strong>{activeDanfseDoc.itemLc116}</strong>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tabela de Valores e Tributos */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 bg-slate-100 rounded-xl text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Valor dos Serviços</div>
+                      <div className="text-base font-black font-mono text-slate-900 mt-1">
                         R$ {(activeDanfseDoc.valorServicos || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase text-slate-400">ISSQN Apurado</div>
-                      <div className="text-lg font-black font-mono text-emerald-400">
+
+                    <div className="p-3 bg-slate-100 rounded-xl text-center">
+                      <div className="text-[10px] uppercase font-bold text-slate-500">Alíquota ISS</div>
+                      <div className="text-base font-black font-mono text-slate-900 mt-1">
+                        {(activeDanfseDoc.aliquotaIss || 2.0).toFixed(2)}%
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-900 text-white rounded-xl text-center">
+                      <div className="text-[10px] uppercase font-bold text-emerald-400">ISSQN Apurado</div>
+                      <div className="text-base font-black font-mono text-emerald-300 mt-1">
                         R$ {(activeDanfseDoc.valorIss || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
@@ -1029,15 +1516,17 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
 
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
-                    onClick={() => handleDownloadDanfsePdf(activeDanfseDoc)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    type="button"
+                    onClick={() => handleDownloadNfseXml(activeDanfseDoc)}
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Baixar DANFSE (PDF)</span>
+                    <FileCode className="w-3.5 h-3.5" />
+                    <span>Baixar XML</span>
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActiveDanfseDoc(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
+                    className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
                   >
                     Fechar
                   </button>
@@ -1046,21 +1535,21 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
             </div>
           )}
 
-          {/* Modal XML Oficial */}
+          {/* Modal XML Oficial (Figma Make) */}
           {activeXmlDoc && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-              <div className="bg-[#0F172A] border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl space-y-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <div className="bg-[#0B0F19] border border-slate-700 rounded-3xl max-w-3xl w-full max-h-[90vh] flex flex-col p-6 shadow-2xl space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
                       <FileCode className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-white text-base">Código-Fonte XML Oficial (NFS-e Nacional)</h4>
+                      <h4 className="font-bold text-white text-base">Arquivo XML Assinado Oficial</h4>
                       <p className="text-xs text-slate-400 font-mono truncate max-w-md">Chave: {activeXmlDoc.chaveAcesso}</p>
                     </div>
                   </div>
-                  <button onClick={() => setActiveXmlDoc(null)} className="text-slate-400 hover:text-white text-sm">✕</button>
+                  <button type="button" onClick={() => setActiveXmlDoc(null)} className="text-slate-400 hover:text-white text-sm cursor-pointer">✕</button>
                 </div>
 
                 <div className="flex-1 overflow-auto bg-[#070B13] border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-emerald-300 whitespace-pre">
@@ -1069,13 +1558,13 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
 
                 <div className="flex items-center justify-between pt-2">
                   <button
+                    type="button"
                     onClick={() => {
                       if (activeXmlDoc.xmlConteudo) {
-                        navigator.clipboard.writeText(activeXmlDoc.xmlConteudo);
-                        showToast('XML copiado para a área de transferência!');
+                        copyToClipboard(activeXmlDoc.xmlConteudo, 'XML');
                       }
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>Copiar XML</span>
@@ -1083,13 +1572,15 @@ export const CommercialNfseModule: React.FC<CommercialNfseModuleProps> = ({
 
                   <div className="flex items-center gap-2">
                     <button
+                      type="button"
                       onClick={() => handleDownloadNfseXml(activeXmlDoc)}
                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>Baixar Arquivo XML</span>
+                      <span>Baixar Arquivo .XML</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => setActiveXmlDoc(null)}
                       className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer"
                     >

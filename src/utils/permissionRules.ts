@@ -9,7 +9,6 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     consultoria_fiscal: false,
     legal_societario: false,
     agenda_fiscal: true,
-    emissao_nfse: true,
     pgdas_import: true,
     ai_auditor: false,
     regimes: true,
@@ -36,7 +35,6 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     consultoria_fiscal: true,
     legal_societario: false,
     agenda_fiscal: true,
-    emissao_nfse: true,
     pgdas_import: true,
     ai_auditor: true,
     regimes: true,
@@ -63,7 +61,6 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     consultoria_fiscal: true,
     legal_societario: true,
     agenda_fiscal: true,
-    emissao_nfse: true,
     pgdas_import: true,
     ai_auditor: true,
     regimes: true,
@@ -90,7 +87,6 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     consultoria_fiscal: true,
     legal_societario: true,
     agenda_fiscal: true,
-    emissao_nfse: true,
     pgdas_import: true,
     ai_auditor: true,
     partner_portal: true,
@@ -118,7 +114,6 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     consultoria_fiscal: true,
     legal_societario: true,
     agenda_fiscal: true,
-    emissao_nfse: true,
     pgdas_import: true,
     ai_auditor: true,
     partner_portal: true,
@@ -146,7 +141,6 @@ export const DEFAULT_PLAN_MODULES: Record<PlatformPlan, PlanAllowedModules> = {
     consultoria_fiscal: true,
     legal_societario: true,
     agenda_fiscal: true,
-    emissao_nfse: true,
     pgdas_import: true,
     ai_auditor: true,
     partner_portal: true,
@@ -289,9 +283,6 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
     if (tab === 'servicos_consulta' && sub.cons_servicos === false) {
       return { allowed: false, reason: 'Acesso à Consulta de Serviços Municipais desabilitado.' };
     }
-    if ((tab === 'emissao_nfse' || tab === 'nfse') && sub.nfse_emissao === false) {
-      return { allowed: false, reason: 'Acesso à Emissão de NFS-e Nacional desabilitado.' };
-    }
     if ((tab === 'financeiro' || tab === 'bpo' || tab === 'bpo_financeiro') && sub.bpo_dre === false && sub.bpo_balancetes === false && sub.bpo_fluxo_caixa === false) {
       return { allowed: false, reason: 'Acesso ao Financeiro / BPO desabilitado.' };
     }
@@ -400,9 +391,7 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
       'servicos_consulta', 
       'financeiro_gerencial', 
       'balancete_dre',
-      'parecer',
-      'emissao_nfse',
-      'nfse'
+      'parecer'
     ];
     
     if (allowedEmpresaTabs.includes(tab)) {
@@ -475,10 +464,6 @@ export function canUserAccessTab(user: AuthUser | null, tab: AppActiveTab): { al
     
     case 'agenda_fiscal':
       return { allowed: allowedMods.agenda_fiscal, reason: 'Agenda Fiscal bloqueada no plano.' };
-    
-    case 'emissao_nfse':
-    case 'nfse':
-      return { allowed: allowedMods.emissao_nfse ?? allowedMods.nfse_module ?? true, reason: 'O Módulo de Emissão de NFS-e Nacional requer liberação no plano.' };
     
     case 'portal_parceiro':
     case 'parceiros':

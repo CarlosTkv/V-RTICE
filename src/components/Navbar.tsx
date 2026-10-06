@@ -84,7 +84,6 @@ type NavModuleId =
   | 'legal_societario' 
   | 'conhecimentos' 
   | 'agenda_fiscal' 
-  | 'emissao_nfse'
   | 'portal_parceiro' 
   | 'gestao_master';
 
@@ -127,7 +126,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (['legal_societario', 'societario', 'direito'].includes(activeTab)) return 'legal_societario';
     if (['conhecimentos'].includes(activeTab)) return 'conhecimentos';
     if (['agenda_fiscal'].includes(activeTab)) return 'agenda_fiscal';
-    if (['emissao_nfse', 'nfse'].includes(activeTab)) return 'emissao_nfse';
     if (['portal_parceiro', 'parceiros'].includes(activeTab)) return 'portal_parceiro';
     if (['gestao_planos', 'contratos'].includes(activeTab)) return 'gestao_master';
     return 'auditoria_digital';
@@ -140,7 +138,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     else if (activeTab === 'reforma') brandKey = 'reforma';
     else if (activeTab === 'ncm_consulta' || activeTab === 'servicos_consulta') brandKey = 'consultas';
     else if (activeTab === 'financeiro' || activeTab === 'bpo' || activeTab === 'bpo_financeiro') brandKey = 'bpo';
-    else if (activeTab === 'emissao_nfse' || activeTab === 'nfse') brandKey = 'nfse';
     else if (activeTab === 'societario' || activeTab === 'socios') brandKey = 'societario';
     else if (activeTab === 'portal_parceiro' || activeTab === 'parceiros') brandKey = 'parceiros';
     else if (activeTab === 'parecer') brandKey = 'parecer';
@@ -162,7 +159,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'legal_societario': setActiveTab('societario'); break;
       case 'conhecimentos': setActiveTab('conhecimentos'); break;
       case 'agenda_fiscal': setActiveTab('agenda_fiscal'); break;
-      case 'emissao_nfse': setActiveTab('emissao_nfse'); break;
       case 'portal_parceiro': setActiveTab('portal_parceiro'); break;
       case 'gestao_master': setActiveTab('gestao_planos'); break;
     }
@@ -237,7 +233,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (['cfop'].includes(activeTab)) return 'monofasico';
     if (['ncm_consulta', 'servicos_consulta'].includes(activeTab)) return 'consultas';
     if (['financeiro_gerencial', 'financeiro', 'balancete_dre', 'bpo', 'bpo_financeiro'].includes(activeTab)) return 'bpo';
-    if (['emissao_nfse', 'nfse'].includes(activeTab)) return 'nfse';
     if (['societario', 'legal_societario', 'socios'].includes(activeTab)) return 'societario';
     if (['portal_parceiro', 'parceiros'].includes(activeTab)) return 'parceiros';
     if (['parecer', 'direito'].includes(activeTab)) return 'parecer';
@@ -352,7 +347,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <nav className="py-2.5 space-y-1.5">
           {!isEmpresa ? (
             <div className="space-y-1.5 w-full">
-              {/* Linha 1: Módulos Principais do Sistema (Fator R, Planejamento, Blindagem Societária, Emissor NFS-e, Financeiro) */}
+              {/* Linha 1: Módulos Principais do Sistema (Fator R, Planejamento, Blindagem Societária, Financeiro) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
                 <NavButton 
                   id="auditoria_digital" 
@@ -377,14 +372,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   color="cyan" 
                   pattern="cyan" 
                   subLabel="Expert 360° • Holdings • Auditor IA" 
-                />
-                <NavButton 
-                  id="emissao_nfse" 
-                  label="Emissor Fiscal NFS-e" 
-                  icon={Receipt} 
-                  color="rose" 
-                  pattern="rose" 
-                  subLabel="Gov.br Nacional • A1" 
                 />
                 <NavButton 
                   id="financeiro_gerencial" 
@@ -441,14 +428,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full">
               <NavButton 
-                id="emissao_nfse" 
-                label="Emissor Fiscal NFS-e" 
-                icon={Receipt} 
-                color="rose" 
-                pattern="rose" 
-                subLabel="Notas para Clientes" 
+                id="auditoria_digital" 
+                label="Diagnóstico Fator R" 
+                icon={Percent} 
+                color="emerald" 
+                pattern="emerald" 
+                subLabel="Folha • Simples Nacional" 
               />
               <NavButton 
                 id="agenda_fiscal" 
@@ -474,14 +461,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 pattern="amber" 
                 subLabel="NCM • Alíquotas" 
               />
-              <NavButton 
-                id="auditoria_digital" 
-                label="Diagnóstico Fator R" 
-                icon={Percent} 
-                color="emerald" 
-                pattern="emerald" 
-                subLabel="Folha • Simples Nacional" 
-              />
             </div>
           )}
         </nav>
@@ -492,18 +471,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
             <span>Ferramentas:</span>
           </div>
-          
-          {activeModule === 'emissao_nfse' && (
-            <>
-              <SubTabButton 
-                active={activeTab === 'emissao_nfse'} 
-                onClick={() => setActiveTab('emissao_nfse')} 
-                label="Módulo Comercial NFS-e Gov.br" 
-                icon={Receipt} 
-                color="rose" 
-              />
-            </>
-          )}
           
           {activeModule === 'auditoria_digital' && (
             <>

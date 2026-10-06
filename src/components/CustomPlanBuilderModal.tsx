@@ -129,8 +129,7 @@ export const CustomPlanBuilderModal: React.FC<CustomPlanBuilderModalProps> = ({
       planejamento_tributario: true,
       financeiro_gerencial: true,
       consultoria_fiscal: true,
-      legal_societario: true,
-      emissao_nfse: true
+      legal_societario: true
     };
     setSelectedModules(allActive);
   };

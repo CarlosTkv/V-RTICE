@@ -45,9 +45,7 @@ import {
   RefreshCw,
   Key
 } from 'lucide-react';
-import { NfseNacionalModal } from './NfseNacionalModal';
 import { AdminIntegrationDashboard } from './AdminIntegrationDashboard';
-import { NFSEServiceModule } from './NFSEServiceModule';
 import { 
   SoldSubscription, 
   SystemUser, 
@@ -1580,18 +1578,6 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
             <span className="px-1.5 py-0.5 rounded bg-purple-900 text-purple-200 text-[10px] font-mono">
               Dev/Master
             </span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('nfse')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-2 cursor-pointer ${
-              activeSubTab === 'nfse'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Módulo NFS-e Gov.br</span>
           </button>
 
           <button
@@ -3133,17 +3119,6 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
         <AdminIntegrationDashboard />
       )}
 
-      {/* ========================================================
-          SUB-ABA: MÓDULO DE EMISSÃO DE NFS-E (GOV.BR PRODUÇÃO)
-      ======================================================== */}
-      {activeSubTab === 'nfse' && (
-        <NFSEServiceModule
-          invoices={invoices}
-          bankConfig={bankConfig}
-          showToast={showToast}
-        />
-      )}
-
       {activeSubTab === 'certificados' && (
         <AdminCertificatesTab />
       )}
@@ -4398,21 +4373,6 @@ export const AdminPlansBillingView: React.FC<AdminPlansBillingViewProps> = ({
           }}
           subscription={cancellationSubTarget}
           onConfirmCancellation={handleConfirmAdminCancellation}
-        />
-      )}
-
-      {/* ========================================================
-          MODAL 8: EMISSÃO DE NFS-E NACIONAL GOV.BR
-      ======================================================== */}
-      {isNfseModalOpen && selectedNfseInvoice && (
-        <NfseNacionalModal
-          isOpen={isNfseModalOpen}
-          onClose={() => {
-            setIsNfseModalOpen(false);
-            setSelectedNfseInvoice(null);
-          }}
-          invoice={selectedNfseInvoice}
-          bankConfig={bankConfig}
         />
       )}
 

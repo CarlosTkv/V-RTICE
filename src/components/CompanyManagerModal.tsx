@@ -260,47 +260,6 @@ export const SYSTEM_MODULES_TREE: ModuleTreeDef[] = [
     ]
   },
   {
-    id: 'emissao_nfse',
-    name: 'Emissão de NFS-e Nacional',
-    description: 'Emissão e gestão de Notas Fiscais de Serviço Eletrônicas pelo Padrão Nacional.',
-    icon: FileCheck,
-    color: 'text-indigo-400',
-    badgeBg: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300',
-    planKey: 'emissao_nfse',
-    submodules: [
-      {
-        id: 'sub_nfse_emissao',
-        name: 'Emissor de NFS-e (Padrão Nacional)',
-        description: 'Geração e transmissão de Declaração de Prestação de Serviços (DPS).',
-        tabKey: 'emissao_nfse',
-        tabs: [
-          { id: 'tab_nfse_emi_dps', name: 'Emissão de DPS & Transmissão Nacional', description: 'Preenchimento e envio de NFS-e.' },
-          { id: 'tab_nfse_emi_retencoes', name: 'Cálculo Automático de Tributos & Retenções', description: 'Apuração de ISS, IRRF, PIS, COFINS.' }
-        ]
-      },
-      {
-        id: 'sub_nfse_gestao',
-        name: 'Gestão de Notas Emitidas & Cancelamento',
-        description: 'Histórico de notas, cancelamento e reemissão de documentos.',
-        tabKey: 'emissao_nfse',
-        tabs: [
-          { id: 'tab_nfse_ges_historico', name: 'Histórico de NFS-e & Impressão de DANFSE', description: 'Visualização e download de notas.' },
-          { id: 'tab_nfse_ges_cancelamento', name: 'Cancelamento & Substituição de Notas', description: 'Transmissão de pedidos de cancelamento.' }
-        ]
-      },
-      {
-        id: 'sub_nfse_cadastros',
-        name: 'Cadastros de Apoio à Emissão',
-        description: 'Cadastro de tomadores de serviço e serviços recorrentes.',
-        tabKey: 'emissao_nfse',
-        tabs: [
-          { id: 'tab_nfse_cad_tomadores', name: 'Catálogo de Tomadores de Serviço', description: 'Cadastro de clientes tomadores.' },
-          { id: 'tab_nfse_cad_tabela', name: 'Tabela de Serviços & Preços Recorrentes', description: 'Itens padronizados de prestação.' }
-        ]
-      }
-    ]
-  },
-  {
     id: 'financeiro_bpo',
     name: 'Central Financeira & Gestão Comercial',
     description: 'Gestão comercial unificada, faturamento, contratos de clientes, boletos/PIX, central de notas emitidas e DRE.',
@@ -731,11 +690,11 @@ export const CompanyManagerModal: React.FC<CompanyManagerModalProps> = ({
       } else if (preset === 'auditor') {
         shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'consultoria_fiscal'].includes(mod.id);
       } else if (preset === 'contador') {
-        shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'emissao_nfse', 'financeiro_bpo', 'legal_societario', 'agenda_fiscal'].includes(mod.id);
+        shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'financeiro_bpo', 'legal_societario', 'agenda_fiscal'].includes(mod.id);
       } else if (preset === 'bpo') {
-        shouldEnableModule = inPlan && ['financeiro_bpo', 'emissao_nfse', 'contratos_webmail'].includes(mod.id);
+        shouldEnableModule = inPlan && ['financeiro_bpo', 'contratos_webmail'].includes(mod.id);
       } else if (preset === 'assistente') {
-        shouldEnableModule = inPlan && ['emissao_nfse', 'agenda_fiscal', 'consultoria_fiscal'].includes(mod.id);
+        shouldEnableModule = inPlan && ['agenda_fiscal', 'consultoria_fiscal'].includes(mod.id);
       } else if (preset === 'leitor') {
         shouldEnableModule = inPlan && ['auditoria_digital', 'planejamento_tributario', 'agenda_fiscal'].includes(mod.id);
       }

@@ -49,7 +49,6 @@ import {
   BillingInvoice, 
   SoldSubscription, 
   PlanPeriodicity,
-  NfseNacionalData,
   CalculationResult
 } from '../types';
 import { 
@@ -61,8 +60,6 @@ import {
 } from '../data/adminBillingData';
 import { formatCurrencyBRL, formatPercentBR } from '../utils/taxRules';
 import { BoletoPixModal } from './BoletoPixModal';
-import { NfseNacionalModal } from './NfseNacionalModal';
-import { NfseNacionalService } from '../utils/nfseService';
 import { BrandLogo } from './BrandLogo';
 import { FinancialReportExportModal } from './FinancialReportExportModal';
 import { jsPDF } from 'jspdf';
@@ -71,7 +68,6 @@ export type FinancialHubSubTab =
   | 'visao_geral'
   | 'clientes_contratos'
   | 'faturamento_cobrancas'
-  | 'central_nfse_honorarios'
   | 'dre_fluxo_caixa'
   | 'configuracoes_financeiras';
 
@@ -140,80 +136,6 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
     return DEFAULT_BANK_CONFIG;
   });
 
-  // 4. Issued NFS-e Records for Office Services / Honorários
-  const [issuedNfses, setIssuedNfses] = useState<NfseNacionalData[]>(() => {
-    try {
-      const saved = localStorage.getItem('sna_nfse_commercial_invoices');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    
-    // Default initial honorários NFS-e seed
-    return [
-      {
-        numeroNfse: '202600000089',
-        serie: 'E',
-        chaveAcesso50: '35260945892120000134000100000000089100189219',
-        codigoVerificacao: 'VF89-2026-NFS',
-        dataEmissao: '2026-09-05T10:30:00.000Z',
-        competencia: '09/2026',
-        status: 'emitida',
-        codigoTributacaoNacional: '17.19.01',
-        descricaoServico: 'Prestação de serviços contábeis, escrituração fiscal, conformidade tributária e assessoria mensal referente ao mês de Setembro/2026.',
-        valorServico: 990.00,
-        aliquotaIss: 2.5,
-        valorIss: 24.75,
-        issRetido: false,
-        baseCalculo: 990.00,
-        valorLiquido: 990.00,
-        prestador: {
-          cnpj: bankConfig.beneficiaryDocument || '45.892.120/0001-34',
-          razaoSocial: bankConfig.beneficiaryName || 'Vieira Consultoria & Inteligência Tributária ME',
-          endereco: 'Av. Paulista, 1000',
-          municipio: 'São Paulo',
-          uf: 'SP'
-        },
-        tomador: {
-          cpfCnpj: '12.345.678/0001-90',
-          razaoSocial: 'Tech Solutions Consultoria em Software Ltda',
-          email: 'financeiro@techsolutions.com.br',
-          municipio: 'São Paulo',
-          uf: 'SP'
-        }
-      },
-      {
-        numeroNfse: '202600000088',
-        serie: 'E',
-        chaveAcesso50: '35260945892120000134000100000000088100189220',
-        codigoVerificacao: 'VF88-2026-NFS',
-        dataEmissao: '2026-09-02T14:15:00.000Z',
-        competencia: '09/2026',
-        status: 'emitida',
-        codigoTributacaoNacional: '17.01.01',
-        descricaoServico: 'Honorários de auditoria tributária preventiva, revisão do Fator R e diagnóstico de enquadramento do Simples Nacional.',
-        valorServico: 1890.00,
-        aliquotaIss: 2.5,
-        valorIss: 47.25,
-        issRetido: false,
-        baseCalculo: 1890.00,
-        valorLiquido: 1890.00,
-        prestador: {
-          cnpj: bankConfig.beneficiaryDocument || '45.892.120/0001-34',
-          razaoSocial: bankConfig.beneficiaryName || 'Vieira Consultoria & Inteligência Tributária ME',
-          endereco: 'Av. Paulista, 1000',
-          municipio: 'São Paulo',
-          uf: 'SP'
-        },
-        tomador: {
-          cpfCnpj: '23.456.789/0001-01',
-          razaoSocial: 'Alpha Engenharia e Projetos Estruturais S/S',
-          email: 'diretoria@alphaengenharia.com.br',
-          municipio: 'São Paulo',
-          uf: 'SP'
-        }
-      }
-    ];
-  });
-
   // Save changes helper
   const saveSubscriptions = (updated: SoldSubscription[]) => {
     setSubscriptions(updated);
@@ -230,19 +152,11 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
     try { localStorage.setItem('sna_admin_bank_config', JSON.stringify(updated)); } catch {}
   };
 
-  const saveIssuedNfses = (updated: NfseNacionalData[]) => {
-    setIssuedNfses(updated);
-    try { localStorage.setItem('sna_nfse_commercial_invoices', JSON.stringify(updated)); } catch {}
-  };
-
   // ==========================================
   // MODAL STATES
   // ==========================================
   const [selectedBoletoInvoice, setSelectedBoletoInvoice] = useState<BillingInvoice | null>(null);
   const [isBoletoModalOpen, setIsBoletoModalOpen] = useState(false);
-
-  const [selectedNfseInvoice, setSelectedNfseInvoice] = useState<BillingInvoice | null>(null);
-  const [isNfseModalOpen, setIsNfseModalOpen] = useState(false);
   const [isFinancialPdfModalOpen, setIsFinancialPdfModalOpen] = useState(false);
 
   // New Contract Modal
@@ -315,10 +229,6 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
     // Average Ticket
     const avgTicket = activeClients.length > 0 ? mrr / activeClients.length : 0;
 
-    // Total Issued NFS-e
-    const totalNfseAmount = issuedNfses.reduce((acc, curr) => acc + (curr.valorServico || 0), 0);
-    const totalIssRetido = issuedNfses.reduce((acc, curr) => acc + (curr.valorIss || 0), 0);
-
     return {
       totalClients,
       activeClientsCount: activeClients.length,
@@ -331,12 +241,9 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
       totalInvoiced,
       totalPaidAmount,
       totalPendingAmount,
-      avgTicket,
-      totalNfseCount: issuedNfses.length,
-      totalNfseAmount,
-      totalIssRetido
+      avgTicket
     };
-  }, [subscriptions, invoices, issuedNfses]);
+  }, [subscriptions, invoices]);
 
   // Filtered Subscriptions
   const filteredSubscriptions = useMemo(() => {
@@ -407,13 +314,7 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
     setIsBoletoModalOpen(true);
   };
 
-  // 3. Open NFS-e Modal for an Invoice
-  const handleOpenNfse = (invoice: BillingInvoice) => {
-    setSelectedNfseInvoice(invoice);
-    setIsNfseModalOpen(true);
-  };
-
-  // 4. Create New Customer Contract
+  // 3. Create New Customer Contract
   const handleCreateContract = (e: React.FormEvent) => {
     e.preventDefault();
     if (!contractFormName.trim() || !contractFormDoc.trim()) {
@@ -801,20 +702,6 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
             </div>
           </div>
 
-          {/* Card 6: Central de Notas Emitidas */}
-          <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 transition">
-            <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
-              <span className="font-semibold">NFS-e Honorários</span>
-              <FileText className="w-3.5 h-3.5 text-purple-400" />
-            </div>
-            <div className="text-xl font-black text-purple-300">
-              {financialMetrics.totalNfseCount}
-            </div>
-            <div className="text-[11px] text-purple-300/80 mt-1 truncate">
-              Total: <span className="font-bold">{formatCurrencyBRL(financialMetrics.totalNfseAmount)}</span>
-            </div>
-          </div>
-
         </div>
       </div>
 
@@ -859,17 +746,6 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
           <span>Faturamento, Boletos & PIX ({invoices.length})</span>
         </button>
 
-        <button
-          onClick={() => setActiveSubTab('central_nfse_honorarios')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center space-x-2 shrink-0 cursor-pointer ${
-            activeSubTab === 'central_nfse_honorarios'
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Central de Notas Emitidas ({issuedNfses.length})</span>
-        </button>
 
         <button
           onClick={() => setActiveSubTab('dre_fluxo_caixa')}
@@ -1443,160 +1319,6 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
                               <Check className="w-3.5 h-3.5" />
                             </button>
                           )}
-
-                          {/* Emitir NFS-e Nacional de Honorários */}
-                          <button
-                            onClick={() => handleOpenNfse(inv)}
-                            className="p-1.5 bg-purple-950/70 hover:bg-purple-900 text-purple-300 rounded-lg transition border border-purple-800/60 cursor-pointer"
-                            title="Emitir NFS-e Gov.br de Honorários"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------------- */}
-      {/* SUBTAB 4: CENTRAL DE NOTAS FISCAIS EMITIDAS DE HONORÁRIOS                 */}
-      {/* ------------------------------------------------------------------------- */}
-      {activeSubTab === 'central_nfse_honorarios' && (
-        <div className="space-y-5 animate-fade-in">
-          
-          <div className="bg-[#0F172A] border border-purple-500/20 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/30">
-                  <FileText className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-[10px] font-bold text-purple-400 bg-purple-950 px-2 py-0.5 rounded border border-purple-800/60 uppercase">
-                      Padrão Nacional ADN / Receita Federal
-                    </span>
-                  </div>
-                  <h3 className="text-base font-bold text-white mt-1">
-                    Central de Notas Fiscais Emitidas (Prestação de Serviços do Escritório)
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  const firstPaidInvoice = invoices.find(i => i.status === 'pago') || invoices[0];
-                  if (firstPaidInvoice) {
-                    handleOpenNfse(firstPaidInvoice);
-                  } else {
-                    triggerToast('Nenhuma fatura disponível para emissão.', 'warning');
-                  }
-                }}
-                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition shadow-lg shadow-purple-600/20 flex items-center space-x-1.5 shrink-0 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Emitir Nova NFS-e de Honorários</span>
-              </button>
-            </div>
-
-            {/* List of Issued NFS-e */}
-            <div className="overflow-x-auto mt-4">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 text-[11px] uppercase tracking-wider bg-slate-900/70">
-                    <th className="py-3 px-3">Número NFS-e</th>
-                    <th className="py-3 px-3">Tomador (Cliente)</th>
-                    <th className="py-3 px-3">Competência</th>
-                    <th className="py-3 px-3">Valor Bruto</th>
-                    <th className="py-3 px-3">ISSQN</th>
-                    <th className="py-3 px-3">Valor Líquido</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/70">
-                  {issuedNfses.map(nfse => (
-                    <tr key={nfse.numeroNfse} className="hover:bg-slate-900/50 transition">
-                      <td className="py-3 px-3">
-                        <div className="font-mono font-bold text-white">{nfse.numeroNfse}</div>
-                        <div className="text-[10px] text-slate-500 font-mono truncate max-w-[150px]">
-                          Chave: {nfse.chaveAcesso50}
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-3">
-                        <div className="font-bold text-slate-200">{nfse.tomador.razaoSocial}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{nfse.tomador.cpfCnpj}</div>
-                      </td>
-
-                      <td className="py-3 px-3 text-slate-300 font-mono">
-                        {nfse.competencia}
-                      </td>
-
-                      <td className="py-3 px-3 font-bold text-slate-200">
-                        {formatCurrencyBRL(nfse.valorServico)}
-                      </td>
-
-                      <td className="py-3 px-3 text-slate-400">
-                        {formatCurrencyBRL(nfse.valorIss)} ({nfse.aliquotaIss}%)
-                      </td>
-
-                      <td className="py-3 px-3 font-black text-emerald-400 text-sm">
-                        {formatCurrencyBRL(nfse.valorLiquido)}
-                      </td>
-
-                      <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-950 text-emerald-300 border border-emerald-800/60">
-                          {nfse.status}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end space-x-1.5">
-                          <button
-                            onClick={() => {
-                              const dummyInv: BillingInvoice = {
-                                id: nfse.numeroNfse,
-                                subscriptionId: 'sub_nfse',
-                                customerName: nfse.tomador.razaoSocial,
-                                customerDocument: nfse.tomador.cpfCnpj,
-                                customerEmail: nfse.tomador.email,
-                                planName: nfse.descricaoServico,
-                                amount: nfse.valorServico,
-                                dueDate: new Date().toISOString().split('T')[0],
-                                issueDate: nfse.dataEmissao.split('T')[0],
-                                paymentMethod: 'pix',
-                                status: 'pago',
-                                linhaDigitavel: '',
-                                nossoNumero: '',
-                                codigoBarras: '',
-                                pixCopiaECola: '',
-                                txId: ''
-                              };
-                              setSelectedNfseInvoice(dummyInv);
-                              setIsNfseModalOpen(true);
-                            }}
-                            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-purple-400" />
-                            <span>DANFSE</span>
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              NfseNacionalService.downloadXml(nfse);
-                              triggerToast('XML Nacional baixado!', 'success');
-                            }}
-                            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded transition cursor-pointer"
-                            title="Baixar XML Nacional"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1874,17 +1596,6 @@ export const FinancialCommercialHubView: React.FC<FinancialCommercialHubViewProp
           handleMarkInvoiceAsPaid(invId);
           setIsBoletoModalOpen(false);
         }}
-      />
-
-      {/* Modal 2: NFS-e Nacional DANFSE */}
-      <NfseNacionalModal
-        isOpen={isNfseModalOpen}
-        onClose={() => {
-          setIsNfseModalOpen(false);
-          setSelectedNfseInvoice(null);
-        }}
-        invoice={selectedNfseInvoice}
-        bankConfig={bankConfig}
       />
 
       {/* Modal 3: Novo Contrato / Cliente */}

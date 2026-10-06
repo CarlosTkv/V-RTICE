@@ -36,7 +36,8 @@ import {
   CheckCircle,
   Eye,
   Activity,
-  Trash2
+  Trash2,
+  Globe
 } from 'lucide-react';
 import { CompanyData, CalculationResult, AppViewMode, DashboardWidgetConfig, DashboardWidgetId, ObrigacaoFiscal } from '../types';
 import { OBRIGACOES_DATABASE } from './AgendaFiscalView';
@@ -1906,6 +1907,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 relative z-10 pt-1">
             {/* Left: Direct Report & Diagnostic Actions */}
             <div className="flex flex-wrap items-center gap-2">
+
               <button
                 onClick={() => onNavigateToTab('parecer')}
                 className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-md flex items-center space-x-1.5 cursor-pointer"

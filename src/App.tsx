@@ -38,7 +38,6 @@ import { DocumentValidatorModal } from './components/DocumentValidatorModal';
 import { NotificationSettingsModal } from './components/NotificationSettingsModal';
 import { LoginPage } from './components/LoginPage';
 import { LandingWelcomePortal } from './components/LandingWelcomePortal';
-import { CommercialNfseModule } from './components/CommercialNfseModule';
 import { UmblerWebmailModule } from './components/UmblerWebmailModule';
 import { FinancialStatementsView } from './components/FinancialStatementsView';
 import { FinancialCommercialHubView } from './components/FinancialCommercialHubView';
@@ -172,8 +171,8 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppActiveTab>(() => {
     const saved = localStorage.getItem('sna_active_tab') as AppActiveTab;
-    if (saved === ('vertice_documentos' as any)) return 'dashboard';
-    return saved || 'dashboard';
+    if (!saved || (saved as any) === 'emissao_nfse' || (saved as any) === 'nfse' || (saved as any) === 'vertice_documentos') return 'dashboard';
+    return saved;
   });
 
   // Salvar activeTab no localStorage
@@ -675,17 +674,6 @@ export default function App() {
             viewMode={viewMode}
             showToast={showToast}
             defaultSubTab="clientes_contratos"
-          />
-        );
-
-      case 'emissao_nfse':
-      case 'nfse':
-        return (
-          <CommercialNfseModule
-            currentCompany={safeCurrentCompany}
-            authUser={authUser}
-            viewMode={viewMode}
-            showToast={showToast}
           />
         );
 

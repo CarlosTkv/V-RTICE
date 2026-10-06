@@ -31,6 +31,9 @@ export interface NfseDocumentoCapturado {
 
 export interface NfseCrawlerSyncOptions {
   cnpj: string;
+  authType?: 'certificado' | 'senha_web';
+  usuario?: string; // CPF ou CNPJ de login no Portal Nacional
+  senhaWeb?: string; // Senha Web ou Código de Acesso do Portal da NFS-e
   pfxBuffer?: Buffer | string; // Buffer ou Base64 do Certificado A1
   passphrase?: string;
   ambiente?: '1' | '2'; // 1 = Produção (Oficial), 2 = Homologação
@@ -149,31 +152,62 @@ export class NfseCrawler {
     const documentosCapturados: NfseDocumentoCapturado[] = [];
 
     try {
-      // 2. Tenta a consulta oficial via API DFe / Distribuição ADN Sefin
-      const resultadoDfe = await this.consultarDistribuicaoDfe(cleanCnpj, baseUrl.apiDfe, httpsAgent, pagina);
+      let metodoDiagnostic = 'Consulta Pública Web ADN';
 
-      if (resultadoDfe && resultadoDfe.documentos && resultadoDfe.documentos.length > 0) {
-        for (const rawDoc of resultadoDfe.documentos) {
-          const docTratado = await this.parseAndEnrichNfseXml(rawDoc.xml, cleanCnpj);
-          if (docTratado) {
-            documentosCapturados.push(docTratado);
+      if (options.authType === 'senha_web' || (!httpsAgent && (options.senhaWeb || options.usuario))) {
+        console.log(`[NfseCrawler] Autenticando com Usuário e Senha Web no Portal Nacional (${baseUrl.portalContribuinte})...`);
+        metodoDiagnostic = 'Autenticação Web / Senha Portal Nacional';
+        const resultadoWeb = await this.consultarPortalComUsuarioSenha(
+          cleanCnpj,
+          options.usuario || cleanCnpj,
+          options.senhaWeb || options.passphrase || '',
+          baseUrl.portalContribuinte,
+          {
+            dataInicio: options.dataInicio,
+            dataFim: options.dataFim,
+            pagina,
+            itensPorPagina
           }
-        }
-      } else {
-        // Se a API direta DFe não retornou por NSU ou credenciais REST, aciona o crawler headless no Portal
-        console.log(`[NfseCrawler] Executando crawler headless de paginação no Portal Contribuintes (${baseUrl.portalContribuinte})...`);
-        const resultadoPortal = await this.consultarPortalHeadless(cleanCnpj, baseUrl.portalContribuinte, httpsAgent, {
-          dataInicio: options.dataInicio,
-          dataFim: options.dataFim,
-          pagina,
-          itensPorPagina
-        });
+        );
 
-        if (resultadoPortal && resultadoPortal.documentos) {
-          for (const rawDoc of resultadoPortal.documentos) {
+        if (resultadoWeb && resultadoWeb.documentos) {
+          for (const rawDoc of resultadoWeb.documentos) {
             const docTratado = await this.parseAndEnrichNfseXml(rawDoc.xml, cleanCnpj);
             if (docTratado) {
               documentosCapturados.push(docTratado);
+            }
+          }
+        }
+      } else {
+        if (httpsAgent) {
+          metodoDiagnostic = 'mTLS Certificado Digital A1 (ICP-Brasil)';
+        }
+        // 2. Tenta a consulta oficial via API DFe / Distribuição ADN Sefin
+        const resultadoDfe = await this.consultarDistribuicaoDfe(cleanCnpj, baseUrl.apiDfe, httpsAgent, pagina);
+
+        if (resultadoDfe && resultadoDfe.documentos && resultadoDfe.documentos.length > 0) {
+          for (const rawDoc of resultadoDfe.documentos) {
+            const docTratado = await this.parseAndEnrichNfseXml(rawDoc.xml, cleanCnpj);
+            if (docTratado) {
+              documentosCapturados.push(docTratado);
+            }
+          }
+        } else {
+          // Se a API direta DFe não retornou por NSU ou credenciais REST, aciona o crawler headless no Portal
+          console.log(`[NfseCrawler] Executando crawler headless de paginação no Portal Contribuintes (${baseUrl.portalContribuinte})...`);
+          const resultadoPortal = await this.consultarPortalHeadless(cleanCnpj, baseUrl.portalContribuinte, httpsAgent, {
+            dataInicio: options.dataInicio,
+            dataFim: options.dataFim,
+            pagina,
+            itensPorPagina
+          });
+
+          if (resultadoPortal && resultadoPortal.documentos) {
+            for (const rawDoc of resultadoPortal.documentos) {
+              const docTratado = await this.parseAndEnrichNfseXml(rawDoc.xml, cleanCnpj);
+              if (docTratado) {
+                documentosCapturados.push(docTratado);
+              }
             }
           }
         }
@@ -205,7 +239,7 @@ export class NfseCrawler {
         documentos: documentosCapturados,
         mensagem,
         diagnostico: {
-          metodoUtilizado: httpsAgent ? 'mTLS ADN Sefin + Portal Headless' : 'Consulta Pública Web ADN',
+          metodoUtilizado: metodoDiagnostic,
           tempoExecucaoMs: tempoTotal,
           codigoRetorno: 200,
           detalhesSefin: 'Transmissão autorizada pelo repositório nacional da Receita Federal.'
@@ -334,6 +368,105 @@ export class NfseCrawler {
         resolve({ documentos: [] });
       });
 
+      req.end();
+    });
+  }
+
+  /**
+   * Autenticação e Consulta Headless utilizando Usuário (CPF/CNPJ) e Senha Web do Emissor Nacional (nfse.gov.br)
+   */
+  private static async consultarPortalComUsuarioSenha(
+    cleanCnpj: string,
+    usuario: string,
+    senhaWeb: string,
+    portalUrl: string,
+    filtros?: { dataInicio?: string; dataFim?: string; pagina?: number; itensPorPagina?: number }
+  ): Promise<{ documentos: { xml: string }[] }> {
+    return new Promise((resolve) => {
+      const cleanUser = usuario.replace(/\D/g, '');
+      const loginPayload = new URLSearchParams({
+        InscricaoFederal: cleanUser || cleanCnpj,
+        Senha: senhaWeb,
+        TipoInscricao: cleanUser.length === 11 ? '2' : '1' // 1 = CNPJ, 2 = CPF
+      }).toString();
+
+      let loginUrl: URL;
+      try {
+        loginUrl = new URL(`${portalUrl}/EmissorNacional/Login`);
+      } catch {
+        loginUrl = new URL('https://www.nfse.gov.br/EmissorNacional/Login');
+      }
+
+      const req = https.request(loginUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(loginPayload),
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Referer': loginUrl.toString()
+        },
+        timeout: 10000
+      }, (res) => {
+        const cookies = res.headers['set-cookie'] || [];
+        const cookieHeader = cookies.map(c => c.split(';')[0]).join('; ');
+
+        // Com a sessão autenticada, consulta os registros de notas
+        const queryParams = new URLSearchParams({
+          cnpj: cleanCnpj,
+          pagina: String(filtros?.pagina || 1),
+          limite: String(filtros?.itensPorPagina || 50),
+          dataInicio: filtros?.dataInicio || '',
+          dataFim: filtros?.dataFim || ''
+        });
+
+        let consultaUrl: URL;
+        try {
+          consultaUrl = new URL(`${portalUrl}/EmissorNacional/api/consulta?${queryParams.toString()}`);
+        } catch {
+          consultaUrl = new URL(`https://www.nfse.gov.br/EmissorNacional/api/consulta?${queryParams.toString()}`);
+        }
+
+        const consultaReq = https.request(consultaUrl, {
+          method: 'GET',
+          headers: {
+            'Cookie': cookieHeader,
+            'Accept': 'application/json, text/xml',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Referer': `${portalUrl}/EmissorNacional/NotasEmitidas`
+          },
+          timeout: 10000
+        }, (consultaRes) => {
+          let body = '';
+          consultaRes.on('data', chunk => { body += chunk; });
+          consultaRes.on('end', () => {
+            if (consultaRes.statusCode === 200 && body.trim().startsWith('{')) {
+              try {
+                const json = JSON.parse(body);
+                if (json && Array.isArray(json.notas)) {
+                  return resolve({
+                    documentos: json.notas.map((n: any) => ({ xml: n.xml || n.xmlConteudo }))
+                  });
+                }
+              } catch {}
+            }
+            resolve({ documentos: [] });
+          });
+        });
+
+        consultaReq.on('error', () => {
+          resolve({ documentos: [] });
+        });
+
+        consultaReq.end();
+      });
+
+      req.on('error', (err) => {
+        console.warn(`[NfseCrawler] Falha no login por senha web (${err.message}). Retornando lista vazia.`);
+        resolve({ documentos: [] });
+      });
+
+      req.write(loginPayload);
       req.end();
     });
   }

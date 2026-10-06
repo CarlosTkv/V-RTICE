@@ -738,76 +738,12 @@ export const SYSTEM_TRAINING_MANUAL_DATA: ManualModule[] = [
   },
 
   // =========================================================================
-  // MÓDULO 06: EMISSOR FISCAL NFS-e & PADRÃO NACIONAL GOV.BR
-  // =========================================================================
-  {
-    id: 'modulo_emissor_nfse',
-    number: '06',
-    moduleCode: 'MÓDULO 06',
-    title: 'VÉRTICE Emissor Fiscal NFS-e & Padrão Nacional',
-    subtitle: 'Emissão de Notas Fiscais de Serviços Eletrônicas padrão Gov.br, Certificado A1 e Retenções',
-    iconName: 'Receipt',
-    targetTab: 'emissao_nfse',
-    buttonLabel: 'Acessar Emissor Fiscal NFS-e',
-    overview: 'Módulo emissor de notas fiscais de serviço integrado com a plataforma nacional de NFS-e da Receita Federal (Portal de Gestão NFS-e Nacional / Gov.br), com validação automática de tomador, cálculo de ISS e retenções federais.',
-    submodules: [
-      {
-        id: 'sub_nfse_dados_gerais',
-        submoduleCode: 'SUB 6.1',
-        title: 'Dados da Nota Fiscal, Tomador & Serviços',
-        description: 'Preenchimento dos dados do cliente tomador, serviço prestado e valores.',
-        primaryWorkflow: 'O usuário informa o CPF/CNPJ do tomador, seleciona o Código de Tributação Nacional e preenche o valor do serviço.',
-        fields: [
-          {
-            fieldName: 'CPF / CNPJ do Tomador do Serviço',
-            fieldCode: 'tomadorDoc',
-            inputType: 'Texto',
-            technicalPurpose: 'Identificação fiscal do contratante para emissão e cruzamento na malha fiscal da RFB.',
-            legalBase: 'Convênio NFS-e Nacional e Resolução CGSN nº 169/2022.',
-            systemImpact: 'Consulta automática via API para preencher Razão Social e endereço do tomador e define se há obrigatoriedade de retenção de tributos federais.',
-            reflectsIn: ['Corpo da NFS-e', 'DANFSE', 'XML de Transmissão']
-          },
-          {
-            fieldName: 'Código de Tributação Nacional da NFS-e',
-            fieldCode: 'codigoTributacaoNacional',
-            inputType: 'Seleção Única',
-            acceptedValues: 'Tabela Padrão Nacional (ex: 01.07.01 - Suporte Técnico em Informática)',
-            technicalPurpose: 'Padronização do serviço em âmbito nacional perante o Portal Gov.br.',
-            legalBase: 'Lista Anexa à Lei Complementar nº 116/2003.',
-            systemImpact: 'Determina a alíquota de ISS do município do prestador ou do tomador e se o imposto é devido no local do estabelecimento ou no local da execução.',
-            reflectsIn: ['XML de Lote', 'DANFSE', 'Guia de ISS']
-          },
-          {
-            fieldName: 'Valor Bruto do Serviço Prestado',
-            fieldCode: 'valorServico',
-            inputType: 'Moeda (R$)',
-            acceptedValues: 'Valores em Reais',
-            technicalPurpose: 'Base de cálculo para os tributos municipais e federais.',
-            legalBase: 'Art. 7º da LC 116/2003.',
-            systemImpact: 'Calcula o valor líquido a receber deduzindo as retenções aplicáveis e alimenta automaticamente o módulo de Faturamento e BPO Financeiro.',
-            reflectsIn: ['Total da NFS-e', 'BPO Financeiro (Contas a Receber)', 'RBT12']
-          },
-          {
-            fieldName: 'Retenções Federais (PIS, COFINS, CSLL, IRPJ, INSS)',
-            fieldCode: 'retencoesFederais',
-            inputType: 'Moeda (R$)',
-            technicalPurpose: 'Dedução de tributos antecipados na fonte quando o tomador é pessoa jurídica.',
-            legalBase: 'Art. 30 da Lei nº 10.833/2003 (PIS/COFINS/CSLL 4,65%) e Art. 714 do RIR/2018.',
-            systemImpact: 'Se a empresa for do Simples Nacional, não há retenção de PIS/COFINS/CSLL na fonte (Art. 1º da IN RFB 765/2007), mas se for do Presumido ou Real, desconta o valor retido.',
-            reflectsIn: ['Valor Líquido da Nota', 'Compensação Tributária na DRE']
-          }
-        ]
-      }
-    ]
-  },
-
-  // =========================================================================
-  // MÓDULO 07: GESTÃO FINANCEIRA, BPO & DEMONSTRATIVOS CONTÁBEIS
+  // MÓDULO 06: GESTÃO FINANCEIRA, BPO & DEMONSTRATIVOS CONTÁBEIS
   // =========================================================================
   {
     id: 'modulo_gestao_financeira_bpo',
-    number: '07',
-    moduleCode: 'MÓDULO 07',
+    number: '06',
+    moduleCode: 'MÓDULO 06',
     title: 'VÉRTICE Gestão Financeira, BPO & Demonstrativos',
     subtitle: 'DRE Fiscal e Gerencial, Balancete, Fluxo de Caixa (DFC) e Tesouraria BPO',
     iconName: 'Wallet',
