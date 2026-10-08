@@ -87,14 +87,20 @@ export const LandingWelcomePortal: React.FC<LandingWelcomePortalProps> = ({
   const headerButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      const scrollPos = window.scrollY;
-      setIsScrolled(scrollPos > 300);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPos = window.scrollY;
+          setIsScrolled(scrollPos > 300);
 
-      if (headerButtonRef.current) {
-        const rect = headerButtonRef.current.getBoundingClientRect();
-        // Se o botão principal do header estiver visível na tela, escondemos a flechinha flutuante
-        setHeaderButtonVisible(rect.top >= 0 && rect.bottom <= window.innerHeight);
+          if (headerButtonRef.current) {
+            const rect = headerButtonRef.current.getBoundingClientRect();
+            setHeaderButtonVisible(rect.top >= 0 && rect.bottom <= window.innerHeight);
+          }
+          ticking = false;
+        });
+        ticking = true;
       }
     };
 

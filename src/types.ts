@@ -338,6 +338,13 @@ export interface CompanyData {
   activityStartMonths?: number; // Número de meses de atividade se empresa nova
   subjectToFatorR?: boolean; // Se a empresa é optante por atividade com Fator R (se false ou undefined no Anexo III, não joga para o Anexo V)
   simulationHistory?: SavedSimulation[]; // Histórico de pareceres e simulações arquivadas
+  certificateA1?: {
+    pfxBase64?: string;
+    password?: string;
+    commonName?: string;
+    expiresAt?: string;
+    valid?: boolean;
+  };
   keepSimulationHistory?: boolean; // [ ] Manter em Histórico (quando marcado, arquiva automaticamente as simulações e alterações)
   financialStatements?: FinancialStatement[]; // Histórico de Balancetes/DREs importados para comparação
   createdAt?: string;

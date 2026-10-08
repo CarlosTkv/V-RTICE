@@ -55,7 +55,7 @@ export const BrandConvergenceSplash: React.FC<BrandConvergenceSplashProps> = ({
   // Geração determinística de partículas de estrelas dinâmicas
   const stars: StarParticle[] = useMemo(() => {
     const starColors = ['#ffffff', '#93c5fd', '#fef08a', '#c084fc', '#6ee7b7', '#fde047'];
-    return Array.from({ length: 85 }, (_, i) => ({
+    return Array.from({ length: 24 }, (_, i) => ({
       id: i,
       x: (Math.sin(i * 773) * 0.5 + 0.5) * 100,
       y: (Math.cos(i * 439) * 0.5 + 0.5) * 100,

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ReactLenis } from 'lenis/react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
@@ -892,83 +891,60 @@ export default function App() {
     govUpdatePopup?.open
   );
 
-  const lenisOptions = useMemo(() => ({
-    prevent: (node: HTMLElement | Element | null | any) => {
-      if (isAnyModalOpen) return true;
-      if (!node) return false;
-      try {
-        const el = node instanceof Element ? node : node?.parentElement;
-        if (!el) return false;
-        const scrollable = el.closest(
-          '[data-lenis-prevent], .overflow-y-auto, .overflow-y-scroll, .overflow-auto, .overflow-x-auto, [class*="overflow-y"], .fixed, .custom-scrollbar, [role="dialog"], [aria-modal="true"]'
-        );
-        if (scrollable) return true;
-      } catch {
-        // ignore
-      }
-      return false;
-    }
-  }), [isAnyModalOpen]);
-
   if (!authUser) {
     return (
-      <ReactLenis root options={lenisOptions}>
-        <ErrorBoundary>
-          <LandingWelcomePortal
-            forceInitialSplash={true}
-            onLogin={(user) => {
-              handleSaveAuthUser(user);
-            }}
-          />
-        </ErrorBoundary>
-      </ReactLenis>
+      <ErrorBoundary>
+        <LandingWelcomePortal
+          forceInitialSplash={false}
+          onLogin={(user) => {
+            handleSaveAuthUser(user);
+          }}
+        />
+      </ErrorBoundary>
     );
   }
 
   // Visualização Exclusiva do Portal do Cliente para o Módulo Simples Híbrido
   if (viewMode === 'cliente_simples_hibrido') {
     return (
-      <ReactLenis root options={lenisOptions}>
-        <ErrorBoundary>
-          <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col selection:bg-indigo-600 selection:text-white font-sans relative">
-            <CosmicPrismaBackground />
-            <div className="relative z-10 flex flex-col flex-1">
-              <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-                <SimplesHibridoClientPortal
-                  company={safeCurrentCompany}
-                  onChangeCompany={isClientReadOnly ? undefined : handleUpdateCurrentCompany}
-                  calculation={calculation}
-                  isReadOnly={isClientReadOnly}
-                  requiredPin={clientRequiredPin}
-                  authUser={authUser}
-                  onExitClientMode={() => {
-                    setViewMode('master');
-                    setActiveTab('dashboard');
-                    try {
-                      const cleanUrl = window.location.origin + window.location.pathname;
-                      window.history.replaceState({}, document.title, cleanUrl);
-                    } catch (e) {}
-                  }}
-                />
-              </main>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col selection:bg-indigo-600 selection:text-white font-sans relative">
+          <CosmicPrismaBackground />
+          <div className="relative z-10 flex flex-col flex-1">
+            <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+              <SimplesHibridoClientPortal
+                company={safeCurrentCompany}
+                onChangeCompany={isClientReadOnly ? undefined : handleUpdateCurrentCompany}
+                calculation={calculation}
+                isReadOnly={isClientReadOnly}
+                requiredPin={clientRequiredPin}
+                authUser={authUser}
+                onExitClientMode={() => {
+                  setViewMode('master');
+                  setActiveTab('dashboard');
+                  try {
+                    const cleanUrl = window.location.origin + window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                  } catch (e) {}
+                }}
+              />
+            </main>
 
-              <footer className="no-print border-t border-slate-800/80 bg-[#0B0F19] py-4 text-xs font-mono text-slate-400">
-                <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-300">VÉRTICE AUDITOR FISCAL // Portal do Cliente • Simples Híbrido (EC 132/23)</span>
-                  <span className="text-slate-500">Acesso Homologado & Conforme</span>
-                </div>
-              </footer>
-            </div>
+            <footer className="no-print border-t border-slate-800/80 bg-[#0B0F19] py-4 text-xs font-mono text-slate-400">
+              <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <span className="font-semibold text-slate-300">VÉRTICE AUDITOR FISCAL // Portal do Cliente • Simples Híbrido (EC 132/23)</span>
+                <span className="text-slate-500">Acesso Homologado & Conforme</span>
+              </div>
+            </footer>
           </div>
-        </ErrorBoundary>
-      </ReactLenis>
+        </div>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <ReactLenis root options={lenisOptions}>
-      <ErrorBoundary>
-        <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans relative">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white font-sans relative">
         
         {/* Animated Cosmic Prisma Ambient Background (Similar to Pre-Screen) */}
         <CosmicPrismaBackground />
@@ -1221,7 +1197,6 @@ export default function App() {
         </div>
       </div>
     </ErrorBoundary>
-    </ReactLenis>
   );
 }
 

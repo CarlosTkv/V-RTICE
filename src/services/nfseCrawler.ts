@@ -522,7 +522,7 @@ export class NfseCrawler {
       let pdfBase64: string | undefined;
 
       try {
-        const result = await NFSeGerarDanfeFromXml({ data: xmlString });
+        const result = await NFSeGerarDanfeFromXml({ data: xmlString, outputPath: '' } as any);
         if (result && Buffer.isBuffer(result)) {
           pdfBuffer = result;
           pdfBase64 = pdfBuffer.toString('base64');

@@ -11,6 +11,66 @@ import { ImapFlow } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import zlib from 'zlib';
 import forge from 'node-forge';
+import multer from 'multer';
+import { XMLParser } from 'fast-xml-parser';
+import { Pool } from 'pg';
+import unzipper from 'unzipper';
+import PDFDocument from 'pdfkit';
+import { getCompanyFiscalDocuments, generateFiscalXml } from './src/data/fiscalDocumentsDatabase';
+import { getWorkerStatus, executeQueueCycle } from './src/services/sefazQueueWorker';
+import { NfseCrawler } from './src/services/nfseCrawler';
+import { getRecentCancelAlerts, notificarCancelamentoNFe } from './src/services/webhookNotifier';
+import { encryptCertificateBuffer, encryptPassword } from './src/services/cryptoService';
+import { sefinCronWorker } from './src/services/sefinCronWorker';
+// Motor de Processamento Fiscal e Espelho DANFE em Memória RAM
+class MaquinaFiscalOnline {
+  constructor(private cnpjSistema: string) {}
+  async processarDocumento(xmlContent: string) {
+    const parser = new XMLParser({ ignoreAttributes: false });
+    const xmlJson = parser.parse(xmlContent);
+    const nfe = xmlJson.nfeProc?.NFe || xmlJson.NFe || xmlJson;
+    const infNFe = nfe.infNFe || {};
+    const chave = infNFe['@_Id']?.replace('NFe', '') || xmlJson.nfeProc?.protNFe?.infProt?.chNFe || `DOC${Date.now()}`;
+    const numero = infNFe.ide?.nNF || '1';
+    const serie = infNFe.ide?.serie || '1';
+    const emitente = infNFe.emit?.xNome || 'Emitente Autorizado';
+    const emitenteCnpj = infNFe.emit?.CNPJ || '';
+    const destinatario = infNFe.dest?.xNome || 'Destinatário';
+    const destinatarioCnpj = infNFe.dest?.CNPJ || '';
+    const valorTotal = parseFloat(infNFe.total?.ICMSTot?.vNF || '0');
+
+    const dadosFiscais = {
+      chave,
+      numero,
+      serie,
+      emitente,
+      emitenteCnpj,
+      destinatario,
+      destinatarioCnpj,
+      valorTotal
+    };
+
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.rect(30, 30, 535, 782).lineWidth(1).strokeColor('#334155').stroke();
+    doc.fontSize(16).font('Helvetica-Bold').fillColor('#0f172a').text('DOCUMENTO AUXILIAR DA NOTA FISCAL (DANFE)', 40, 50);
+    doc.fontSize(9).font('Helvetica').fillColor('#64748b').text('Processamento em Tempo Real - Vértice Documentos', 40, 72);
+    doc.moveTo(40, 90).lineTo(525, 90).strokeColor('#e2e8f0').stroke();
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#0f172a').text(`CHAVE: ${chave}`, 40, 105);
+    doc.text(`NÚMERO: ${numero} • SÉRIE: ${serie}`, 40, 125);
+    doc.text(`EMITENTE: ${emitente} (${emitenteCnpj})`, 40, 145);
+    doc.text(`DESTINATÁRIO: ${destinatario} (${destinatarioCnpj})`, 40, 165);
+    doc.text(`VALOR TOTAL: R$ ${valorTotal.toFixed(2)}`, 40, 185);
+    doc.end();
+    await new Promise((resolve) => doc.on('end', resolve));
+    const pdfBuffer = Buffer.concat(chunks);
+    return {
+      dadosFiscais,
+      pdfBuffer
+    };
+  }
+}
 
 const dnsPromises = dns.promises;
 dotenv.config();
@@ -786,7 +846,7 @@ async function startServer() {
   // ==========================================
   
   // Robust PKCS#12 (.pfx / .p12) Credentials Extractor using node-forge with legacy ICP-Brasil cipher support
-  function extractPfxCredentials(pfxBase64Input: string, passphrase: string): { key?: string; cert?: string; commonName?: string; ca?: string[]; pfx?: Buffer; passphrase?: string; error?: string } {
+  function extractPfxCredentials(pfxBase64Input: string, passphrase: string): { key?: string; cert?: string; commonName?: string; extractedCnpj?: string; ca?: string[]; pfx?: Buffer; passphrase?: string; error?: string } {
     if (!pfxBase64Input) {
       return { error: 'Certificado digital (.pfx) não fornecido.' };
     }
