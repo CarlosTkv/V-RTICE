@@ -599,7 +599,14 @@ export class NfseNacionalService {
           key.startsWith('commercial_notes_') || 
           key.startsWith('cached_danfes_') || 
           key.startsWith('vertice_documentos_') ||
-          key.startsWith('sefaz_notas_')
+          key.startsWith('sefaz_notas_') ||
+          key.startsWith('fiscal_') ||
+          key.startsWith('documentos_') ||
+          key.startsWith('audit_') ||
+          key.includes('divergencia') ||
+          key.includes('notas') ||
+          key.includes('docs_fiscais') ||
+          key.includes('danfe')
         )) {
           keysToRemove.push(key);
         }
