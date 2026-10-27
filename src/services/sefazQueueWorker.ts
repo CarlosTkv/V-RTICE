@@ -31,7 +31,7 @@ export async function executeQueueCycle(): Promise<{ processed: number; errors: 
   
   // Simulação de ciclo de varredura e consumo de NSUs pendentes
   // Em produção com PostgreSQL, faria: SELECT * FROM fila_consulta_sefaz WHERE proxima_consulta <= NOW() AND status_fila = 'AGUARDANDO'
-  const mockProcessed = Math.floor(Math.random() * 3) + 1;
+  const mockProcessed = 0;
   const mockErrors = 0;
 
   lastProcessed = mockProcessed;

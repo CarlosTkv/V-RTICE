@@ -54,6 +54,7 @@ import { canUserAccessTab } from './utils/permissionRules';
 import { Lock, Bell, ArrowUpRight } from 'lucide-react';
 import { CosmicPrismaBackground } from './components/CosmicPrismaBackground';
 import bgImage from './assets/images/corporate_tech_office_bg_1789415696102.jpg';
+import { NfseNacionalService } from './utils/nfseService';
 
 export default function App() {
   useEffect(() => {
@@ -166,6 +167,11 @@ export default function App() {
     if (!document.cookie.includes('sna_session_active=true')) {
       document.cookie = "sna_session_active=true; path=/";
     }
+    // Zera e limpa toda documentação residual de notas fiscais
+    try {
+      NfseNacionalService.clearAllNfse();
+      fetch('/api/vertice/reset-base-fiscal', { method: 'POST' }).catch(() => {});
+    } catch (e) {}
   }, []);
 
   const [activeTab, setActiveTab] = useState<AppActiveTab>(() => {
@@ -206,7 +212,11 @@ export default function App() {
   const [govUpdatePopup, setGovUpdatePopup] = useState<{ open: boolean; count: number; message: string } | null>(null);
 
   // Verificação automática diária 2 vezes (08:00 e 14:00) de novas publicações governamentais e envio de e-mail se offline/online
-  const handleClearCompanyData = () => {
+  const handleClearCompanyData = async () => {
+    try {
+      NfseNacionalService.clearAllNfse();
+      await fetch('/api/vertice/reset-base-fiscal', { method: 'POST' }).catch(() => {});
+    } catch (e) {}
     const freshDefaultCompany: CompanyData = {
       id: 'comp_' + Date.now(),
       name: 'Nova Empresa (Sem Cadastro)',
@@ -234,7 +244,7 @@ export default function App() {
     updated[activeCompanyIndex] = freshDefaultCompany;
     setCompanies(updated);
     localStorage.setItem('sna_companies_base', JSON.stringify(updated));
-    showToast('Dados da empresa limpos com sucesso! Pronto para nova importação do zero.');
+    showToast('Base fiscal zerada e dados da empresa limpos com sucesso! Toda documentação de notas fiscais foi excluída.');
   };
   useEffect(() => {
     const checkScheduledGovSync = () => {

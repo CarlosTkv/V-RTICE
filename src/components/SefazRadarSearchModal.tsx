@@ -225,11 +225,15 @@ export const SefazRadarSearchModal: React.FC<SefazRadarSearchModalProps> = ({
       showToast('Consultando notas fiscais de saída emitidas pela empresa...', 'info');
 
       if (saidaMode === 'sequencia') {
-        // Traz as 75 notas de saída emitidas em Setembro/2026 com todos os XMLs e DANFEs prontos
-        const saidas75 = buildSeptemberSaidas75(currentCompany);
-        setFoundDocs(saidas75);
-        onSuccessImport(saidas75);
-        showToast(`Sucesso! 75 notas fiscais de saída emitidas em Setembro/2026 sincronizadas com sucesso!`, 'success');
+        const saidas = buildSeptemberSaidas75(currentCompany);
+        setFoundDocs(saidas);
+        if (saidas.length > 0) {
+          onSuccessImport(saidas);
+          showToast(`Sucesso! ${saidas.length} notas fiscais de saída sincronizadas com sucesso!`, 'success');
+        } else {
+          showToast('Nenhuma nota fiscal de saída localizada na base (base zerada).', 'info');
+        }
+        setIsQueryingSaidas(false);
         return;
       }
 

@@ -86,45 +86,8 @@ export const SefinNfseManagerModal: React.FC<SefinNfseManagerModalProps> = ({
   const [justificativaCancelamento, setJustificativaCancelamento] = useState<string>('Erro de digitação no valor e código do serviço.');
   const [isCanceling, setIsCanceling] = useState<boolean>(false);
 
-  // Lista In-Memory de Notas Válidas & Ciclo de Vida
-  const [notasList, setNotasList] = useState<NotaFiscalServicoRecord[]>([
-    {
-      id: '1',
-      nsu: '000000000000101',
-      chaveAcesso: 'NFS332609006311140001302026000000148185739123800001',
-      numeroNfse: '20260000148',
-      tipo: 'EMITIDA',
-      status: 'REGULAR',
-      dataEmissao: '2026-09-18',
-      prestadorNome: currentCompany?.name || 'BRASOLUB DISTRIB BRASILEIRA DE OLEOS LTDA',
-      prestadorCnpj: currentCompany?.cnpj || '00.631.114/0001-30',
-      tomadorNome: 'PETROBRAS DISTRIBUIDORA S/A',
-      tomadorCnpjCpf: '33.000.167/0001-01',
-      valorServico: 28500.00,
-      valorIss: 1425.00,
-      codigoLc116: '17.01',
-      discriminacao: 'Serviços Técnicos Especializados de Análise Laboratorial e Tratamento de Lubrificantes',
-      danfseUrl: 'https://www.nfse.gov.br/DANFSE/NFS332609006311140001302026000000148185739123800001'
-    },
-    {
-      id: '2',
-      nsu: '000000000000102',
-      chaveAcesso: 'NFS128901230001442026000000892185739123900002',
-      numeroNfse: '20260000892',
-      tipo: 'TOMADA',
-      status: 'REGULAR',
-      dataEmissao: '2026-09-20',
-      prestadorNome: 'LUBRAX SERVICOS TECNICOS E LOGISTICA LTDA',
-      prestadorCnpj: '12.890.123/0001-44',
-      tomadorNome: currentCompany?.name || 'BRASOLUB DISTRIB BRASILEIRA DE OLEOS LTDA',
-      tomadorCnpjCpf: currentCompany?.cnpj || '00.631.114/0001-30',
-      valorServico: 14200.00,
-      valorIss: 710.00,
-      codigoLc116: '07.02',
-      discriminacao: 'Manutenção Preventiva de Tanques de Armazenamento e Calibragem de Bombas',
-      danfseUrl: 'https://www.nfse.gov.br/DANFSE/NFS128901230001442026000000892185739123900002'
-    }
-  ]);
+  // Lista In-Memory de Notas Válidas & Ciclo de Vida (Base Zerada)
+  const [notasList, setNotasList] = useState<NotaFiscalServicoRecord[]>([]);
 
   if (!isOpen) return null;
 

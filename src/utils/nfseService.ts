@@ -584,5 +584,31 @@ export class NfseNacionalService {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+
+  /**
+   * Zera e remove toda a base e documentação de notas fiscais armazenadas
+   */
+  static clearAllNfse(): void {
+    try {
+      localStorage.removeItem(STORAGE_NFSE_KEY);
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith('portal_nacional_nfse_') || 
+          key.startsWith('commercial_notes_') || 
+          key.startsWith('cached_danfes_') || 
+          key.startsWith('vertice_documentos_') ||
+          key.startsWith('sefaz_notas_')
+        )) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {
+      console.error('Erro ao zerar base de NFS-e:', e);
+    }
+  }
 }
+
 
